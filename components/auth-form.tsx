@@ -224,7 +224,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         mode,
         targetUrl: absoluteTargetUrl.toString(),
       });
-      window.location.assign(absoluteTargetUrl.toString());
+
+      // Small delay to ensure browser processes Set-Cookie headers before redirect
+      setTimeout(() => {
+        window.location.assign(absoluteTargetUrl.toString());
+      }, 100);
     } catch (error) {
       console.error("[AuthForm] Redirect failed", {
         mode,

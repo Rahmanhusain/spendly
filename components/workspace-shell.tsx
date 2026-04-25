@@ -10,9 +10,11 @@ import {
   LayoutDashboard,
   MailPlus,
   ReceiptText,
+  ShieldAlert,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PolicySetupToast } from "@/components/policy-setup-toast";
 import { WorkspaceTopNav } from "@/components/workspace-top-nav";
 
 type WorkspaceShellProps = {
@@ -53,6 +55,12 @@ const navigationItems = [
     href: "/workspace/receipts",
     icon: ReceiptText,
     description: "Search, filter, and inspect receipts",
+  },
+  {
+    label: "Policies",
+    href: "/workspace/policies",
+    icon: ShieldAlert,
+    description: "Configure limits and warnings",
   },
   {
     label: "Open invites",
@@ -179,6 +187,8 @@ export function WorkspaceShell({
 
         <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      <PolicySetupToast />
     </div>
   );
 }

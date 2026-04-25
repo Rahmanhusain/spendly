@@ -11,6 +11,8 @@ export default async function AllReceiptsPage() {
   }
 
   const receipts = await getReceiptsForTenant(authContext.tenantId);
+  const canReview =
+    authContext.role === "admin" || authContext.role === "manager";
 
-  return <ReceiptsWorkspace receipts={receipts} />;
+  return <ReceiptsWorkspace receipts={receipts} canReview={canReview} />;
 }

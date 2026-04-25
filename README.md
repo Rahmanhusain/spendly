@@ -39,7 +39,7 @@ npm run dev
 ### Weeks 1: Foundation
 
 - **Team & Org Setup** - Multi-tenant, roles (Employee/Manager/Admin), invite via magic links
-- **Receipt Upload** - Mobile-first (camera + drag-drop), instant AI parsing (Groq LLM)
+- **Receipt Upload** - Mobile-first (drag-drop + choose file), instant AI parsing with required contextual note
 
 ### Weeks 2-3: Business Logic
 

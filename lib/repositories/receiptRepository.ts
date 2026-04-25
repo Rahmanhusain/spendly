@@ -31,6 +31,109 @@ export type ReceiptListItem = {
   comments: ReceiptCommentView[];
 };
 
+export type ReviewedReceipt = {
+  id: string;
+  status: ReceiptStatus;
+  is_duplicate: boolean;
+  duplicate_of: string | null;
+  updated_at: string;
+};
+
+export type CreateReceiptInput = {
+  tenantId: string;
+  userId: string;
+  vendorName: string;
+  amount: number;
+  currency: string;
+  receiptDate: string;
+  category: string;
+  gstRate: number | null;
+  gstType: string | null;
+  taxAmount: number | null;
+  vendorGstin: string | null;
+  note: string;
+  filePath: string;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  parsedData: Record<string, unknown>;
+  confidenceScore: number;
+  status: ReceiptStatus;
+  isDuplicate?: boolean;
+  duplicateOf?: string | null;
+};
+
+export type CreatedReceipt = {
+  id: string;
+  receipt_number: string | null;
+  vendor_name: string | null;
+  amount: string;
+  currency: string;
+  receipt_date: string;
+  category: string | null;
+  status: ReceiptStatus;
+  description: string | null;
+  confidence_score: string | null;
+  parsed_data: Record<string, unknown> | null;
+  is_duplicate: boolean;
+  duplicate_of: string | null;
+  created_at: string;
+};
+
+export type DuplicateReceiptCandidate = {
+  id: string;
+  vendor_name: string | null;
+  amount: string;
+  currency: string;
+  receipt_date: string;
+  category: string | null;
+  mime_type: string | null;
+  file_path: string | null;
+  file_name: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+export async function findDuplicateReceiptCandidate(input: {
+  tenantId: string;
+  vendorName: string;
+  amount: number;
+  currency: string;
+  receiptDate: string;
+}): Promise<DuplicateReceiptCandidate | null> {
+  const result = await query<DuplicateReceiptCandidate>(
+    `SELECT
+      id,
+      vendor_name,
+      amount::text,
+      currency,
+      receipt_date::text,
+      category,
+      mime_type,
+      file_path,
+      file_name,
+      description,
+      created_at::text
+    FROM receipts
+    WHERE tenant_id = $1
+      AND LOWER(COALESCE(vendor_name, '')) = LOWER($2)
+      AND amount = $3
+      AND currency = $4
+      AND receipt_date = $5::date
+    ORDER BY created_at DESC
+    LIMIT 1`,
+    [
+      input.tenantId,
+      input.vendorName,
+      input.amount,
+      input.currency,
+      input.receiptDate,
+    ],
+  );
+
+  return result.rows[0] ?? null;
+}
+
 type ReceiptQueryRow = {
   id: string;
   receipt_id: string;
@@ -129,4 +232,99 @@ export async function getReceiptsForTenant(
     description: row.description ?? "No description provided.",
     comments: parseComments(row.comments),
   }));
+}
+
+export async function createUploadedReceipt(
+  input: CreateReceiptInput,
+): Promise<CreatedReceipt> {
+  const result = await query<CreatedReceipt>(
+    `INSERT INTO receipts (
+      tenant_id,
+      user_id,
+      vendor_name,
+      amount,
+      currency,
+      receipt_date,
+      category,
+      gst_rate,
+      gst_type,
+      tax_amount,
+      vendor_gstin,
+      description,
+      file_path,
+      file_name,
+      mime_type,
+      file_size_bytes,
+      parsed_data,
+      confidence_score,
+      status,
+      is_duplicate,
+      duplicate_of,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18, $19, $20, $21, NOW(), NOW()
+    )
+    RETURNING
+      id,
+      receipt_number,
+      vendor_name,
+      amount::text,
+      currency,
+      receipt_date::text,
+      category,
+      status,
+      description,
+      confidence_score::text,
+      parsed_data,
+      is_duplicate,
+      duplicate_of,
+      created_at::text`,
+    [
+      input.tenantId,
+      input.userId,
+      input.vendorName,
+      input.amount,
+      input.currency,
+      input.receiptDate,
+      input.category,
+      input.gstRate,
+      input.gstType,
+      input.taxAmount,
+      input.vendorGstin,
+      input.note,
+      input.filePath,
+      input.fileName,
+      input.mimeType,
+      input.fileSizeBytes,
+      JSON.stringify(input.parsedData),
+      input.confidenceScore,
+      input.status,
+      Boolean(input.isDuplicate),
+      input.duplicateOf ?? null,
+    ],
+  );
+
+  return result.rows[0];
+}
+
+export async function approveReceiptByManager(input: {
+  tenantId: string;
+  receiptId: string;
+}): Promise<ReviewedReceipt | null> {
+  const result = await query<ReviewedReceipt>(
+    `UPDATE receipts
+     SET status = 'verified',
+         is_duplicate = FALSE,
+         duplicate_of = NULL,
+         updated_at = NOW()
+     WHERE tenant_id = $1
+       AND id = $2
+       AND status = 'needs_review'
+     RETURNING id, status, is_duplicate, duplicate_of, updated_at::text`,
+    [input.tenantId, input.receiptId],
+  );
+
+  return result.rows[0] ?? null;
 }

@@ -34,8 +34,8 @@ If you are implementing now, follow this exact order:
 | Create Account                   | [docs/stories/create-account_story.md](docs/stories/create-account_story.md)                                 |    Done | Foundation | Tenant onboarding and first admin user        |
 | Authentication and Authorization | [docs/stories/authenticationand_authorizaton_story.md](docs/stories/authenticationand_authorizaton_story.md) |    Done | Foundation | JWT login, roles, protected routes            |
 | Team & Org Setup                 | [docs/stories/team-setup_story.md](docs/stories/team-setup_story.md)                                         |    Done | Foundation | Invites, role assignment, trial onboarding    |
-| Receipt Upload & Smart Parsing   | [docs/stories/receipt-upload_story.md](docs/stories/receipt-upload_story.md)                                 | Planned | Core       | Mobile upload, AI parse, duplicate detection  |
-| Policy Validation                | [docs/stories/policy-validation_story.md](docs/stories/policy-validation_story.md)                           | Planned | Core       | Real-time rule checks, warnings, exceptions   |
+| Receipt Upload & Smart Parsing   | [docs/stories/receipt-upload_story.md](docs/stories/receipt-upload_story.md)                                 |    Done | Core       | Drag/button upload, parse note required       |
+| Policy Validation                | [docs/stories/policy-validation_story.md](docs/stories/policy-validation_story.md)                           |    Done | Core       | Real-time rule checks, warnings, exceptions   |
 | Expense Report                   | [docs/stories/expense-report_story.md](docs/stories/expense-report_story.md)                                 | Planned | Core       | Group receipts into reports                   |
 | Reports & Approval Workflow      | [docs/stories/approval-workflow_story.md](docs/stories/approval-workflow_story.md)                           | Planned | Core       | Submit, approve/reject, comments              |
 | Team Collaboration               | [docs/stories/team-collaboration_story.md](docs/stories/team-collaboration_story.md)                         | Planned | Advanced   | Real-time collaboration and presence          |
@@ -91,7 +91,7 @@ If you are implementing now, follow this exact order:
 
 ### **Receipt Upload & Smart Parsing**
 
-- Mobile-first (drag-drop & camera upload)
+- Mobile-first (drag-drop and choose-file upload)
 - PDF support
 - Instant AI parsing: amount, date, vendor, category, GST breakdown
 - Real-time policy check with instant feedback ⚠️
@@ -176,7 +176,7 @@ Popup and notification standards:
 
 4. Receipt Upload and Smart Parsing
 
-- Drag-and-drop upload zone and camera flow.
+- Drag-and-drop upload zone and choose-file flow.
 - Parse progress state (queued, processing, complete, failed).
 - Policy warning popup for violations.
 

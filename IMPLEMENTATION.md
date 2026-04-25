@@ -466,7 +466,7 @@ Required reusable components:
 
 Receipt upload:
 
-- Drag-and-drop and camera capture support.
+- Drag-and-drop and choose-file upload support.
 - Parse preview with editable fields before confirmation.
 - Policy warning shown before submit.
 
