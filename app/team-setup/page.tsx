@@ -18,9 +18,6 @@ type InviteRecord = {
 export default function TeamSetupPage() {
   const [loading, setLoading] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<
-    "employee" | "manager" | "admin"
-  >("employee");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [inviteLink, setInviteLink] = useState("");
@@ -62,7 +59,6 @@ export default function TeamSetupPage() {
         },
         body: JSON.stringify({
           email: inviteEmail,
-          role: inviteRole,
         }),
       });
 
@@ -75,7 +71,7 @@ export default function TeamSetupPage() {
       const createdInvite = data.data?.invite as InviteRecord | undefined;
 
       setSuccess(
-        `Invite ready for ${inviteEmail}. The teammate can join from the emailed link.`,
+        `Invite ready for ${inviteEmail}. The teammate can join from the emailed link as an employee.`,
       );
       setInviteLink(data.data?.inviteLink ?? "");
       setInviteEmail("");
@@ -142,24 +138,6 @@ export default function TeamSetupPage() {
                 placeholder="member@company.com"
                 required
               />
-            </div>
-
-            <div>
-              <Label htmlFor="role">Role</Label>
-              <select
-                id="role"
-                value={inviteRole}
-                onChange={(e) =>
-                  setInviteRole(
-                    e.target.value as "employee" | "manager" | "admin",
-                  )
-                }
-                className="w-full rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="employee">Employee</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
-              </select>
             </div>
 
             <Button type="submit" disabled={loading} className="w-full">

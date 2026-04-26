@@ -63,7 +63,7 @@ export async function createTeamInvite(
   tenantId: string,
   invitedBy: string,
   email: string,
-  role: "employee" | "manager" | "admin",
+  role: "employee",
   expiryMs: number = 604800000, // 7 days default
 ): Promise<{
   invite: TeamInviteRecord;

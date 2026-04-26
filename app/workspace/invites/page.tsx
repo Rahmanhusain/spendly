@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { MailPlus, Users } from "lucide-react";
+import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   Card,
   CardContent,
@@ -10,12 +12,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 const inviteItems = [
-  { email: "alex@spendly.test", role: "Manager", status: "Sent" },
+  { email: "alex@spendly.test", role: "Employee", status: "Sent" },
   { email: "sara@spendly.test", role: "Employee", status: "Pending" },
-  { email: "finance@spendly.test", role: "Admin", status: "Accepted" },
+  { email: "finance@spendly.test", role: "Employee", status: "Accepted" },
 ];
 
-export default function InvitesPage() {
+export default async function InvitesPage() {
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/login");
+  }
+
+  if (authContext.role === "employee") {
+    redirect("/workspace");
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">

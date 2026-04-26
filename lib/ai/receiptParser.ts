@@ -18,7 +18,12 @@ export type ParsedReceiptData = {
   receiptDate: string;
   category: string;
   gstRate: number | null;
-  gstType: string | null;
+  cgstRate: number | null;
+  igstRate: number | null;
+  sgstRate: number | null;
+  cgstAmount: number | null;
+  igstAmount: number | null;
+  sgstAmount: number | null;
   taxAmount: number | null;
   vendorGstin: string | null;
   gstAmount: number | null;
@@ -121,6 +126,20 @@ function clampConfidence(value: unknown): number {
   return Math.max(0, Math.min(1, numeric));
 }
 
+function normalizeTaxComponent(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return null;
+  }
+
+  return numeric;
+}
+
 function normalizeCategory(value: unknown): string {
   const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
 
@@ -168,16 +187,6 @@ function normalizeDate(value: unknown): string {
   return parsed.toISOString().slice(0, 10);
 }
 
-function normalizeGstType(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim().toUpperCase();
-  const allowed = new Set(["IGST", "CGST", "SGST", "UTGST", "CESS"]);
-  return allowed.has(normalized) ? normalized : null;
-}
-
 function normalizeGstin(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -189,26 +198,6 @@ function normalizeGstin(value: unknown): string | null {
   }
 
   return compact.slice(0, 20);
-}
-
-function inferVendorFromFileName(fileName: string): string {
-  const withoutExt = fileName.replace(/\.[^.]+$/, "");
-  const cleaned = withoutExt.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-  return cleaned.length > 0 ? cleaned.slice(0, 255) : "Unknown vendor";
-}
-
-function inferAmountFromText(text: string): number {
-  const normalized = text.replace(/,/g, "");
-  const match = normalized.match(/(?:₹|INR\s?)(\d+(?:\.\d{1,2})?)/i);
-
-  if (match) {
-    const amount = Number(match[1]);
-    if (Number.isFinite(amount) && amount >= 0) {
-      return amount;
-    }
-  }
-
-  return 0;
 }
 
 function stripCodeFence(content: string): string {
@@ -293,6 +282,16 @@ async function extractTextFromImageWithGroq(
     process.env.GROQ_VISION_MODEL,
     "meta-llama/llama-4-scout-17b-16e-instruct",
   );
+  const messageContent: Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } }
+  > = [
+    {
+      type: "text",
+      text: RECEIPT_IMAGE_OCR_USER_PROMPT,
+    },
+    { type: "image_url", image_url: { url: dataUri } },
+  ];
 
   try {
     const completion = await groq.chat.completions.create({
@@ -305,13 +304,7 @@ async function extractTextFromImageWithGroq(
         },
         {
           role: "user",
-          content: [
-            {
-              type: "text",
-              text: RECEIPT_IMAGE_OCR_USER_PROMPT,
-            },
-            { type: "image_url", image_url: { url: dataUri } },
-          ] as any,
+          content: messageContent,
         },
       ],
     });
@@ -374,6 +367,12 @@ async function structureReceiptWithGroq(
       parsed.gst_rate === null || parsed.gst_rate === undefined
         ? null
         : Number(parsed.gst_rate);
+    const cgstRateCandidate = normalizeTaxComponent(parsed.cgst_rate);
+    const igstRateCandidate = normalizeTaxComponent(parsed.igst_rate);
+    const sgstRateCandidate = normalizeTaxComponent(parsed.sgst_rate);
+    const cgstAmountCandidate = normalizeTaxComponent(parsed.cgst_amount);
+    const igstAmountCandidate = normalizeTaxComponent(parsed.igst_amount);
+    const sgstAmountCandidate = normalizeTaxComponent(parsed.sgst_amount);
     const gstAmountCandidate =
       parsed.gst_amount === null || parsed.gst_amount === undefined
         ? null
@@ -403,7 +402,12 @@ async function structureReceiptWithGroq(
         gstRateCandidate !== null && Number.isFinite(gstRateCandidate)
           ? gstRateCandidate
           : null,
-      gstType: normalizeGstType(parsed.gst_type),
+      cgstRate: cgstRateCandidate,
+      igstRate: igstRateCandidate,
+      sgstRate: sgstRateCandidate,
+      cgstAmount: cgstAmountCandidate,
+      igstAmount: igstAmountCandidate,
+      sgstAmount: sgstAmountCandidate,
       taxAmount:
         taxAmountCandidate !== null && Number.isFinite(taxAmountCandidate)
           ? taxAmountCandidate

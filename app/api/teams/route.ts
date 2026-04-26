@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     const authContext = await extractAuthContext(request, requestId);
-    requireAuth(authContext);
+    requireAuth(authContext, "admin", "manager");
 
     const [users, invites] = await Promise.all([
       getUsersByTenant(authContext!.tenantId),

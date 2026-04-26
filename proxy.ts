@@ -5,12 +5,14 @@ import { createAuthCookieOptions } from "@/lib/auth/cookies";
 import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
 
 const AUTH_REDIRECT_ROUTES = new Set(["/", "/login", "/sign-up"]);
+const INVITE_MANAGER_ROUTES = new Set(["/team-setup", "/workspace/invites"]);
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "default-secret-key-change-this",
 );
 
 interface MiddlewareTokenPayload {
   tenantSlug?: string;
+  role?: "employee" | "manager" | "admin";
 }
 
 export async function proxy(request: NextRequest) {
@@ -100,6 +102,56 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (INVITE_MANAGER_ROUTES.has(pathname)) {
+    if (!accessToken) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
+
+      if (loginUrl.toString() !== request.url) {
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+
+    try {
+      const verified = await jwtVerify(accessToken ?? "", JWT_SECRET);
+      const payload = verified.payload as MiddlewareTokenPayload;
+
+      if (payload.role !== "admin" && payload.role !== "manager") {
+        const workspaceUrl = request.nextUrl.clone();
+        workspaceUrl.pathname = "/workspace";
+        workspaceUrl.search = "";
+
+        if (workspaceUrl.toString() !== request.url) {
+          return NextResponse.redirect(workspaceUrl);
+        }
+      }
+    } catch (error) {
+      console.warn("[Middleware] Invite route token verification failed", {
+        requestId,
+        pathname,
+        message: error instanceof Error ? error.message : String(error),
+      });
+
+      const response = NextResponse.next();
+      response.cookies.set(
+        "accessToken",
+        "",
+        createAuthCookieOptions(request, 0),
+      );
+
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
+
+      if (loginUrl.toString() !== request.url) {
+        return NextResponse.redirect(loginUrl);
+      }
+
+      return response;
+    }
+  }
+
   console.info("[Middleware] Passing through request", {
     requestId,
     pathname,
@@ -109,5 +161,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/sign-up"],
+  matcher: ["/", "/login", "/sign-up", "/team-setup", "/workspace/invites"],
 };

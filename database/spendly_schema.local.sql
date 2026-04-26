@@ -227,7 +227,12 @@ CREATE TABLE IF NOT EXISTS receipts (
   category VARCHAR(80),
   description TEXT,
   gst_rate NUMERIC(5,2),
-  gst_type VARCHAR(20),
+  cgst_rate NUMERIC(5,2),
+  igst_rate NUMERIC(5,2),
+  sgst_rate NUMERIC(5,2),
+  cgst_amount NUMERIC(14,2),
+  igst_amount NUMERIC(14,2),
+  sgst_amount NUMERIC(14,2),
   tax_amount NUMERIC(14,2),
   vendor_gstin VARCHAR(20),
   file_path TEXT NOT NULL,
@@ -356,6 +361,25 @@ CREATE INDEX IF NOT EXISTS idx_report_comments_tenant_report ON report_comments(
 
 CREATE TRIGGER trg_report_comments_updated_at
 BEFORE UPDATE ON report_comments
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS receipt_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  receipt_id UUID NOT NULL REFERENCES receipts(id) ON DELETE CASCADE,
+  parent_comment_id UUID REFERENCES receipt_comments(id) ON DELETE CASCADE,
+  author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  message TEXT NOT NULL,
+  is_resolved BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_receipt_comments_tenant_receipt
+ON receipt_comments(tenant_id, receipt_id, created_at DESC);
+
+CREATE TRIGGER trg_receipt_comments_updated_at
+BEFORE UPDATE ON receipt_comments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS reimbursements (
@@ -535,6 +559,7 @@ ALTER TABLE expense_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_report_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE receipt_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reimbursements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gst_exports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bank_imports ENABLE ROW LEVEL SECURITY;
@@ -551,7 +576,7 @@ BEGIN
     SELECT unnest(ARRAY[
       'users','user_sessions','team_invites','teams','team_members',
       'expense_policies','policy_violations','receipts','parsing_jobs',
-      'expense_reports','expense_report_items','approval_workflows','report_comments',
+      'expense_reports','expense_report_items','approval_workflows','report_comments','receipt_comments',
       'reimbursements','gst_exports','bank_imports','bank_transactions',
       'reconciliation_matches','notifications','audit_logs'
     ])

@@ -35,7 +35,12 @@ type ExtractedResult = {
   receiptDate: string;
   category: string;
   gstRate: number | null;
-  gstType: string | null;
+  cgstRate: number | null;
+  igstRate: number | null;
+  sgstRate: number | null;
+  cgstAmount: number | null;
+  igstAmount: number | null;
+  sgstAmount: number | null;
   taxAmount: number | null;
   vendorGstin: string | null;
   gstAmount: number | null;
@@ -76,16 +81,16 @@ export default function UploadReceiptPage() {
     useState(false);
 
   useEffect(() => {
-    if (!selectedFile) {
-      setPreviewUrl(null);
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(selectedFile);
-    setPreviewUrl(objectUrl);
+    const objectUrl = selectedFile ? URL.createObjectURL(selectedFile) : null;
+    const frame = window.requestAnimationFrame(() => {
+      setPreviewUrl(objectUrl);
+    });
 
     return () => {
-      URL.revokeObjectURL(objectUrl);
+      window.cancelAnimationFrame(frame);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
   }, [selectedFile]);
 
@@ -422,9 +427,39 @@ export default function UploadReceiptPage() {
                         </p>
                         <p>
                           <span className="font-medium text-slate-900">
-                            GST type:
+                            CGST rate:
                           </span>{" "}
-                          {extracted.gstType ?? "N/A"}
+                          {extracted.cgstRate ?? "N/A"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-900">
+                            IGST rate:
+                          </span>{" "}
+                          {extracted.igstRate ?? "N/A"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-900">
+                            SGST rate:
+                          </span>{" "}
+                          {extracted.sgstRate ?? "N/A"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-900">
+                            CGST amount:
+                          </span>{" "}
+                          {extracted.cgstAmount ?? "N/A"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-900">
+                            IGST amount:
+                          </span>{" "}
+                          {extracted.igstAmount ?? "N/A"}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-900">
+                            SGST amount:
+                          </span>{" "}
+                          {extracted.sgstAmount ?? "N/A"}
                         </p>
                         <p>
                           <span className="font-medium text-slate-900">

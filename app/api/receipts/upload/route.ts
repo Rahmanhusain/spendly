@@ -88,6 +88,32 @@ function normalizeCategoryForPolicy(
   return normalized || "uncategorized";
 }
 
+function readCategoryMonthlyLimits(
+  rules: Record<string, unknown>,
+): Record<string, number> {
+  const raw = rules.categoryMonthlyLimits;
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return {};
+  }
+
+  const entries = Object.entries(raw as Record<string, unknown>);
+  const normalized: Record<string, number> = {};
+
+  for (const [key, value] of entries) {
+    const category = key.trim().toLowerCase();
+    const amount = Number(value);
+
+    if (!category || !Number.isFinite(amount) || amount <= 0) {
+      continue;
+    }
+
+    normalized[category] = amount;
+  }
+
+  return normalized;
+}
+
 function evaluatePolicy(input: {
   amount: number;
   category: string;
@@ -100,6 +126,7 @@ function evaluatePolicy(input: {
   const mealLimit = Number(input.rules.mealPerPersonDailyInr);
   const travelLimit = Number(input.rules.travelMonthlyInr);
   const miscLimit = Number(input.rules.miscMonthlyInr);
+  const customCategoryLimits = readCategoryMonthlyLimits(input.rules);
 
   if (category === "meals" && Number.isFinite(mealLimit)) {
     const attendeeCount = extractMealAttendeeCountFromNote(input.note);
@@ -135,6 +162,13 @@ function evaluatePolicy(input: {
   ) {
     reasons.push(
       `Misc limit exceeded by INR ${(input.amount - miscLimit).toFixed(2)}`,
+    );
+  }
+
+  const customLimit = customCategoryLimits[category];
+  if (Number.isFinite(customLimit) && input.amount > customLimit) {
+    reasons.push(
+      `${category.charAt(0).toUpperCase() + category.slice(1)} limit exceeded by INR ${(input.amount - customLimit).toFixed(2)}`,
     );
   }
 
@@ -333,7 +367,12 @@ export async function POST(request: Request) {
               receiptDate: parsed.receiptDate,
               category: parsed.category,
               gstRate: parsed.gstRate,
-              gstType: parsed.gstType,
+              cgstRate: parsed.cgstRate,
+              igstRate: parsed.igstRate,
+              sgstRate: parsed.sgstRate,
+              cgstAmount: parsed.cgstAmount,
+              igstAmount: parsed.igstAmount,
+              sgstAmount: parsed.sgstAmount,
               taxAmount: parsed.taxAmount,
               vendorGstin: parsed.vendorGstin,
               gstAmount: parsed.gstAmount,
@@ -394,7 +433,12 @@ export async function POST(request: Request) {
                   receiptDate: parsed.receiptDate,
                   category: parsed.category,
                   gstRate: parsed.gstRate,
-                  gstType: parsed.gstType,
+                  cgstRate: parsed.cgstRate,
+                  igstRate: parsed.igstRate,
+                  sgstRate: parsed.sgstRate,
+                  cgstAmount: parsed.cgstAmount,
+                  igstAmount: parsed.igstAmount,
+                  sgstAmount: parsed.sgstAmount,
                   taxAmount: parsed.taxAmount,
                   vendorGstin: parsed.vendorGstin,
                   gstAmount: parsed.gstAmount,
@@ -415,7 +459,12 @@ export async function POST(request: Request) {
       receipt_date: parsed.receiptDate,
       category: parsed.category,
       gst_rate: parsed.gstRate,
-      gst_type: parsed.gstType,
+      cgst_rate: parsed.cgstRate,
+      igst_rate: parsed.igstRate,
+      sgst_rate: parsed.sgstRate,
+      cgst_amount: parsed.cgstAmount,
+      igst_amount: parsed.igstAmount,
+      sgst_amount: parsed.sgstAmount,
       tax_amount: parsed.taxAmount,
       vendor_gstin: parsed.vendorGstin,
       gst_amount: parsed.gstAmount,
@@ -446,7 +495,12 @@ export async function POST(request: Request) {
       receiptDate: parsed.receiptDate,
       category: parsed.category,
       gstRate: parsed.gstRate,
-      gstType: parsed.gstType,
+      cgstRate: parsed.cgstRate,
+      igstRate: parsed.igstRate,
+      sgstRate: parsed.sgstRate,
+      cgstAmount: parsed.cgstAmount,
+      igstAmount: parsed.igstAmount,
+      sgstAmount: parsed.sgstAmount,
       taxAmount: parsed.taxAmount,
       vendorGstin: parsed.vendorGstin,
       note,
@@ -489,7 +543,12 @@ export async function POST(request: Request) {
             receiptDate: parsed.receiptDate,
             category: parsed.category,
             gstRate: parsed.gstRate,
-            gstType: parsed.gstType,
+            cgstRate: parsed.cgstRate,
+            igstRate: parsed.igstRate,
+            sgstRate: parsed.sgstRate,
+            cgstAmount: parsed.cgstAmount,
+            igstAmount: parsed.igstAmount,
+            sgstAmount: parsed.sgstAmount,
             taxAmount: parsed.taxAmount,
             vendorGstin: parsed.vendorGstin,
             gstAmount: parsed.gstAmount,

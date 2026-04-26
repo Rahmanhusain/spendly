@@ -14,7 +14,6 @@ import crypto from "crypto";
 
 const createInviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["employee", "manager", "admin"]),
 });
 
 export async function POST(request: Request) {
@@ -29,14 +28,14 @@ export async function POST(request: Request) {
     requireAuth(authContext, "admin", "manager");
 
     const body = await request.json();
-    const { email, role } = createInviteSchema.parse(body);
+    const { email } = createInviteSchema.parse(body);
 
     const expiryMs = parseInt(process.env.INVITE_TOKEN_EXPIRY || "604800000");
     const { invite, token } = await createTeamInvite(
       authContext!.tenantId,
       authContext!.userId,
       email,
-      role,
+      "employee",
       expiryMs,
     );
 
@@ -99,7 +98,7 @@ export async function GET(request: Request) {
 
   try {
     const authContext = await extractAuthContext(request, requestId);
-    requireAuth(authContext, "admin");
+    requireAuth(authContext, "admin", "manager");
 
     const invites = await getTeamInvites(authContext!.tenantId);
 

@@ -31,6 +31,9 @@ export default async function WorkspaceLayout({
       orgName={tenant?.name ?? "Your workspace"}
       tenantId={authContext.tenantId}
       roleLabel={roleLabel}
+      canSendInvites={
+        authContext.role === "admin" || authContext.role === "manager"
+      }
       userLabel={displayName || "Workspace user"}
     >
       {children}

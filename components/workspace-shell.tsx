@@ -21,6 +21,7 @@ type WorkspaceShellProps = {
   orgName: string;
   tenantId: string;
   roleLabel: string;
+  canSendInvites: boolean;
   userLabel: string;
   children: React.ReactNode;
 };
@@ -67,6 +68,7 @@ const navigationItems = [
     href: "/workspace/invites",
     icon: Inbox,
     description: "See incoming workspace invites",
+    requiresInviteAccess: true,
   },
 ];
 
@@ -74,10 +76,14 @@ export function WorkspaceShell({
   orgName,
   tenantId,
   roleLabel,
+  canSendInvites,
   userLabel,
   children,
 }: WorkspaceShellProps) {
   const pathname = usePathname();
+  const visibleNavigationItems = navigationItems.filter(
+    (item) => !item.requiresInviteAccess || canSendInvites,
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -108,7 +114,7 @@ export function WorkspaceShell({
           </div>
 
           <nav className="space-y-1 p-3">
-            {navigationItems.map((item) => {
+            {visibleNavigationItems.map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === "/workspace"
@@ -162,27 +168,29 @@ export function WorkspaceShell({
             })}
           </nav>
 
-          <div className="m-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-950 text-white">
-                <MailPlus className="h-5 w-5" />
+          {canSendInvites ? (
+            <div className="m-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-950 text-white">
+                  <MailPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-950">
+                    Invite teammates
+                  </p>
+                  <p className="text-xs leading-5 text-slate-500">
+                    Keep approvals moving with team access.
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-950">
-                  Invite teammates
-                </p>
-                <p className="text-xs leading-5 text-slate-500">
-                  Keep approvals moving with team access.
-                </p>
-              </div>
+              <Link
+                href="/team-setup"
+                className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
+              >
+                Invite teammates
+              </Link>
             </div>
-            <Link
-              href="/team-setup"
-              className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
-            >
-              Invite teammates
-            </Link>
-          </div>
+          ) : null}
         </aside>
 
         <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>

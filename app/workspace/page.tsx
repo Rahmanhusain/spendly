@@ -93,6 +93,8 @@ export default async function WorkspacePage() {
 
   const roleLabel =
     authContext.role.charAt(0).toUpperCase() + authContext.role.slice(1);
+  const canSendInvites =
+    authContext.role === "admin" || authContext.role === "manager";
 
   return (
     <div className="space-y-6">
@@ -119,13 +121,15 @@ export default async function WorkspacePage() {
                 <FileUp className="h-4 w-4" />
                 Upload receipt
               </Link>
-              <Link
-                href="/team-setup"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-              >
-                <BadgePlus className="h-4 w-4" />
-                Invite teammates
-              </Link>
+              {canSendInvites ? (
+                <Link
+                  href="/team-setup"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                >
+                  <BadgePlus className="h-4 w-4" />
+                  Invite teammates
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -283,7 +287,11 @@ export default async function WorkspacePage() {
               ["Upload receipt", "/workspace/upload-receipt"],
               ["Create report", "/workspace/create-report"],
               ["View approvals", "/workspace/approvals"],
-              ["Open invites", "/workspace/invites"],
+              ...(canSendInvites
+                ? ([["Open invites", "/workspace/invites"]] as Array<
+                    [string, string]
+                  >)
+                : []),
             ].map(([label, href]) => (
               <Link
                 key={label}

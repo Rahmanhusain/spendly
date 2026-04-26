@@ -2,12 +2,15 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
-import { approveReceiptByManager } from "@/lib/repositories/receiptRepository";
+import {
+  approveReceiptByManager,
+  rejectReceiptByManager,
+} from "@/lib/repositories/receiptRepository";
 import logger from "@/lib/utils/logger";
 
 const reviewSchema = z.object({
   receiptId: z.string().uuid(),
-  decision: z.literal("approve"),
+  decision: z.enum(["approve", "reject"]),
 });
 
 export async function POST(request: Request) {
@@ -25,10 +28,16 @@ export async function POST(request: Request) {
     const body = await request.json();
     const payload = reviewSchema.parse(body);
 
-    const updated = await approveReceiptByManager({
-      tenantId: authContext!.tenantId,
-      receiptId: payload.receiptId,
-    });
+    const updated =
+      payload.decision === "approve"
+        ? await approveReceiptByManager({
+            tenantId: authContext!.tenantId,
+            receiptId: payload.receiptId,
+          })
+        : await rejectReceiptByManager({
+            tenantId: authContext!.tenantId,
+            receiptId: payload.receiptId,
+          });
 
     if (!updated) {
       return NextResponse.json(
@@ -44,10 +53,11 @@ export async function POST(request: Request) {
       );
     }
 
-    logger.info("Receipt approved by manager/admin", {
+    logger.info("Receipt reviewed by manager/admin", {
       requestId,
       route: "/api/receipts/review",
       receiptId: updated.id,
+      decision: payload.decision,
       reviewerUserId: authContext!.userId,
       reviewerRole: authContext!.role,
     });
@@ -59,7 +69,9 @@ export async function POST(request: Request) {
         data: {
           receipt: updated,
           message:
-            "Receipt approved. Duplicate marker cleared and status moved to verified.",
+            payload.decision === "approve"
+              ? "Receipt approved. Duplicate marker cleared and status moved to verified."
+              : "Receipt rejected by manager/admin. Status moved to archived.",
         },
       },
       { status: 200 },
