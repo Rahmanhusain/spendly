@@ -75,6 +75,11 @@ export default function UploadReceiptPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingDuplicate, setPendingDuplicate] =
     useState<DuplicateReceipt | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+
+  useEffect(() => {
+    setShowDuplicateModal(Boolean(pendingDuplicate));
+  }, [pendingDuplicate]);
   const [pendingPolicyWarning, setPendingPolicyWarning] =
     useState<PendingPolicyWarning | null>(null);
   const [duplicateOverrideConfirmed, setDuplicateOverrideConfirmed] =
@@ -185,34 +190,75 @@ export default function UploadReceiptPage() {
       error?: { code?: string; message?: string };
     };
 
-    if (
-      response.status === 409 &&
-      data.error?.code === "DUPLICATE_RECEIPT" &&
-      data.data?.duplicateOf
-    ) {
-      setPendingDuplicate(data.data.duplicateOf);
-      setPendingPolicyWarning(null);
-      setState({
-        kind: "error",
-        message:
-          data.error.message ??
-          "Potential duplicate found. Review and confirm if you still want to upload.",
-      });
-      return;
-    }
+    // Handle legacy single-error responses and combined validation failures
+    if (response.status === 409) {
+      const code = data.error?.code;
 
-    if (
-      response.status === 409 &&
-      data.error?.code === "POLICY_OVERRIDE_REQUIRED"
-    ) {
-      setPendingPolicyWarning({ reasons: data.data?.policy?.reasons ?? [] });
-      setState({
-        kind: "error",
-        message:
-          data.error.message ??
-          "Policy warnings found. Review and confirm if you still want to upload.",
-      });
-      return;
+        // Legacy duplicate-only response
+        if (code === "DUPLICATE_RECEIPT" && data.data?.duplicateOf) {
+          setPendingDuplicate(data.data.duplicateOf);
+          setShowDuplicateModal(true);
+          setPendingPolicyWarning(null);
+          setState({
+            kind: "error",
+            message:
+              data.error?.message ??
+              "Potential duplicate found. Review and confirm if you still want to upload.",
+          });
+          return;
+        }
+
+      // Legacy policy-only response
+      if (code === "POLICY_OVERRIDE_REQUIRED") {
+        setPendingPolicyWarning({ reasons: data.data?.policy?.reasons ?? [] });
+        setPendingDuplicate(null);
+        setState({
+          kind: "error",
+          message:
+            data.error?.message ??
+            "Policy warnings found. Review and confirm if you still want to upload.",
+        });
+        return;
+      }
+
+      // Combined validation response
+      if (code === "VALIDATION_FAILED") {
+        const details = (data.error as any)?.details as {
+          duplicate?: any;
+          policy?: { reasons: string[] };
+        } | undefined;
+
+        if (!details) {
+          // fallback: treat as generic failure
+          setState({
+            kind: "error",
+            message: data.error?.message ?? "Upload failed due to validation.",
+          });
+          return;
+        }
+
+        if (details.duplicate) {
+            setPendingDuplicate(details.duplicate.duplicateOf ?? details.duplicate);
+            setShowDuplicateModal(true);
+          } else {
+            setPendingDuplicate(null);
+            setShowDuplicateModal(false);
+          }
+
+        if (details.policy) {
+          setPendingPolicyWarning({ reasons: details.policy.reasons ?? [] });
+        } else {
+          setPendingPolicyWarning(null);
+        }
+
+        setState({
+          kind: "error",
+          message:
+            data.error?.message ??
+            "Receipt has validation warnings. Review and confirm if you still want to upload.",
+        });
+        return;
+      }
     }
 
     if (!response.ok || !data.ok || !data.data?.receipt) {
@@ -538,7 +584,7 @@ export default function UploadReceiptPage() {
         </div>
       </section>
 
-      {pendingDuplicate ? (
+      {pendingDuplicate && showDuplicateModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
           <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <h2 className="text-xl font-semibold text-slate-950">

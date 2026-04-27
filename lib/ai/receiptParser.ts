@@ -32,6 +32,16 @@ export type ParsedReceiptData = {
   parserStatus: "completed";
 };
 
+function extractGstinFromText(text: string): string | null {
+  if (!text || typeof text !== "string") return null;
+  // GSTIN pattern: 2 digits state code + 10 char PAN + 1 entity + 1 checksum (15 total)
+  const match = text.toUpperCase().match(/([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}[A-Z0-9]{1})/);
+  if (match) {
+    return match[0].slice(0, 20).replace(/\s+/g, "");
+  }
+  return null;
+}
+
 type ParseInput = {
   fileBuffer: Buffer;
   fileName: string;
@@ -382,6 +392,10 @@ async function structureReceiptWithGroq(
         ? null
         : Number(parsed.tax_amount);
 
+    // If LLM-parsed GSTIN is missing or looks suspicious, try extracting from raw OCR text
+    const gstFromOcr = extractGstinFromText(ocrText);
+    const finalGstin = normalizeGstin(parsed.vendor_gstin ?? gstFromOcr);
+
     return {
       vendorName:
         typeof parsed.vendor_name === "string" &&
@@ -414,7 +428,7 @@ async function structureReceiptWithGroq(
           : gstAmountCandidate !== null && Number.isFinite(gstAmountCandidate)
             ? gstAmountCandidate
             : null,
-      vendorGstin: normalizeGstin(parsed.vendor_gstin),
+      vendorGstin: finalGstin,
       gstAmount:
         gstAmountCandidate !== null && Number.isFinite(gstAmountCandidate)
           ? gstAmountCandidate

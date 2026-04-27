@@ -253,11 +253,49 @@ function buildReceiptFilterSql(
 
 export async function findDuplicateReceiptCandidate(input: {
   tenantId: string;
-  vendorName: string;
   amount: number;
   currency: string;
   receiptDate: string;
+  vendorGstin?: string | null;
+  receiptTime?: string | null;
+  ocrFingerprint?: string | null;
 }): Promise<DuplicateReceiptCandidate | null> {
+  // Match DB precision: store amounts as numeric(14,2) in Postgres.
+  // Round the incoming amount to 2 decimal places to avoid float-equality misses.
+  const roundedAmount = Number(Number(input.amount).toFixed(2));
+
+  const params: (string | number)[] = [
+    input.tenantId,
+    roundedAmount,
+    input.receiptDate,
+  ];
+
+  let conditions: string[] = [];
+
+  // Primary key: GSTIN + receipt_date + amount (if GSTIN is available)
+  if (input.vendorGstin) {
+    conditions = [
+      "tenant_id = $1",
+      "amount = $2",
+      "receipt_date = $3::date",
+      `UPPER(COALESCE(vendor_gstin, '')) = UPPER($${params.length + 1})`,
+    ];
+    params.push(input.vendorGstin);
+  } else {
+    // Fallback: receipt_date + amount (without GSTIN)
+    conditions = [
+      "tenant_id = $1",
+      "amount = $2",
+      "receipt_date = $3::date",
+    ];
+  }
+
+  // Optional: add receipt_time if available for more precise matching
+  if (input.receiptTime) {
+    conditions.push(`COALESCE(parsed_data->>'receipt_time', '') = $${params.length + 1}`);
+    params.push(input.receiptTime);
+  }
+
   const result = await query<DuplicateReceiptCandidate>(
     `SELECT
       id,
@@ -272,23 +310,54 @@ export async function findDuplicateReceiptCandidate(input: {
       description,
       created_at::text
     FROM receipts
-    WHERE tenant_id = $1
-      AND LOWER(COALESCE(vendor_name, '')) = LOWER($2)
-      AND amount = $3
-      AND currency = $4
-      AND receipt_date = $5::date
+    WHERE ${conditions.join(" AND ")}
     ORDER BY created_at DESC
     LIMIT 1`,
-    [
-      input.tenantId,
-      input.vendorName,
-      input.amount,
-      input.currency,
-      input.receiptDate,
-    ],
+    params,
   );
 
-  return result.rows[0] ?? null;
+  if (result.rows[0]) {
+    return result.rows[0];
+  }
+
+  // Fallback tolerant search: amount within +/- 1.00 and date within +/- 1 day.
+  // Prefer records with matching OCR fingerprint when available.
+  const tolerance = 1.0; // INR tolerance
+  const fallbackParams: (string | number)[] = [
+    input.tenantId,
+    roundedAmount - tolerance,
+    roundedAmount + tolerance,
+    input.receiptDate,
+    input.receiptDate,
+  ];
+
+  let fallbackSql = `SELECT
+      id,
+      vendor_name,
+      amount::text,
+      currency,
+      receipt_date::text,
+      category,
+      mime_type,
+      file_path,
+      file_name,
+      description,
+      created_at::text
+    FROM receipts
+    WHERE tenant_id = $1
+      AND amount BETWEEN $2 AND $3
+      AND receipt_date BETWEEN ($4::date - INTERVAL '1 day') AND ($5::date + INTERVAL '1 day')`;
+
+  if (input.ocrFingerprint) {
+    // Put exact fingerprint matches first in ordering
+    fallbackSql += ` ORDER BY (CASE WHEN COALESCE(parsed_data->>'ocr_fingerprint', '') = $6 THEN 0 ELSE 1 END), created_at DESC LIMIT 1`;
+    fallbackParams.push(input.ocrFingerprint);
+  } else {
+    fallbackSql += ` ORDER BY created_at DESC LIMIT 1`;
+  }
+
+  const fallback = await query<DuplicateReceiptCandidate>(fallbackSql, fallbackParams);
+  return fallback.rows[0] ?? null;
 }
 
 type ReceiptQueryRow = {

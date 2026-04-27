@@ -50,6 +50,50 @@ function buildOcrFingerprint(input: string): string {
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }
 
+function extractReceiptTimeFromOcr(ocrText: string): string | null {
+  const normalized = ocrText.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  // Supports common formats such as 14:32, 14.32, 2:32 PM
+  const match = normalized.match(
+    /\b(\d{1,2})[:.](\d{2})(?:\s*([AaPp][Mm]))?\b/,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute > 59) {
+    return null;
+  }
+
+  if (meridiem) {
+    if (hour < 1 || hour > 12) {
+      return null;
+    }
+
+    if (meridiem === "PM" && hour < 12) {
+      hour += 12;
+    }
+
+    if (meridiem === "AM" && hour === 12) {
+      hour = 0;
+    }
+  }
+
+  if (hour > 23) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 type PolicyValidationResult = {
   violated: boolean;
   reasons: string[];
@@ -325,41 +369,135 @@ export async function POST(request: Request) {
       confidenceScore < 0.7 ? "needs_review" : "draft";
 
     const ocrFingerprint = buildOcrFingerprint(parsed.ocrText);
+    const extractedReceiptTime = extractReceiptTimeFromOcr(parsed.ocrText);
 
-    const duplicateCandidate = await findDuplicateReceiptCandidate({
+    logger.info("Duplicate lookup inputs", {
+      requestId,
       tenantId: authContext!.tenantId,
-      vendorName: parsed.vendorName,
       amount: parsed.amount,
       currency: parsed.currency,
       receiptDate: parsed.receiptDate,
+      vendorGstin: parsed.vendorGstin,
+      receiptTime: extractedReceiptTime,
     });
 
-    if (duplicateCandidate && !allowDuplicateUpload) {
-      logger.warn("Duplicate receipt blocked", {
-        requestId,
-        route: "/api/receipts/upload",
-        tenantId: authContext!.tenantId,
-        userId: authContext!.userId,
-        duplicateOf: duplicateCandidate.id,
-        vendorName: parsed.vendorName,
+    const duplicateCandidate = await findDuplicateReceiptCandidate({
+      tenantId: authContext!.tenantId,
+      amount: parsed.amount,
+      currency: parsed.currency,
+      receiptDate: parsed.receiptDate,
+      vendorGstin: parsed.vendorGstin,
+      receiptTime: extractedReceiptTime,
+      ocrFingerprint: ocrFingerprint,
+    });
+
+    logger.info("Duplicate lookup result", {
+      requestId,
+      duplicateFound: Boolean(duplicateCandidate),
+      duplicateId: duplicateCandidate ? duplicateCandidate.id : null,
+      duplicateVendor: duplicateCandidate ? duplicateCandidate.vendor_name : null,
+    });
+
+    // Collect violations instead of early-exiting; allow both duplicate and policy checks to run
+    const duplicateOfId = duplicateCandidate ? duplicateCandidate.id : null;
+    const hasDuplicateWarning = duplicateCandidate && !allowDuplicateUpload;
+    
+    if (duplicateOfId) {
+      status = "needs_review";
+    }
+
+    let policyValidation: PolicyValidationResult = {
+      violated: false,
+      reasons: [],
+    };
+    const activePolicy = await getDefaultPolicyForTenant(authContext!.tenantId);
+    if (activePolicy?.rules) {
+      policyValidation = evaluatePolicy({
         amount: parsed.amount,
-        receiptDate: parsed.receiptDate,
+        category: parsed.category,
+        rules: activePolicy.rules,
+        note,
       });
+
+      if (policyValidation.violated) {
+        status = "needs_review";
+      }
+    }
+
+    // If BOTH violations exist and neither is overridden, return combined error
+    const hasPolicyWarning = policyValidation.violated && !allowPolicyOverride;
+
+    if ((hasDuplicateWarning || hasPolicyWarning) && (hasDuplicateWarning || hasPolicyWarning)) {
+      const errors: Record<string, unknown> = {};
+      const errorCodes: string[] = [];
+
+      if (hasDuplicateWarning) {
+        errors.duplicate = {
+          code: "DUPLICATE_RECEIPT",
+          message:
+            "A similar receipt already exists with matching GSTIN, amount, and date.",
+          duplicateOf: {
+            ...duplicateCandidate,
+            file_url: toPublicReceiptUrl(duplicateCandidate!.file_path),
+          },
+        };
+        errorCodes.push("DUPLICATE_RECEIPT");
+
+        logger.warn("Duplicate receipt warning", {
+          requestId,
+          route: "/api/receipts/upload",
+          tenantId: authContext!.tenantId,
+          userId: authContext!.userId,
+          duplicateOf: duplicateCandidate!.id,
+          vendorName: parsed.vendorName,
+          amount: parsed.amount,
+          receiptDate: parsed.receiptDate,
+        });
+      }
+
+      if (hasPolicyWarning) {
+        errors.policy = {
+          code: "POLICY_OVERRIDE_REQUIRED",
+          message: "This receipt violates policy rules.",
+          reasons: policyValidation.reasons,
+        };
+        errorCodes.push("POLICY_OVERRIDE_REQUIRED");
+
+        logger.warn("Policy violation warning", {
+          requestId,
+          route: "/api/receipts/upload",
+          tenantId: authContext!.tenantId,
+          userId: authContext!.userId,
+          reasons: policyValidation.reasons,
+          category: parsed.category,
+          amount: parsed.amount,
+        });
+      }
 
       return NextResponse.json(
         {
           ok: false,
           error: {
-            code: "DUPLICATE_RECEIPT",
+            code:
+              errorCodes.length > 1
+                ? "VALIDATION_FAILED"
+                : errorCodes[0],
             message:
-              "A similar receipt already exists with matching vendor, amount, date, and content signals.",
+              errorCodes.length > 1
+                ? "This receipt has both duplicate and policy violations."
+                : errorCodes[0] === "DUPLICATE_RECEIPT"
+                  ? "Duplicate receipt detected."
+                  : "Policy violation detected.",
             requestId,
+            details: errors,
           },
           data: {
-            duplicateOf: {
-              ...duplicateCandidate,
-              file_url: toPublicReceiptUrl(duplicateCandidate.file_path),
-            },
+            duplicateOf: hasDuplicateWarning
+              ? {
+                  ...duplicateCandidate,
+                  file_url: toPublicReceiptUrl(duplicateCandidate!.file_path),
+                }
+              : undefined,
             extracted: {
               vendorName: parsed.vendorName,
               amount: parsed.amount,
@@ -381,74 +519,6 @@ export async function POST(request: Request) {
         },
         { status: 409 },
       );
-    }
-
-    const duplicateOfId = duplicateCandidate ? duplicateCandidate.id : null;
-    if (duplicateOfId) {
-      status = "needs_review";
-    }
-
-    let policyValidation: PolicyValidationResult = {
-      violated: false,
-      reasons: [],
-    };
-    const activePolicy = await getDefaultPolicyForTenant(authContext!.tenantId);
-    if (activePolicy?.rules) {
-      policyValidation = evaluatePolicy({
-        amount: parsed.amount,
-        category: parsed.category,
-        rules: activePolicy.rules,
-        note,
-      });
-
-      if (policyValidation.violated) {
-        status = "needs_review";
-
-        if (!allowPolicyOverride) {
-          logger.warn("Receipt blocked pending policy override confirmation", {
-            requestId,
-            route: "/api/receipts/upload",
-            tenantId: authContext!.tenantId,
-            userId: authContext!.userId,
-            reasons: policyValidation.reasons,
-            category: parsed.category,
-            amount: parsed.amount,
-          });
-
-          return NextResponse.json(
-            {
-              ok: false,
-              error: {
-                code: "POLICY_OVERRIDE_REQUIRED",
-                message:
-                  "This receipt violates policy rules. Review warnings and confirm if you still want to upload.",
-                requestId,
-              },
-              data: {
-                policy: policyValidation,
-                extracted: {
-                  vendorName: parsed.vendorName,
-                  amount: parsed.amount,
-                  currency: parsed.currency,
-                  receiptDate: parsed.receiptDate,
-                  category: parsed.category,
-                  gstRate: parsed.gstRate,
-                  cgstRate: parsed.cgstRate,
-                  igstRate: parsed.igstRate,
-                  sgstRate: parsed.sgstRate,
-                  cgstAmount: parsed.cgstAmount,
-                  igstAmount: parsed.igstAmount,
-                  sgstAmount: parsed.sgstAmount,
-                  taxAmount: parsed.taxAmount,
-                  vendorGstin: parsed.vendorGstin,
-                  gstAmount: parsed.gstAmount,
-                },
-              },
-            },
-            { status: 409 },
-          );
-        }
-      }
     }
 
     const parsedData = {
@@ -473,6 +543,7 @@ export async function POST(request: Request) {
       ocr_fingerprint: ocrFingerprint,
       note,
       parser_status: parsed.parserStatus,
+      receipt_time: extractedReceiptTime,
       policy_validation: {
         violated: policyValidation.violated,
         reasons: policyValidation.reasons,
