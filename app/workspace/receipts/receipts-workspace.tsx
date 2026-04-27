@@ -350,10 +350,15 @@ export function ReceiptsWorkspace({
   }, [loadMore]);
 
   const onReview = async (decision: "approve" | "reject") => {
+    const canApprove =
+      selectedReceipt?.status === "needs_review" ||
+      selectedReceipt?.status === "draft";
+    const canReject = selectedReceipt?.status === "needs_review";
+
     if (
       !selectedReceipt ||
       !canReview ||
-      selectedReceipt.status !== "needs_review"
+      (decision === "approve" ? !canApprove : !canReject)
     ) {
       return;
     }
@@ -1006,6 +1011,64 @@ export function ReceiptsWorkspace({
                   </div>
                 </div>
 
+                  {canReview &&
+                (selectedReceipt.status === "needs_review" ||
+                  selectedReceipt.status === "draft") ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-medium text-amber-900">
+                      {selectedReceipt.status === "draft"
+                        ? "This draft receipt can be verified by manager/admin."
+                        : "This receipt requires manager/admin review."}
+                    </p>
+                    <p className="mt-1 text-sm text-amber-800">
+                      {selectedReceipt.status === "draft"
+                        ? "Verification marks this receipt as ready for expense reports."
+                        : "Policy violations and duplicate candidates can only be approved by manager/admin."}
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={onApprove}
+                        disabled={reviewState.kind === "loading"}
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:opacity-60"
+                      >
+                        {reviewState.kind === "loading"
+                          ? "Approving..."
+                          : selectedReceipt.status === "draft"
+                            ? "Verify receipt"
+                            : "Approve receipt"}
+                      </button>
+                      {selectedReceipt.status === "needs_review" ? (
+                        <button
+                          type="button"
+                          onClick={onReject}
+                          disabled={reviewState.kind === "loading"}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-rose-300 bg-white px-4 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-60"
+                        >
+                          <X className="h-4 w-4" />
+                          {reviewState.kind === "loading"
+                            ? "Rejecting..."
+                            : "Reject receipt"}
+                        </button>
+                      ) : null}
+                      {reviewState.kind !== "idle" ? (
+                        <span
+                          className={cn(
+                            "text-sm",
+                            reviewState.kind === "error"
+                              ? "text-rose-700"
+                              : reviewState.kind === "success"
+                                ? "text-emerald-700"
+                                : "text-slate-600",
+                          )}
+                        >
+                          {reviewState.message}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-slate-200 p-4">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-900">
@@ -1052,6 +1115,14 @@ export function ReceiptsWorkspace({
                     </p>
                   </div>
                 </div>
+
+
+                {!canReview && selectedReceipt.status === "needs_review" ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    This receipt is in review queue. Only manager/admin can
+                    approve it.
+                  </div>
+                ) : null}
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-slate-200 p-4">
@@ -1127,62 +1198,6 @@ export function ReceiptsWorkspace({
                     </div>
                   </div>
                 </div>
-
-                {canReview && selectedReceipt.status === "needs_review" ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                    <p className="text-sm font-medium text-amber-900">
-                      This receipt requires manager/admin review.
-                    </p>
-                    <p className="mt-1 text-sm text-amber-800">
-                      Policy violations and duplicate candidates can only be
-                      approved by manager/admin.
-                    </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={onApprove}
-                        disabled={reviewState.kind === "loading"}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:opacity-60"
-                      >
-                        {reviewState.kind === "loading"
-                          ? "Approving..."
-                          : "Approve receipt"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onReject}
-                        disabled={reviewState.kind === "loading"}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-rose-300 bg-white px-4 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-60"
-                      >
-                        <X className="h-4 w-4" />
-                        {reviewState.kind === "loading"
-                          ? "Rejecting..."
-                          : "Reject receipt"}
-                      </button>
-                      {reviewState.kind !== "idle" ? (
-                        <span
-                          className={cn(
-                            "text-sm",
-                            reviewState.kind === "error"
-                              ? "text-rose-700"
-                              : reviewState.kind === "success"
-                                ? "text-emerald-700"
-                                : "text-slate-600",
-                          )}
-                        >
-                          {reviewState.message}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-
-                {!canReview && selectedReceipt.status === "needs_review" ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                    This receipt is in review queue. Only manager/admin can
-                    approve it.
-                  </div>
-                ) : null}
 
                 <div className="rounded-xl border border-slate-200 p-4">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-900">

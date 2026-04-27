@@ -9,6 +9,21 @@ import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
 
+type ReceiptStatus =
+  | "processing"
+  | "draft"
+  | "verified"
+  | "needs_review"
+  | "archived";
+
+const RECEIPT_STATUSES = new Set<ReceiptStatus>([
+  "processing",
+  "draft",
+  "verified",
+  "needs_review",
+  "archived",
+]);
+
 function parseLimit(input: string | null): number {
   if (!input) {
     return 25;
@@ -49,6 +64,15 @@ function parseFilterValue(input: string | null): string | "all" {
   return input.trim();
 }
 
+function parseStatusValue(input: string | null): ReceiptStatus | "all" {
+  if (!input || input === "all") {
+    return "all";
+  }
+
+  const value = input.trim() as ReceiptStatus;
+  return RECEIPT_STATUSES.has(value) ? value : "all";
+}
+
 function parseDate(input: string | null): string | undefined {
   if (!input) {
     return undefined;
@@ -85,7 +109,7 @@ export async function GET(request: Request) {
     const limit = parseLimit(url.searchParams.get("limit"));
     const offset = parseOffset(url.searchParams.get("offset"));
     const search = parseSearch(url.searchParams.get("search"));
-    const status = parseFilterValue(url.searchParams.get("status"));
+    const status = parseStatusValue(url.searchParams.get("status"));
     const category = parseFilterValue(url.searchParams.get("category"));
     const all = parseAll(url.searchParams.get("all"));
     const dateFrom = all

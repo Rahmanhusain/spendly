@@ -45,7 +45,7 @@ export async function POST(request: Request) {
           ok: false,
           error: {
             code: "RECEIPT_NOT_FOUND_OR_NOT_REVIEWABLE",
-            message: "Receipt was not found or is not in needs_review status.",
+            message: "Receipt was not found or is not in a reviewable status.",
             requestId,
           },
         },
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
           receipt: updated,
           message:
             payload.decision === "approve"
-              ? "Receipt approved. Duplicate marker cleared and status moved to verified."
+              ? "Receipt approved. Status moved to verified."
               : "Receipt rejected by manager/admin. Status moved to archived.",
         },
       },

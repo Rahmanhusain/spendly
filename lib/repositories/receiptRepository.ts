@@ -690,7 +690,7 @@ export async function approveReceiptByManager(input: {
          updated_at = NOW()
      WHERE tenant_id = $1
        AND id = $2
-       AND status = 'needs_review'
+       AND status IN ('needs_review', 'draft')
      RETURNING id, status, is_duplicate, duplicate_of, updated_at::text`,
     [input.tenantId, input.receiptId],
   );

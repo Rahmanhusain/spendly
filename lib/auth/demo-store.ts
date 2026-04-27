@@ -121,6 +121,7 @@ export async function createTenantAccount(input: SignupInput) {
   const tokens = await createAuthTokens({
     userId,
     tenantId,
+    tenantSlug: tenant.slug,
     role: user.role,
     sessionId,
   });
@@ -179,6 +180,7 @@ export async function loginWithCredentials(input: LoginInput) {
   const tokens = await createAuthTokens({
     userId: user.id,
     tenantId: tenant.id,
+    tenantSlug: tenant.slug,
     role: user.role,
     sessionId,
   });

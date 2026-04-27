@@ -1,0 +1,503 @@
+import { query, transaction } from "@/lib/db/client";
+
+export type ReportStatus =
+  | "draft"
+  | "submitted"
+  | "info_requested"
+  | "approved"
+  | "rejected"
+  | "paid";
+
+export type ExpenseReport = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  totalAmount: number;
+  status: ReportStatus;
+  approverId: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  paidAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExpenseReportItem = {
+  id: string;
+  tenantId: string;
+  reportId: string;
+  receiptId: string;
+  lineNumber: number | null;
+  createdAt: string;
+};
+
+export type CreateReportInput = {
+  title: string;
+  description?: string;
+  periodStart?: string;
+  periodEnd?: string;
+};
+
+export type UpdateReportInput = {
+  title?: string;
+  description?: string;
+  periodStart?: string;
+  periodEnd?: string;
+};
+
+/**
+ * Create a new expense report
+ */
+export async function createReport(
+  tenantId: string,
+  userId: string,
+  input: CreateReportInput,
+): Promise<ExpenseReport> {
+  const result = await query<ExpenseReport>(
+    `INSERT INTO expense_reports (
+      tenant_id, user_id, title, description, 
+      period_start, period_end, status, total_amount
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING 
+      id, tenant_id as "tenantId", user_id as "userId", 
+      title, description, period_start as "periodStart", 
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"`,
+    [
+      tenantId,
+      userId,
+      input.title,
+      input.description || null,
+      input.periodStart || null,
+      input.periodEnd || null,
+      "draft",
+      0,
+    ],
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error("Failed to create expense report");
+  }
+
+  return result.rows[0];
+}
+
+/**
+ * Get a report by ID
+ */
+export async function getReportById(
+  tenantId: string,
+  reportId: string,
+): Promise<ExpenseReport | null> {
+  const result = await query<ExpenseReport>(
+    `SELECT 
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"
+    FROM expense_reports
+    WHERE id = $1 AND tenant_id = $2`,
+    [reportId, tenantId],
+  );
+
+  return result.rows[0] || null;
+}
+
+/**
+ * Get all reports for a tenant with optional filters
+ */
+export async function getReportsForTenant(
+  tenantId: string,
+  filters?: {
+    userId?: string;
+    status?: ReportStatus | "all";
+    limit?: number;
+    offset?: number;
+  },
+): Promise<{ reports: ExpenseReport[]; total: number }> {
+  const limit = Math.min(Math.max(filters?.limit || 25, 1), 200);
+  const offset = Math.max(filters?.offset || 0, 0);
+
+  let whereClause = "WHERE tenant_id = $1";
+  const params: (string | number)[] = [tenantId];
+
+  if (filters?.userId) {
+    whereClause += ` AND user_id = $${params.length + 1}`;
+    params.push(filters.userId);
+  }
+
+  if (filters?.status && filters.status !== "all") {
+    whereClause += ` AND status = $${params.length + 1}`;
+    params.push(filters.status);
+  }
+
+  const countResult = await query<{ count: string }>(
+    `SELECT COUNT(*) as count FROM expense_reports ${whereClause}`,
+    params,
+  );
+
+  const listResult = await query<ExpenseReport>(
+    `SELECT 
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"
+    FROM expense_reports
+    ${whereClause}
+    ORDER BY created_at DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, offset],
+  );
+
+  return {
+    reports: listResult.rows,
+    total: parseInt(countResult.rows[0].count, 10),
+  };
+}
+
+/**
+ * Update a report
+ */
+export async function updateReport(
+  tenantId: string,
+  reportId: string,
+  input: UpdateReportInput,
+): Promise<ExpenseReport> {
+  const updates: string[] = [];
+  const params: (string | number | null)[] = [tenantId, reportId];
+
+  if (input.title !== undefined) {
+    updates.push(`title = $${params.length + 1}`);
+    params.push(input.title);
+  }
+
+  if (input.description !== undefined) {
+    updates.push(`description = $${params.length + 1}`);
+    params.push(input.description);
+  }
+
+  if (input.periodStart !== undefined) {
+    updates.push(`period_start = $${params.length + 1}`);
+    params.push(input.periodStart);
+  }
+
+  if (input.periodEnd !== undefined) {
+    updates.push(`period_end = $${params.length + 1}`);
+    params.push(input.periodEnd);
+  }
+
+  if (updates.length === 0) {
+    return getReportById(tenantId, reportId) as Promise<ExpenseReport>;
+  }
+
+  const result = await query<ExpenseReport>(
+    `UPDATE expense_reports 
+    SET ${updates.join(", ")}
+    WHERE id = $1 AND tenant_id = $2
+    RETURNING 
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"`,
+    params,
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error("Report not found");
+  }
+
+  return result.rows[0];
+}
+
+/**
+ * Add a receipt to a report
+ */
+export async function addReceiptToReport(
+  tenantId: string,
+  reportId: string,
+  receiptId: string,
+): Promise<ExpenseReportItem> {
+  return transaction(async (client) => {
+    // Check report exists and is draft
+    const reportCheck = await client.query(
+      `SELECT id, total_amount, status FROM expense_reports 
+       WHERE id = $1 AND tenant_id = $2`,
+      [reportId, tenantId],
+    );
+
+    if (reportCheck.rows.length === 0) {
+      throw new Error("Report not found");
+    }
+
+    const report = reportCheck.rows[0];
+    if (report.status !== "draft") {
+      throw new Error("Cannot add receipts to a submitted report");
+    }
+
+    // Check receipt exists and get amount
+    const receiptCheck = await client.query(
+      `SELECT id, amount FROM receipts 
+       WHERE id = $1 AND tenant_id = $2`,
+      [receiptId, tenantId],
+    );
+
+    if (receiptCheck.rows.length === 0) {
+      throw new Error("Receipt not found");
+    }
+
+    const receipt = receiptCheck.rows[0];
+
+    // Check if receipt already in report
+    const existing = await client.query(
+      `SELECT id FROM expense_report_items 
+       WHERE report_id = $1 AND receipt_id = $2`,
+      [reportId, receiptId],
+    );
+
+    if (existing.rows.length > 0) {
+      throw new Error("Receipt already in report");
+    }
+
+    // Insert report item
+    const itemResult = await client.query(
+      `INSERT INTO expense_report_items (
+        tenant_id, report_id, receipt_id
+      ) VALUES ($1, $2, $3)
+      RETURNING 
+        id, tenant_id as "tenantId", report_id as "reportId",
+        receipt_id as "receiptId", line_number as "lineNumber",
+        created_at as "createdAt"`,
+      [tenantId, reportId, receiptId],
+    );
+
+    // Update report total
+    await client.query(
+      `UPDATE expense_reports 
+       SET total_amount = total_amount + $1
+       WHERE id = $2`,
+      [receipt.amount, reportId],
+    );
+
+    return itemResult.rows[0] as ExpenseReportItem;
+  });
+}
+
+/**
+ * Remove a receipt from a report
+ */
+export async function removeReceiptFromReport(
+  tenantId: string,
+  reportId: string,
+  receiptId: string,
+): Promise<void> {
+  return transaction(async (client) => {
+    // Check report is draft
+    const reportCheck = await client.query(
+      `SELECT status FROM expense_reports 
+       WHERE id = $1 AND tenant_id = $2`,
+      [reportId, tenantId],
+    );
+
+    if (reportCheck.rows.length === 0) {
+      throw new Error("Report not found");
+    }
+
+    if (reportCheck.rows[0].status !== "draft") {
+      throw new Error("Cannot remove receipts from a submitted report");
+    }
+
+    // Get receipt amount
+    const receiptCheck = await client.query(
+      `SELECT amount FROM receipts WHERE id = $1`,
+      [receiptId],
+    );
+
+    if (receiptCheck.rows.length === 0) {
+      throw new Error("Receipt not found");
+    }
+
+    // Delete report item
+    await client.query(
+      `DELETE FROM expense_report_items 
+       WHERE report_id = $1 AND receipt_id = $2 AND tenant_id = $3`,
+      [reportId, receiptId, tenantId],
+    );
+
+    // Update report total
+    await client.query(
+      `UPDATE expense_reports 
+       SET total_amount = total_amount - $1
+       WHERE id = $2`,
+      [receiptCheck.rows[0].amount, reportId],
+    );
+  });
+}
+
+/**
+ * Get report items with receipt details
+ */
+export async function getReportItemsWithDetails(
+  tenantId: string,
+  reportId: string,
+): Promise<
+  Array<{
+    id: string;
+    receiptId: string;
+    vendor: string;
+    amount: number;
+    category: string;
+    receiptDate: string;
+    uploadedAt: string;
+  }>
+> {
+  const result = await query<{
+    id: string;
+    receiptId: string;
+    vendor: string;
+    amount: number;
+    category: string;
+    receiptDate: string;
+    uploadedAt: string;
+  }>(
+    `SELECT 
+      ri.id,
+      r.id as "receiptId",
+      r.vendor_name as vendor,
+      r.amount,
+      r.category,
+      r.receipt_date as "receiptDate",
+      r.created_at::text as "uploadedAt"
+    FROM expense_report_items ri
+    JOIN receipts r ON ri.receipt_id = r.id
+    WHERE ri.report_id = $1 AND ri.tenant_id = $2
+    ORDER BY ri.created_at ASC`,
+    [reportId, tenantId],
+  );
+
+  return result.rows;
+}
+
+/**
+ * Submit a report for approval
+ */
+export async function submitReport(
+  tenantId: string,
+  reportId: string,
+): Promise<ExpenseReport> {
+  const result = await query<ExpenseReport>(
+    `UPDATE expense_reports 
+    SET status = $1, submitted_at = NOW()
+    WHERE id = $2 AND tenant_id = $3 AND status = $4
+    RETURNING 
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"`,
+    ["submitted", reportId, tenantId, "draft"],
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error("Report not found or already submitted");
+  }
+
+  return result.rows[0];
+}
+
+/**
+ * Approve a report
+ */
+export async function approveReport(
+  tenantId: string,
+  reportId: string,
+  approverId: string,
+): Promise<ExpenseReport> {
+  const result = await query<ExpenseReport>(
+    `UPDATE expense_reports 
+    SET status = $1, approved_at = NOW(), approver_id = $2
+    WHERE id = $3 AND tenant_id = $4 AND status = $5
+    RETURNING 
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"`,
+    ["approved", approverId, reportId, tenantId, "submitted"],
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error("Report not found or not in submitted state");
+  }
+
+  return result.rows[0];
+}
+
+/**
+ * Reject a report
+ */
+export async function rejectReport(
+  tenantId: string,
+  reportId: string,
+  reason: string,
+): Promise<ExpenseReport> {
+  const result = await query<ExpenseReport>(
+    `UPDATE expense_reports 
+    SET status = $1, rejected_at = NOW(), rejection_reason = $2
+    WHERE id = $3 AND tenant_id = $4 AND status = $5
+    RETURNING 
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"`,
+    ["rejected", reason, reportId, tenantId, "submitted"],
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error("Report not found or not in submitted state");
+  }
+
+  return result.rows[0];
+}
+
+/**
+ * Delete a report (draft only)
+ */
+export async function deleteReport(
+  tenantId: string,
+  reportId: string,
+): Promise<void> {
+  const result = await query(
+    `DELETE FROM expense_reports 
+    WHERE id = $1 AND tenant_id = $2 AND status = $3`,
+    [reportId, tenantId, "draft"],
+  );
+
+  if (result.rowCount === 0) {
+    throw new Error("Report not found or not a draft");
+  }
+}
