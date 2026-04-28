@@ -10,7 +10,13 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -31,6 +37,7 @@ interface ExpenseReportWorkspaceProps {
   initialReceiptsAvailable: ReceiptListItem[];
   initialHasMore: boolean;
   authContext: AuthContext;
+  orgName: string;
 }
 
 const statusOptions: Array<{ label: string; value: "all" | ReportStatus }> = [
@@ -58,12 +65,49 @@ type ReceiptListApiResponse = {
   };
 };
 
+type ReportDetailItem = {
+  id: string;
+  receiptId: string;
+  vendor: string | null;
+  amount: number | string;
+  category: string | null;
+  receiptDate: string;
+  uploadedAt: string;
+  uploadedById?: string | null;
+  uploadedByName?: string | null;
+  uploadedByRole?: string | null;
+  fileUrl?: string | null;
+  filePath?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  vendorGstin?: string | null;
+};
+
+type ReportDetailResponse = {
+  report: ExpenseReport | null;
+  items: ReportDetailItem[];
+};
+
+type ReportBrowserReport = ExpenseReport;
+
 function formatMoney(amount: number, currency = "INR") {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function getStatusBadgeColor(status: ReportStatus) {
@@ -78,13 +122,31 @@ function getStatusBadgeColor(status: ReportStatus) {
   return colors[status] || "bg-gray-100 text-gray-800";
 }
 
+function formatReportCsvValue(value: unknown) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function toReportAmount(value: number | string | undefined): number {
+  if (typeof value === "number") {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function ExpenseReportWorkspace({
   initialReports,
   initialReceiptsAvailable,
+  initialHasMore,
+  orgName,
 }: ExpenseReportWorkspaceProps) {
   const [reports, setReports] = useState<ExpenseReport[]>(initialReports);
   const [receiptsAvailable] = useState<ReceiptListItem[]>(
     initialReceiptsAvailable,
+  );
+  const [workspaceMode, setWorkspaceMode] = useState<"create" | "reports">(
+    "create",
   );
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<"all" | ReportStatus>(
@@ -104,9 +166,9 @@ export function ExpenseReportWorkspace({
   const [receiptSearch, setReceiptSearch] = useState("");
   const [receiptDateFrom, setReceiptDateFrom] = useState("");
   const [receiptDateTo, setReceiptDateTo] = useState("");
-  const [receiptPickerItems, setReceiptPickerItems] = useState<ReceiptListItem[]>(
-    [],
-  );
+  const [receiptPickerItems, setReceiptPickerItems] = useState<
+    ReceiptListItem[]
+  >([]);
   const [receiptPickerOffset, setReceiptPickerOffset] = useState(0);
   const [receiptPickerHasMore, setReceiptPickerHasMore] = useState(false);
   const [isLoadingReceiptPicker, setIsLoadingReceiptPicker] = useState(false);
@@ -115,18 +177,58 @@ export function ExpenseReportWorkspace({
   const [success, setSuccess] = useState<string | null>(null);
   const receiptPickerListRef = useRef<HTMLDivElement | null>(null);
 
+  const [browseReports, setBrowseReports] =
+    useState<ReportBrowserReport[]>(initialReports);
+  const [browseStatus, setBrowseStatus] = useState<"all" | ReportStatus>("all");
+  const [browseOffset, setBrowseOffset] = useState(initialReports.length);
+  const [browseHasMore, setBrowseHasMore] = useState(initialHasMore);
+  const [browseIsLoading, setBrowseIsLoading] = useState(false);
+  const [browseIsLoadingMore, setBrowseIsLoadingMore] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const [browseSelectedReportId, setBrowseSelectedReportId] = useState<
+    string | null
+  >(null);
+  const [browseSelectedDetails, setBrowseSelectedDetails] =
+    useState<ReportDetailResponse | null>(null);
+  const [browseIsLoadingDetails, setBrowseIsLoadingDetails] = useState(false);
+  const [browseDetailsCache, setBrowseDetailsCache] = useState<
+    Record<string, ReportDetailResponse>
+  >({});
+  const browseReportListRef = useRef<HTMLDivElement | null>(null);
+  const [csvValidationResult, setCsvValidationResult] = useState<any | null>(
+    null,
+  );
+  const [csvValidating, setCsvValidating] = useState(false);
+
   const selectedReport = useMemo(
     () => reports.find((r) => r.id === selectedReportId) || null,
     [reports, selectedReportId],
   );
 
-  const filteredReports = useMemo(
-    () =>
+  const browseSelectedReport = useMemo(
+    () => browseReports.find((r) => r.id === browseSelectedReportId) || null,
+    [browseReports, browseSelectedReportId],
+  );
+
+  const filteredReports = useMemo(() => {
+    const source =
       selectedStatus === "all"
         ? reports
-        : reports.filter((r) => r.status === selectedStatus),
-    [reports, selectedStatus],
-  );
+        : reports.filter((r) => r.status === selectedStatus);
+
+    // Guard against duplicate report ids from API/state merges to keep React keys unique.
+    const seen = new Set<string>();
+    return source.filter((report) => {
+      if (!report.id) {
+        return true;
+      }
+      if (seen.has(report.id)) {
+        return false;
+      }
+      seen.add(report.id);
+      return true;
+    });
+  }, [reports, selectedStatus]);
 
   const handleSelectReport = useCallback(
     async (reportId: string) => {
@@ -212,7 +314,9 @@ export function ExpenseReportWorkspace({
         }
 
         const existingIds = new Set(prev.map((item) => item.id));
-        const uniqueNext = nextItems.filter((item) => !existingIds.has(item.id));
+        const uniqueNext = nextItems.filter(
+          (item) => !existingIds.has(item.id),
+        );
         return [...prev, ...uniqueNext];
       });
       setReceiptPickerOffset(offset + nextItems.length);
@@ -277,7 +381,9 @@ export function ExpenseReportWorkspace({
         await fetchReceiptPickerPage(0, false);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load receipts");
+          setError(
+            err instanceof Error ? err.message : "Failed to load receipts",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -328,6 +434,7 @@ export function ExpenseReportWorkspace({
 
       const newReport: ExpenseReport = await response.json();
       setReports((prev) => [newReport, ...prev]);
+      setBrowseReports((prev) => [newReport, ...prev]);
       setSelectedReportId(newReport.id);
       setNewReportTitle("");
       setNewReportDescription("");
@@ -376,6 +483,16 @@ export function ExpenseReportWorkspace({
         const receipt = receiptsAvailable.find((r) => r.id === receiptId);
         if (receipt && selectedReport) {
           setReports((prev) =>
+            prev.map((r) =>
+              r.id === selectedReportId
+                ? {
+                    ...r,
+                    totalAmount: r.totalAmount + receipt.amount,
+                  }
+                : r,
+            ),
+          );
+          setBrowseReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
                 ? {
@@ -435,6 +552,16 @@ export function ExpenseReportWorkspace({
                 : r,
             ),
           );
+          setBrowseReports((prev) =>
+            prev.map((r) =>
+              r.id === selectedReportId
+                ? {
+                    ...r,
+                    totalAmount: Math.max(0, r.totalAmount - receipt.amount),
+                  }
+                : r,
+            ),
+          );
         }
 
         setSuccess("Receipt removed from report");
@@ -473,6 +600,9 @@ export function ExpenseReportWorkspace({
       setReports((prev) =>
         prev.map((r) => (r.id === selectedReportId ? updated : r)),
       );
+      setBrowseReports((prev) =>
+        prev.map((r) => (r.id === selectedReportId ? updated : r)),
+      );
       setSuccess("Report submitted for approval");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -507,7 +637,12 @@ export function ExpenseReportWorkspace({
         throw new Error(data.error || "Failed to delete report");
       }
 
-      setReports((prev) => prev.filter((report) => report.id !== selectedReport.id));
+      setReports((prev) =>
+        prev.filter((report) => report.id !== selectedReport.id),
+      );
+      setBrowseReports((prev) =>
+        prev.filter((report) => report.id !== selectedReport.id),
+      );
       setReportItemsByReportId((prev) => {
         const next = { ...prev };
         delete next[selectedReport.id];
@@ -523,6 +658,378 @@ export function ExpenseReportWorkspace({
       setIsDeletingReport(false);
     }
   }, [selectedReport]);
+
+  const fetchBrowseReportsPage = useCallback(
+    async (offset: number, append: boolean) => {
+      const query = new URLSearchParams({
+        limit: String(25),
+        offset: String(offset),
+        status: browseStatus,
+      });
+
+      const response = await fetch(`/api/reports?${query.toString()}`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const payload = (await response.json()) as {
+        data?: ExpenseReport[];
+        pagination?: { total: number; limit: number; offset: number };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.data || !payload.pagination) {
+        throw new Error(payload.error || "Failed to load reports");
+      }
+
+      const nextItems = payload.data;
+      setBrowseReports((current) => {
+        if (!append) {
+          return nextItems;
+        }
+
+        const existingIds = new Set(current.map((item) => item.id));
+        const uniqueNext = nextItems.filter(
+          (item) => !existingIds.has(item.id),
+        );
+        return [...current, ...uniqueNext];
+      });
+      setBrowseOffset(offset + nextItems.length);
+      setBrowseHasMore(payload.pagination.total > offset + nextItems.length);
+    },
+    [browseStatus],
+  );
+
+  const loadBrowseReportDetails = useCallback(
+    async (reportId: string) => {
+      setBrowseSelectedReportId(reportId);
+      setBrowseError(null);
+
+      const cached = browseDetailsCache[reportId];
+      if (cached) {
+        setBrowseSelectedDetails(cached);
+        return;
+      }
+
+      setBrowseIsLoadingDetails(true);
+      try {
+        const response = await fetch(`/api/reports/${reportId}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const payload = (await response.json()) as {
+          report?: ExpenseReport;
+          items?: ReportDetailItem[];
+          error?: string;
+        };
+
+        if (!response.ok || !payload.report) {
+          throw new Error(payload.error || "Failed to load report details");
+        }
+
+        const details: ReportDetailResponse = {
+          report: payload.report,
+          items: payload.items ?? [],
+        };
+
+        setBrowseSelectedDetails(details);
+        setBrowseDetailsCache((current) => ({
+          ...current,
+          [reportId]: details,
+        }));
+      } catch (detailError) {
+        setBrowseSelectedDetails(null);
+        setBrowseError(
+          detailError instanceof Error
+            ? detailError.message
+            : "Failed to load report details",
+        );
+      } finally {
+        setBrowseIsLoadingDetails(false);
+      }
+    },
+    [browseDetailsCache],
+  );
+
+  const exportSelectedReportCsv = useCallback(() => {
+    const report = browseSelectedDetails?.report;
+    if (!report) return;
+
+    const items = browseSelectedDetails?.items ?? [];
+    const rows = [
+      ["Spendly Report Export"],
+      ["Workspace", orgName],
+      ["Report ID", report.id],
+      ["Report Title", report.title],
+      ["Status", report.status],
+      ["Total Amount", String(report.totalAmount)],
+      ["Description", report.description ?? ""],
+      [],
+      [
+        "Receipt ID",
+        "Vendor",
+        "Amount",
+        "Category",
+        "Receipt Date",
+        "Uploaded By",
+        "Uploader User ID",
+        "Uploader Role",
+      ],
+      ...items.map((item) => [
+        item.receiptId,
+        item.vendor ?? "",
+        String(toReportAmount(item.amount)),
+        item.category ?? "",
+        item.receiptDate,
+        item.uploadedByName ?? "",
+        item.uploadedById ?? "",
+        item.uploadedByRole ?? "",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((cell) => formatReportCsvValue(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${report.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-report.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }, [browseSelectedDetails, orgName]);
+
+  const handleValidateCsvFile = useCallback(async (file: File | null) => {
+    if (!file) return;
+    setCsvValidationResult(null);
+    setCsvValidating(true);
+    setBrowseError(null);
+    try {
+      const text = await file.text();
+      const resp = await fetch(`/api/reports/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv: text }),
+      });
+
+      const payload = await resp.json();
+      if (!resp.ok) {
+        setBrowseError(payload.error || "CSV validation failed");
+      }
+      setCsvValidationResult(payload);
+    } catch (err) {
+      setBrowseError(
+        err instanceof Error ? err.message : "CSV validation failed",
+      );
+    } finally {
+      setCsvValidating(false);
+    }
+  }, []);
+
+  const printSelectedReportPdf = useCallback(() => {
+    const report = browseSelectedDetails?.report;
+    if (!report) return;
+
+    const items = browseSelectedDetails?.items ?? [];
+    const printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.width = "0";
+    printFrame.style.height = "0";
+    printFrame.style.border = "0";
+    printFrame.setAttribute("aria-hidden", "true");
+    document.body.appendChild(printFrame);
+
+    const cleanup = () => {
+      if (printFrame.parentNode) {
+        printFrame.parentNode.removeChild(printFrame);
+      }
+    };
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${report.title} - Report</title>
+          <style>
+            @page { size: A4; margin: 18mm; }
+            body { font-family: Arial, sans-serif; color: #0f172a; }
+            .brand { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+            .brand h1 { margin: 0; font-size: 24px; }
+            .brand p { margin: 4px 0 0; color: #475569; font-size: 12px; }
+            .meta { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; margin-bottom: 18px; font-size: 12px; }
+            .meta div { padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+            table { width:100%; border-collapse: collapse; font-size: 11px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #f8fafc; }
+            .status { font-weight: 700; text-transform: uppercase; }
+          </style>
+        </head>
+        <body>
+          <div class="brand">
+            <div>
+              <h1>Spendly</h1>
+              <p>${orgName}</p>
+            </div>
+            <div style="text-align:right">
+              <div class="status">${report.status}</div>
+              <p>Generated ${new Date().toLocaleString("en-IN")}</p>
+            </div>
+          </div>
+
+            <div class="meta">
+            <div><strong>Report ID:</strong> ${report.id}</div>
+            <div><strong>Total Amount:</strong> ${formatMoney(report.totalAmount)}</div>
+            <div><strong>Title:</strong> ${report.title}</div>
+            <div><strong>Period:</strong> ${(report.periodStart || "-") + " to " + (report.periodEnd || "-")}</div>
+            <div><strong>Description:</strong> ${report.description || "-"}</div>
+            <div><strong>Rejection Reason:</strong> ${report.rejectionReason || "-"}</div>
+            <div><strong>Creator:</strong> ${report.creatorName || "-"}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Receipt</th>
+                <th>Vendor</th>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Uploaded By</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items
+                .map(
+                  (item) => `
+                    <tr>
+                      <td>${item.receiptId}</td>
+                      <td>${item.vendor ?? ""}</td>
+                      <td>${formatMoney(toReportAmount(item.amount))}</td>
+                      <td>${item.category ?? ""}</td>
+                      <td>${report.status}</td>
+                      <td>${item.uploadedByName ?? ""} ${item.uploadedById ? `(${item.uploadedById})` : ""}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+        </body>
+      </html>
+    `;
+
+    const onLoad = () => {
+      const frameWindow = printFrame.contentWindow;
+      if (!frameWindow) {
+        cleanup();
+        return;
+      }
+
+      const frameDocument = frameWindow.document;
+      frameDocument.open();
+      frameDocument.write(html);
+      frameDocument.close();
+
+      frameWindow.onafterprint = () => {
+        cleanup();
+      };
+
+      setTimeout(() => {
+        try {
+          frameWindow.focus();
+          frameWindow.print();
+        } catch {
+          cleanup();
+        }
+      }, 300);
+    };
+
+    printFrame.onload = onLoad;
+    printFrame.src = "about:blank";
+  }, [browseSelectedDetails, orgName]);
+
+  useEffect(() => {
+    if (workspaceMode !== "reports") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadReports = async () => {
+      setBrowseIsLoading(true);
+      setBrowseError(null);
+      try {
+        await fetchBrowseReportsPage(0, false);
+      } catch (err) {
+        if (!cancelled) {
+          setBrowseError(
+            err instanceof Error ? err.message : "Failed to load reports",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setBrowseIsLoading(false);
+        }
+      }
+    };
+
+    void loadReports();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchBrowseReportsPage, browseStatus, workspaceMode]);
+
+  useEffect(() => {
+    if (workspaceMode !== "reports" || !browseSelectedReportId) {
+      return;
+    }
+
+    void loadBrowseReportDetails(browseSelectedReportId);
+  }, [browseSelectedReportId, loadBrowseReportDetails, workspaceMode]);
+
+  const handleBrowseReportsScroll = useCallback(() => {
+    const container = browseReportListRef.current;
+    if (
+      !container ||
+      browseIsLoadingMore ||
+      browseIsLoading ||
+      !browseHasMore
+    ) {
+      return;
+    }
+
+    const threshold = 120;
+    const nearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <=
+      threshold;
+
+    if (nearBottom) {
+      setBrowseIsLoadingMore(true);
+      void fetchBrowseReportsPage(browseOffset, true)
+        .catch((err) => {
+          setBrowseError(
+            err instanceof Error ? err.message : "Failed to load reports",
+          );
+        })
+        .finally(() => {
+          setBrowseIsLoadingMore(false);
+        });
+    }
+  }, [
+    browseHasMore,
+    browseIsLoading,
+    browseIsLoadingMore,
+    browseOffset,
+    fetchBrowseReportsPage,
+  ]);
 
   const reportReceiptItems = useMemo(
     () => receiptsAvailable.filter((r) => reportItems.includes(r.id)),
@@ -566,7 +1073,51 @@ export function ExpenseReportWorkspace({
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+              Reports workspace
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Switch between creating a new report and browsing all reports.
+            </p>
+          </div>
+
+          
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode("create")}
+              className={cn(
+                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                workspaceMode === "create"
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-600 hover:bg-slate-50",
+              )}
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode("reports")}
+              className={cn(
+                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                workspaceMode === "reports"
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-600 hover:bg-slate-50",
+              )}
+            >
+              View all reports
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "grid gap-6 lg:grid-cols-[1fr_1.5fr]",
+            workspaceMode === "create" ? "" : "hidden",
+          )}
+        >
           {/* Left: Report List */}
           <div className="space-y-4">
             <div>
@@ -592,9 +1143,9 @@ export function ExpenseReportWorkspace({
                 {filteredReports.length === 0 ? (
                   <p className="text-sm text-slate-500 p-3">No reports found</p>
                 ) : (
-                  filteredReports.map((report) => (
+                  filteredReports.map((report, index) => (
                     <button
-                      key={report.id}
+                      key={report.id || `report-${index}-${report.title}`}
                       onClick={() => {
                         void handleSelectReport(report.id);
                       }}
@@ -820,6 +1371,312 @@ export function ExpenseReportWorkspace({
             )}
           </div>
         </div>
+
+        {workspaceMode === "reports" ? (
+          <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+            <div className="space-y-4">
+             
+ <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
+            All Reports
+          </p>
+
+              <div className="flex gap-2">
+                <select
+                  value={browseStatus}
+                  onChange={(event) => {
+                    setBrowseStatus(event.target.value as "all" | ReportStatus);
+                    setBrowseOffset(0);
+                    setBrowseReports([]);
+                    setBrowseSelectedReportId(null);
+                    setBrowseSelectedDetails(null);
+                    setBrowseHasMore(true);
+                  }}
+                  className="text-sm border border-slate-300 rounded-lg px-3 py-2"
+                >
+                  {statusOptions.map((opt) => (
+                    <option key={`browse-${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div
+                ref={browseReportListRef}
+                onScroll={handleBrowseReportsScroll}
+                className="max-h-[68vh] space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+              >
+                {browseIsLoading ? (
+                  <p className="py-8 text-center text-sm text-slate-500">
+                    Loading reports...
+                  </p>
+                ) : browseError ? (
+                  <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                    {browseError}
+                  </p>
+                ) : browseReports.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-slate-500">
+                    No reports found.
+                  </p>
+                ) : (
+                  browseReports.map((report, index) => (
+                    <button
+                      key={
+                        report.id || `browse-report-${index}-${report.title}`
+                      }
+                      type="button"
+                      onClick={() => {
+                        void loadBrowseReportDetails(report.id);
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border p-4 text-left transition-colors",
+                        browseSelectedReportId === report.id
+                          ? "border-slate-900 bg-slate-950 text-white"
+                          : "border-slate-200 bg-white hover:bg-slate-50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-sm">{report.title}</p>
+                          <p
+                            className={cn(
+                              "mt-1 text-xs",
+                              browseSelectedReportId === report.id
+                                ? "text-slate-300"
+                                : "text-slate-500",
+                            )}
+                          >
+                            {formatMoney(report.totalAmount)} · Submitted{" "}
+                            {formatDateTime(report.createdAt)}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "inline-block rounded-full px-2 py-1 text-[11px] font-medium",
+                            getStatusBadgeColor(report.status),
+                            browseSelectedReportId === report.id
+                              ? "bg-white/10 text-white"
+                              : "",
+                          )}
+                        >
+                          {report.status}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
+
+                {browseIsLoadingMore ? (
+                  <p className="py-2 text-center text-xs text-slate-500">
+                    Loading more reports...
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-slate-100">
+                <div>
+                  <CardTitle className="text-lg text-slate-950">
+                    {browseSelectedDetails?.report?.title ||
+                      browseSelectedReport?.title ||
+                      "Report details"}
+                  </CardTitle>
+                  <CardDescription>
+                    {browseSelectedDetails?.report?.status ||
+                      browseSelectedReport?.status ||
+                      "Select a report to view its items, export, and print."}
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={printSelectedReportPdf}
+                    disabled={!browseSelectedDetails?.report}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Print PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportSelectedReportCsv}
+                    disabled={!browseSelectedDetails?.report}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-slate-700">
+                    Import report CSV
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(e) =>
+                        handleValidateCsvFile(e.target.files?.[0] ?? null)
+                      }
+                      className="text-sm"
+                    />
+                    {csvValidating ? (
+                      <span className="text-sm text-slate-500">
+                        Validating...
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {csvValidationResult ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <p className="font-medium">Validation summary</p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Reports found: {csvValidationResult.reportsFound ?? 0} ·
+                        Receipts: {csvValidationResult.receiptsFound ?? 0}
+                      </p>
+                      {csvValidationResult.errors &&
+                      csvValidationResult.errors.length > 0 ? (
+                        <div className="mt-2 text-xs text-rose-700">
+                          <p className="font-medium">Errors</p>
+                          <ul className="list-disc pl-5 mt-1">
+                            {csvValidationResult.errors
+                              .slice(0, 10)
+                              .map((err: string, idx: number) => (
+                                <li key={idx}>{err}</li>
+                              ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-emerald-700">
+                          No validation errors found.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                {browseIsLoadingDetails ? (
+                  <p className="text-sm text-slate-500">
+                    Loading report details...
+                  </p>
+                ) : browseSelectedDetails?.report ? (
+                  <>
+                    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          Total
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-slate-950">
+                          {formatMoney(
+                            browseSelectedDetails.report.totalAmount,
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          Status
+                        </p>
+                        <p
+                          className={cn(
+                            "mt-1 inline-flex rounded-full px-2 py-1 text-xs font-medium",
+                            getStatusBadgeColor(
+                              browseSelectedDetails.report.status,
+                            ),
+                          )}
+                        >
+                          {browseSelectedDetails.report.status}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          Created
+                        </p>
+                        <p className="mt-1">
+                          {formatDateTime(
+                            browseSelectedDetails.report.createdAt,
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          Creator
+                        </p>
+                        <p className="mt-1">
+                          {browseSelectedDetails.report.creatorName ||
+                            "Unknown"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
+                      {browseSelectedDetails.items.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                          No items found for this report.
+                        </p>
+                      ) : (
+                        browseSelectedDetails.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="rounded-xl border border-slate-200 p-4"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="font-medium text-slate-900">
+                                  {item.vendor ?? "Unknown vendor"}
+                                </p>
+                                <p className="mt-1 text-sm text-slate-600">
+                                  ₹{formatMoney(toReportAmount(item.amount))} ·{" "}
+                                  {item.category ?? "uncategorized"}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Receipt: {item.receiptId} · Date:{" "}
+                                  {item.receiptDate}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Uploaded by:{" "}
+                                  {item.uploadedByName ?? "Unknown"} (
+                                  {item.uploadedByRole ?? "unknown"}) · ID:{" "}
+                                  {item.uploadedById ?? "—"}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                {item.fileUrl ? (
+                                  <a
+                                    href={item.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                                  >
+                                    Open receipt
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
+                                    Receipt unavailable
+                                  </span>
+                                )}
+                                <div className="text-xs text-slate-500">
+                                  {item.mimeType ?? ""}{" "}
+                                  {item.vendorGstin
+                                    ? `· GSTIN ${item.vendorGstin}`
+                                    : ""}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                    Select a report from the left to see details, export CSV, or
+                    print as PDF.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
       </section>
 
       {isReceiptDialogOpen ? (
@@ -831,7 +1688,8 @@ export function ExpenseReportWorkspace({
                   Add Verified Receipts
                 </h3>
                 <p className="mt-1 text-sm text-slate-600">
-                  Filter by date range, check receipt notes, and add receipts to this report.
+                  Filter by date range, check receipt notes, and add receipts to
+                  this report.
                 </p>
               </div>
               <button
@@ -887,11 +1745,10 @@ export function ExpenseReportWorkspace({
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-slate-900">
-                              {receipt.vendor} • {formatMoney(receipt.amount, receipt.currency)}
+                              {receipt.vendor} •{" "}
+                              {formatMoney(receipt.amount, receipt.currency)}
                             </p>
-                            <p className="mt-1 text-xs text-slate-600">
-                              {receipt.receiptId} • Date: {receipt.receiptDate} • Category: {receipt.category}
-                            </p>
+
                             <p className="mt-2 text-sm text-slate-700">
                               {receipt.description || "No note provided."}
                             </p>

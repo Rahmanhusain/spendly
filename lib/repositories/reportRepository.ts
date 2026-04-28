@@ -1,5 +1,23 @@
 import { query, transaction } from "@/lib/db/client";
 
+function toPublicReceiptUrl(filePath: string | null): string | null {
+  if (!filePath) {
+    return null;
+  }
+
+  const normalized = filePath.replace(/\\/g, "/");
+
+  if (normalized.startsWith("./public/")) {
+    return normalized.slice("./public".length);
+  }
+
+  if (normalized.startsWith("public/")) {
+    return `/${normalized.slice("public/".length)}`;
+  }
+
+  return normalized.startsWith("/") ? normalized : `/${normalized}`;
+}
+
 export type ReportStatus =
   | "draft"
   | "submitted"
@@ -12,6 +30,7 @@ export type ExpenseReport = {
   id: string;
   tenantId: string;
   userId: string;
+  creatorName?: string | null;
   title: string;
   description: string | null;
   periodStart: string | null;
@@ -100,15 +119,17 @@ export async function getReportById(
 ): Promise<ExpenseReport | null> {
   const result = await query<ExpenseReport>(
     `SELECT 
-      id, tenant_id as "tenantId", user_id as "userId",
-      title, description, period_start as "periodStart",
-      period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"
-    FROM expense_reports
-    WHERE id = $1 AND tenant_id = $2`,
+      er.id, er.tenant_id as "tenantId", er.user_id as "userId",
+      COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as "creatorName",
+      er.title, er.description, er.period_start as "periodStart",
+      er.period_end as "periodEnd", er.total_amount as "totalAmount",
+      er.status, er.approver_id as "approverId", er.submitted_at as "submittedAt",
+      er.approved_at as "approvedAt", er.rejected_at as "rejectedAt",
+      er.paid_at as "paidAt", er.rejection_reason as "rejectionReason",
+      er.created_at as "createdAt", er.updated_at as "updatedAt"
+    FROM expense_reports er
+    LEFT JOIN users u ON u.id = er.user_id
+    WHERE er.id = $1 AND er.tenant_id = $2`,
     [reportId, tenantId],
   );
 
@@ -130,36 +151,38 @@ export async function getReportsForTenant(
   const limit = Math.min(Math.max(filters?.limit || 25, 1), 200);
   const offset = Math.max(filters?.offset || 0, 0);
 
-  let whereClause = "WHERE tenant_id = $1";
+  let whereClause = "WHERE er.tenant_id = $1";
   const params: (string | number)[] = [tenantId];
 
   if (filters?.userId) {
-    whereClause += ` AND user_id = $${params.length + 1}`;
+    whereClause += ` AND er.user_id = $${params.length + 1}`;
     params.push(filters.userId);
   }
 
   if (filters?.status && filters.status !== "all") {
-    whereClause += ` AND status = $${params.length + 1}`;
+    whereClause += ` AND er.status = $${params.length + 1}`;
     params.push(filters.status);
   }
 
   const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) as count FROM expense_reports ${whereClause}`,
+    `SELECT COUNT(*) as count FROM expense_reports er ${whereClause}`,
     params,
   );
 
   const listResult = await query<ExpenseReport>(
     `SELECT 
-      id, tenant_id as "tenantId", user_id as "userId",
-      title, description, period_start as "periodStart",
-      period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"
-    FROM expense_reports
+      er.id, er.tenant_id as "tenantId", er.user_id as "userId",
+      COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as "creatorName",
+      er.title, er.description, er.period_start as "periodStart",
+      er.period_end as "periodEnd", er.total_amount as "totalAmount",
+      er.status, er.approver_id as "approverId", er.submitted_at as "submittedAt",
+      er.approved_at as "approvedAt", er.rejected_at as "rejectedAt",
+      er.paid_at as "paidAt", er.rejection_reason as "rejectionReason",
+      er.created_at as "createdAt", er.updated_at as "updatedAt"
+    FROM expense_reports er
+    LEFT JOIN users u ON u.id = er.user_id
     ${whereClause}
-    ORDER BY created_at DESC
+    ORDER BY er.created_at DESC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limit, offset],
   );
@@ -376,6 +399,16 @@ export async function getReportItemsWithDetails(
     category: string;
     receiptDate: string;
     uploadedAt: string;
+    uploadedById: string | null;
+    uploadedByName: string | null;
+    uploadedByRole: string | null;
+    filePath: string | null;
+    fileUrl: string | null;
+    fileName: string | null;
+    mimeType: string | null;
+    vendorGstin: string | null;
+    isDuplicate: boolean;
+    duplicateOf: string | null;
   }>(
     `SELECT 
       ri.id,
@@ -384,15 +417,28 @@ export async function getReportItemsWithDetails(
       r.amount,
       r.category,
       r.receipt_date as "receiptDate",
-      r.created_at::text as "uploadedAt"
+      r.created_at::text as "uploadedAt",
+      r.user_id::text as "uploadedById",
+      COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as "uploadedByName",
+      u.role as "uploadedByRole",
+      r.file_path as "filePath",
+      r.file_name as "fileName",
+      r.mime_type as "mimeType",
+      r.vendor_gstin as "vendorGstin",
+      r.is_duplicate as "isDuplicate",
+      r.duplicate_of as "duplicateOf"
     FROM expense_report_items ri
     JOIN receipts r ON ri.receipt_id = r.id
+    LEFT JOIN users u ON r.user_id = u.id
     WHERE ri.report_id = $1 AND ri.tenant_id = $2
     ORDER BY ri.created_at ASC`,
     [reportId, tenantId],
   );
 
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    fileUrl: toPublicReceiptUrl(row.filePath),
+  }));
 }
 
 /**

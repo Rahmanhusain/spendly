@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, ShieldCheck, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -26,6 +26,7 @@ type Approval = {
 type Report = {
   id: string;
   title: string;
+  description?: string | null;
   status: string;
   totalAmount: number;
   rejectionReason: string | null;
@@ -34,6 +35,10 @@ type Report = {
 type ApprovalListItem = {
   approval: Approval;
   report: Report | null;
+  reportCreator?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 type ApprovalsApiResponse = {
@@ -66,6 +71,14 @@ function formatDateTime(value: string) {
   });
 }
 
+function formatItemAmount(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "0.00";
+  }
+  return numeric.toFixed(2);
+}
+
 export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
   const [items, setItems] = useState<ApprovalListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +87,27 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
     kind: "idle" | "success" | "error";
     message: string;
   }>({ kind: "idle", message: "" });
+  const [selectedReportDetails, setSelectedReportDetails] = useState<{
+    report: Report | null;
+    items: Array<{
+      id: string;
+      receiptId: string;
+      vendor: string | null;
+      amount: number | string;
+      category: string | null;
+      receiptDate: string;
+      uploadedAt: string;
+      uploadedById?: string | null;
+      uploadedByName?: string | null;
+      uploadedByRole?: string | null;
+      fileUrl?: string | null;
+      filePath?: string | null;
+      fileName?: string | null;
+      mimeType?: string | null;
+      vendorGstin?: string | null;
+    }>;
+  } | null>(null);
+  const [showReportPanel, setShowReportPanel] = useState(false);
   const [activeAction, setActiveAction] = useState<{
     approvalId: string;
     kind: "approve" | "reject";
@@ -137,7 +171,10 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
     };
   }, [canApprove]);
 
-  const runDecision = async (item: ApprovalListItem, decision: "approve" | "reject") => {
+  const runDecision = async (
+    item: ApprovalListItem,
+    decision: "approve" | "reject",
+  ) => {
     if (!canApprove) {
       return;
     }
@@ -203,7 +240,7 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+      <section className="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
@@ -275,7 +312,14 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
                       item.report?.totalAmount !== undefined
                         ? formatMoney(item.report.totalAmount)
                         : "Amount unavailable";
-                    const reasonDraft = rejectReasonById[item.approval.id] ?? "";
+                    const creatorName =
+                      item.reportCreator?.name || "Unknown user";
+                    const creatorId =
+                      item.reportCreator?.id ||
+                      ((item.report as { userId?: string } | null)?.userId ??
+                        "Unknown");
+                    const reasonDraft =
+                      rejectReasonById[item.approval.id] ?? "";
                     const isApproving =
                       activeAction?.approvalId === item.approval.id &&
                       activeAction.kind === "approve";
@@ -292,10 +336,16 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="font-medium text-slate-950">{reportTitle}</p>
+                            <p className="font-medium text-slate-950">
+                              {reportTitle}
+                            </p>
                             <p className="mt-1 text-sm text-slate-600">
-                              Submitted {formatDateTime(item.approval.createdAt)} ·{" "}
+                              Submitted{" "}
+                              {formatDateTime(item.approval.createdAt)} ·{" "}
                               {reportAmount}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Created by: {creatorName} · User ID: {creatorId}
                             </p>
                           </div>
                           <Badge className="border-slate-200 bg-slate-50 text-slate-700">
@@ -322,6 +372,44 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
                         </label>
 
                         <div className="mt-3 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              // fetch report details and open side panel
+                              try {
+                                const resp = await fetch(
+                                  `/api/reports/${item.approval.reportId}`,
+                                  {
+                                    method: "GET",
+                                    credentials: "include",
+                                  },
+                                );
+                                const data = await resp.json();
+                                if (!resp.ok)
+                                  throw new Error(
+                                    data.error ||
+                                      "Failed to load report details",
+                                  );
+                                setSelectedReportDetails({
+                                  report: data.report ?? null,
+                                  items: data.items ?? [],
+                                });
+                                setShowReportPanel(true);
+                              } catch (err) {
+                                setFeedback({
+                                  kind: "error",
+                                  message:
+                                    err instanceof Error
+                                      ? err.message
+                                      : String(err),
+                                });
+                              }
+                            }}
+                            disabled={isBusy}
+                            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            View report details
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -353,27 +441,98 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
 
           <div className="space-y-4">
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg text-slate-950">
-                  Decision helpers
-                </CardTitle>
-                <CardDescription>
-                  Use policy signals to move reports quickly.
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg text-slate-950">
+                      Report details
+                    </CardTitle>
+                    <CardDescription>
+                      {showReportPanel && selectedReportDetails
+                        ? "Review receipt-level details while keeping queue visible."
+                        : "Select a report from Queue using View report details."}
+                    </CardDescription>
+                  </div>
+                  {showReportPanel ? (
+                    <button
+                      type="button"
+                      className="text-sm text-slate-500"
+                      onClick={() => setShowReportPanel(false)}
+                    >
+                      Close
+                    </button>
+                  ) : null}
+                </div>
+                {showReportPanel && selectedReportDetails ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="font-medium text-slate-900">
+                      {selectedReportDetails.report?.title ?? "Report details"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {selectedReportDetails.report?.description ||
+                        "No description provided."}
+                    </p>
+                  </div>
+                ) : null}
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-600">
-                <p className="inline-flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Submitted
-                  reports appear in this queue.
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-amber-600" /> Oldest submitted
-                  entries are reviewed first.
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-slate-900" /> Approve or
-                  reject from one place.
-                </p>
+              <CardContent>
+                {!showReportPanel || !selectedReportDetails ? (
+                  <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                    Details will appear here on the right side of the queue.
+                  </p>
+                ) : (
+                  <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-1">
+                    {selectedReportDetails.items.map((it) => (
+                      <div
+                        key={it.id}
+                        className="rounded-lg border border-slate-200 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {it.vendor ?? "Unknown vendor"}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              ₹{formatItemAmount(it.amount)} ·{" "}
+                              {it.category ?? "uncategorized"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Receipt date: {it.receiptDate} · Uploaded:{" "}
+                              {new Date(it.uploadedAt).toLocaleString()}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Uploaded by: {it.uploadedByName ?? "Unknown"} (
+                              {it.uploadedByRole ?? "unknown"}) · ID:{" "}
+                              {it.uploadedById ?? "—"}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            {it.fileUrl ? (
+                              <a
+                                href={it.fileUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                              >
+                                Open receipt
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
+                                Receipt unavailable
+                              </span>
+                            )}
+                            <div className="text-xs text-slate-500">
+                              {it.mimeType ?? ""}{" "}
+                              {it.vendorGstin
+                                ? `· GSTIN ${it.vendorGstin}`
+                                : ""}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

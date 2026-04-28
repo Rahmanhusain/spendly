@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import { getPendingApprovalsForUser } from "@/lib/repositories/approvalRepository";
 import { getReportById } from "@/lib/repositories/reportRepository";
+import { query } from "@/lib/db/client";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -55,9 +56,35 @@ export async function GET(request: Request) {
           authContext!.tenantId,
           approval.reportId,
         );
+
+        let reportCreator: {
+          id: string;
+          name: string;
+        } | null = null;
+
+        if (report?.userId) {
+          const creatorResult = await query<{
+            id: string;
+            name: string;
+          }>(
+            `SELECT
+              u.id::text as id,
+              COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as name
+             FROM users u
+             WHERE u.id = $1 AND u.tenant_id = $2
+             LIMIT 1`,
+            [report.userId, authContext!.tenantId],
+          );
+
+          if (creatorResult.rows[0]) {
+            reportCreator = creatorResult.rows[0];
+          }
+        }
+
         return {
           approval,
           report: report || null,
+          reportCreator,
         };
       }),
     );

@@ -15,6 +15,27 @@ type WorkspaceTopNavProps = {
   userLabel: string;
 };
 
+type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  relatedType: string | null;
+  relatedId: string | null;
+  createdAt: string;
+};
+
+type NotificationsResponse = {
+  ok: boolean;
+  data?: {
+    notifications: NotificationItem[];
+    unreadCount: number;
+  };
+};
+
+const MINI_TOAST_HIDE_AFTER_MS = 5000;
+const MINI_TOAST_EXIT_MS = 300;
+
 export function WorkspaceTopNav({
   orgName,
   tenantId,
@@ -22,7 +43,21 @@ export function WorkspaceTopNav({
   userLabel,
 }: WorkspaceTopNavProps) {
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationsMenuRef = useRef<HTMLDivElement | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showMiniToast, setShowMiniToast] = useState(false);
+  const [isToastExiting, setIsToastExiting] = useState(false);
+
+  const dismissMiniToast = () => {
+    setIsToastExiting(true);
+    window.setTimeout(() => {
+      setShowMiniToast(false);
+      setIsToastExiting(false);
+    }, MINI_TOAST_EXIT_MS);
+  };
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -31,6 +66,13 @@ export function WorkspaceTopNav({
         !profileMenuRef.current.contains(event.target as Node)
       ) {
         setIsProfileMenuOpen(false);
+      }
+
+      if (
+        notificationsMenuRef.current &&
+        !notificationsMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationsOpen(false);
       }
     };
 
@@ -49,23 +91,104 @@ export function WorkspaceTopNav({
     };
   }, []);
 
-  const notifications = [
-    {
-      title: "Approval pending",
-      detail: "3 reports are waiting for manager review.",
-      time: "2 min ago",
-    },
-    {
-      title: "Expense policy alert",
-      detail: "2 new policy violations were flagged today.",
-      time: "15 min ago",
-    },
-    {
-      title: "Invite accepted",
-      detail: "A new teammate joined your workspace.",
-      time: "1 hour ago",
-    },
-  ];
+  useEffect(() => {
+    let active = true;
+
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch("/api/notifications?limit=10&offset=0", {
+          method: "GET",
+          credentials: "include",
+        });
+        const payload = (await response.json()) as NotificationsResponse;
+        if (!response.ok || !payload.ok || !payload.data) {
+          return;
+        }
+        if (!active) {
+          return;
+        }
+
+        setNotifications(payload.data.notifications);
+        setUnreadCount(payload.data.unreadCount);
+
+        const hasRejectedUnread = payload.data.notifications.some(
+          (n) => !n.isRead && /reject/i.test(`${n.title} ${n.message}`),
+        );
+
+        if (hasRejectedUnread && !isNotificationsOpen) {
+          setShowMiniToast(true);
+          setIsToastExiting(false);
+        }
+      } catch {
+        // Do not block layout for notification load issues.
+      }
+    };
+
+    void loadNotifications();
+    const timer = window.setInterval(() => {
+      void loadNotifications();
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isNotificationsOpen]);
+
+  useEffect(() => {
+    if (!showMiniToast) {
+      return;
+    }
+
+    const autoHideTimer = window.setTimeout(() => {
+      dismissMiniToast();
+    }, MINI_TOAST_HIDE_AFTER_MS);
+
+    return () => {
+      window.clearTimeout(autoHideTimer);
+    };
+  }, [showMiniToast]);
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ action: "mark_all_read" }),
+      });
+
+      setNotifications((current) =>
+        current.map((n) => ({ ...n, isRead: true })),
+      );
+      setUnreadCount(0);
+      setShowMiniToast(false);
+      setIsToastExiting(false);
+    } catch {
+      // Silent fail, user can still use notifications panel.
+    }
+  };
+
+  const formatNotificationTime = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  const handleOpenNotifications = async () => {
+    const nextOpen = !isNotificationsOpen;
+    setIsNotificationsOpen(nextOpen);
+    if (nextOpen && unreadCount > 0) {
+      await markAllNotificationsRead();
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white">
@@ -85,41 +208,73 @@ export function WorkspaceTopNav({
         </Link>
 
         <div className="flex items-center gap-2">
-          <details className="group relative">
-            <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
+          <div ref={notificationsMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                void handleOpenNotifications();
+              }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              aria-haspopup="menu"
+              aria-expanded={isNotificationsOpen}
+              aria-label="Open notifications"
+            >
               <Bell className="h-5 w-5" />
-            </summary>
+              {unreadCount > 0 ? (
+                <span className="absolute right-0 top-0 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
+            </button>
 
-            <div className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-950">
-                  Notifications
-                </p>
-                <Badge className="border-slate-200 bg-slate-50 text-slate-700">
-                  {notifications.length} new
-                </Badge>
-              </div>
+            {isNotificationsOpen ? (
+              <div className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-950">
+                    Notifications
+                  </p>
+                  <Badge className="border-slate-200 bg-slate-50 text-slate-700">
+                    {unreadCount} unread
+                  </Badge>
+                </div>
 
-              <div className="space-y-2">
-                {notifications.map((notification) => (
-                  <article
-                    key={notification.title}
-                    className="rounded-lg border border-slate-200 p-3"
+                {notifications.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-600">
+                    No notifications yet.
+                  </p>
+                ) : (
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {notifications.map((notification) => (
+                      <article
+                        key={notification.id}
+                        className="rounded-lg border border-slate-200 p-3"
+                      >
+                        <p className="text-sm font-medium text-slate-900">
+                          {notification.title}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                          {notification.message}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-400">
+                          {formatNotificationTime(notification.createdAt)}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <Link
+                    href="/workspace/notifications"
+                    className="text-xs font-medium text-slate-700 underline underline-offset-4"
+                    onClick={() => setIsNotificationsOpen(false)}
                   >
-                    <p className="text-sm font-medium text-slate-900">
-                      {notification.title}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">
-                      {notification.detail}
-                    </p>
-                    <p className="mt-2 text-xs text-slate-400">
-                      {notification.time}
-                    </p>
-                  </article>
-                ))}
+                    View all notifications
+                  </Link>
+                </div>
               </div>
-            </div>
-          </details>
+            ) : null}
+          </div>
 
           <div ref={profileMenuRef} className="relative">
             <button
@@ -187,6 +342,49 @@ export function WorkspaceTopNav({
           </div>
         </div>
       </div>
+
+      {showMiniToast ? (
+        <div
+          className={cn(
+            "fixed bottom-5 right-5 z-50 w-[min(92vw,360px)] rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-lg transition-all duration-300",
+            isToastExiting
+              ? "pointer-events-none translate-y-6 opacity-0"
+              : "translate-y-0 opacity-100",
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-rose-900">
+                Receipt rejected
+              </p>
+              <p className="mt-1 text-sm text-rose-800">See notification.</p>
+              <button
+                type="button"
+                className="mt-2 text-xs font-medium text-rose-900 underline underline-offset-4"
+                onClick={() => {
+                  setIsNotificationsOpen(true);
+                  dismissMiniToast();
+                  void markAllNotificationsRead();
+                }}
+              >
+                Open notifications
+              </button>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss notification"
+              className="text-rose-700"
+              onClick={() => {
+                dismissMiniToast();
+              }}
+            >
+              <span className="text-sm">×</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

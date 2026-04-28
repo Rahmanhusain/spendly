@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { getTenantById } from "@/lib/repositories/authRepository";
 import { getReportsForTenant } from "@/lib/repositories/reportRepository";
 import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
 import { ExpenseReportWorkspace } from "./expense-report-workspace";
@@ -13,7 +14,7 @@ export default async function CreateReportPage() {
 
   const pageSize = 25;
 
-  const [reports, receipts] = await Promise.all([
+  const [reports, receipts, tenant] = await Promise.all([
     getReportsForTenant(authContext.tenantId, {
       userId: authContext.role === "employee" ? authContext.userId : undefined,
       limit: pageSize,
@@ -23,6 +24,7 @@ export default async function CreateReportPage() {
       limit: 999,
       offset: 0,
     }),
+    getTenantById(authContext.tenantId),
   ]);
 
   return (
@@ -31,6 +33,7 @@ export default async function CreateReportPage() {
       initialReceiptsAvailable={receipts}
       initialHasMore={reports.reports.length < reports.total}
       authContext={authContext}
+      orgName={tenant?.name ?? "Your workspace"}
     />
   );
 }

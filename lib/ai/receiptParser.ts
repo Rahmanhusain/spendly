@@ -35,7 +35,9 @@ export type ParsedReceiptData = {
 function extractGstinFromText(text: string): string | null {
   if (!text || typeof text !== "string") return null;
   // GSTIN pattern: 2 digits state code + 10 char PAN + 1 entity + 1 checksum (15 total)
-  const match = text.toUpperCase().match(/([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}[A-Z0-9]{1})/);
+  const match = text
+    .toUpperCase()
+    .match(/([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}[A-Z0-9]{1})/);
   if (match) {
     return match[0].slice(0, 20).replace(/\s+/g, "");
   }

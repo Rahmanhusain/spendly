@@ -283,16 +283,14 @@ export async function findDuplicateReceiptCandidate(input: {
     params.push(input.vendorGstin);
   } else {
     // Fallback: receipt_date + amount (without GSTIN)
-    conditions = [
-      "tenant_id = $1",
-      "amount = $2",
-      "receipt_date = $3::date",
-    ];
+    conditions = ["tenant_id = $1", "amount = $2", "receipt_date = $3::date"];
   }
 
   // Optional: add receipt_time if available for more precise matching
   if (input.receiptTime) {
-    conditions.push(`COALESCE(parsed_data->>'receipt_time', '') = $${params.length + 1}`);
+    conditions.push(
+      `COALESCE(parsed_data->>'receipt_time', '') = $${params.length + 1}`,
+    );
     params.push(input.receiptTime);
   }
 
@@ -356,7 +354,10 @@ export async function findDuplicateReceiptCandidate(input: {
     fallbackSql += ` ORDER BY created_at DESC LIMIT 1`;
   }
 
-  const fallback = await query<DuplicateReceiptCandidate>(fallbackSql, fallbackParams);
+  const fallback = await query<DuplicateReceiptCandidate>(
+    fallbackSql,
+    fallbackParams,
+  );
   return fallback.rows[0] ?? null;
 }
 

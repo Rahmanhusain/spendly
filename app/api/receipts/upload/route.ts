@@ -395,13 +395,15 @@ export async function POST(request: Request) {
       requestId,
       duplicateFound: Boolean(duplicateCandidate),
       duplicateId: duplicateCandidate ? duplicateCandidate.id : null,
-      duplicateVendor: duplicateCandidate ? duplicateCandidate.vendor_name : null,
+      duplicateVendor: duplicateCandidate
+        ? duplicateCandidate.vendor_name
+        : null,
     });
 
     // Collect violations instead of early-exiting; allow both duplicate and policy checks to run
     const duplicateOfId = duplicateCandidate ? duplicateCandidate.id : null;
     const hasDuplicateWarning = duplicateCandidate && !allowDuplicateUpload;
-    
+
     if (duplicateOfId) {
       status = "needs_review";
     }
@@ -427,7 +429,10 @@ export async function POST(request: Request) {
     // If BOTH violations exist and neither is overridden, return combined error
     const hasPolicyWarning = policyValidation.violated && !allowPolicyOverride;
 
-    if ((hasDuplicateWarning || hasPolicyWarning) && (hasDuplicateWarning || hasPolicyWarning)) {
+    if (
+      (hasDuplicateWarning || hasPolicyWarning) &&
+      (hasDuplicateWarning || hasPolicyWarning)
+    ) {
       const errors: Record<string, unknown> = {};
       const errorCodes: string[] = [];
 
@@ -478,10 +483,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           error: {
-            code:
-              errorCodes.length > 1
-                ? "VALIDATION_FAILED"
-                : errorCodes[0],
+            code: errorCodes.length > 1 ? "VALIDATION_FAILED" : errorCodes[0],
             message:
               errorCodes.length > 1
                 ? "This receipt has both duplicate and policy violations."

@@ -194,19 +194,19 @@ export default function UploadReceiptPage() {
     if (response.status === 409) {
       const code = data.error?.code;
 
-        // Legacy duplicate-only response
-        if (code === "DUPLICATE_RECEIPT" && data.data?.duplicateOf) {
-          setPendingDuplicate(data.data.duplicateOf);
-          setShowDuplicateModal(true);
-          setPendingPolicyWarning(null);
-          setState({
-            kind: "error",
-            message:
-              data.error?.message ??
-              "Potential duplicate found. Review and confirm if you still want to upload.",
-          });
-          return;
-        }
+      // Legacy duplicate-only response
+      if (code === "DUPLICATE_RECEIPT" && data.data?.duplicateOf) {
+        setPendingDuplicate(data.data.duplicateOf);
+        setShowDuplicateModal(true);
+        setPendingPolicyWarning(null);
+        setState({
+          kind: "error",
+          message:
+            data.error?.message ??
+            "Potential duplicate found. Review and confirm if you still want to upload.",
+        });
+        return;
+      }
 
       // Legacy policy-only response
       if (code === "POLICY_OVERRIDE_REQUIRED") {
@@ -223,10 +223,12 @@ export default function UploadReceiptPage() {
 
       // Combined validation response
       if (code === "VALIDATION_FAILED") {
-        const details = (data.error as any)?.details as {
-          duplicate?: any;
-          policy?: { reasons: string[] };
-        } | undefined;
+        const details = (data.error as any)?.details as
+          | {
+              duplicate?: any;
+              policy?: { reasons: string[] };
+            }
+          | undefined;
 
         if (!details) {
           // fallback: treat as generic failure
@@ -238,12 +240,14 @@ export default function UploadReceiptPage() {
         }
 
         if (details.duplicate) {
-            setPendingDuplicate(details.duplicate.duplicateOf ?? details.duplicate);
-            setShowDuplicateModal(true);
-          } else {
-            setPendingDuplicate(null);
-            setShowDuplicateModal(false);
-          }
+          setPendingDuplicate(
+            details.duplicate.duplicateOf ?? details.duplicate,
+          );
+          setShowDuplicateModal(true);
+        } else {
+          setPendingDuplicate(null);
+          setShowDuplicateModal(false);
+        }
 
         if (details.policy) {
           setPendingPolicyWarning({ reasons: details.policy.reasons ?? [] });
