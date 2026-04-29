@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   ClipboardList,
-  FileText,
   Inbox,
   LayoutDashboard,
   MailPlus,
@@ -40,16 +39,10 @@ const navigationItems = [
     description: "Capture bills quickly",
   },
   {
-    label: "Create report",
-    href: "/workspace/create-report",
+    label: "Reports",
+    href: "/workspace/reports",
     icon: ClipboardList,
-    description: "Bundle expenses into reports",
-  },
-  {
-    label: "View approvals",
-    href: "/workspace/approvals",
-    icon: FileText,
-    description: "Track pending reviews",
+    description: "Track approvals & report progress",
   },
   {
     label: "View all receipts",

@@ -8,6 +8,7 @@ import {
   submitReport,
   deleteReport,
 } from "@/lib/repositories/reportRepository";
+import { hasReportAccess } from "@/lib/repositories/reportAccessRepository";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -36,21 +37,19 @@ export async function GET(
     const report = await getReportById(authContext!.tenantId, reportId);
 
     if (!report) {
-      return NextResponse.json(
-        { error: "Report not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
-    // Check authorization: employees can only view their own reports
-    if (
-      authContext!.role === "employee" &&
-      report.userId !== authContext!.userId
-    ) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 },
-      );
+    // Check authorization with access control
+    const hasAccess = await hasReportAccess(
+      authContext!.tenantId,
+      reportId,
+      authContext!.userId,
+      authContext!.role,
+    );
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const items = await getReportItemsWithDetails(
@@ -108,10 +107,7 @@ export async function PUT(
     const report = await getReportById(authContext!.tenantId, reportId);
 
     if (!report) {
-      return NextResponse.json(
-        { error: "Report not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // Authorization: only owner or admin can update
@@ -119,10 +115,7 @@ export async function PUT(
       authContext!.role === "employee" &&
       report.userId !== authContext!.userId
     ) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     // Can only update draft reports
@@ -179,10 +172,7 @@ export async function DELETE(
     const report = await getReportById(authContext!.tenantId, reportId);
 
     if (!report) {
-      return NextResponse.json(
-        { error: "Report not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // Authorization
@@ -190,10 +180,7 @@ export async function DELETE(
       authContext!.role === "employee" &&
       report.userId !== authContext!.userId
     ) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     // Can only delete draft reports
@@ -211,10 +198,7 @@ export async function DELETE(
       reportId,
     });
 
-    return NextResponse.json(
-      { message: "Report deleted" },
-      { status: 200 },
-    );
+    return NextResponse.json({ message: "Report deleted" }, { status: 200 });
   } catch (error) {
     logger.error("Failed to delete report", {
       requestId,

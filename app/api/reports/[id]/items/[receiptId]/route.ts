@@ -5,6 +5,7 @@ import {
   getReportById,
   removeReceiptFromReport,
 } from "@/lib/repositories/reportRepository";
+import { createAuditLog } from "@/lib/repositories/auditRepository";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -44,7 +45,24 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    const oldTotalAmount = report.totalAmount;
+
     await removeReceiptFromReport(authContext!.tenantId, reportId, receiptId);
+
+    const updatedReport = await getReportById(authContext!.tenantId, reportId);
+    if (updatedReport) {
+      await createAuditLog(authContext!.tenantId, {
+        userId: authContext!.userId,
+        action: "receipt_removed",
+        resourceType: "expense_report",
+        resourceId: reportId,
+        details: {
+          receiptId,
+          oldTotalAmount,
+          newTotalAmount: updatedReport.totalAmount,
+        },
+      });
+    }
 
     logger.info("Receipt removed from report successfully", {
       requestId,

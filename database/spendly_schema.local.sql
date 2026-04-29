@@ -344,6 +344,19 @@ CREATE TRIGGER trg_approval_workflows_updated_at
 BEFORE UPDATE ON approval_workflows
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TABLE IF NOT EXISTS report_access_list (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  report_id UUID NOT NULL REFERENCES expense_reports(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  added_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (report_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_report_access_list_tenant_report ON report_access_list(tenant_id, report_id);
+CREATE INDEX IF NOT EXISTS idx_report_access_list_user ON report_access_list(tenant_id, user_id);
+
 CREATE TABLE IF NOT EXISTS report_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -352,6 +365,7 @@ CREATE TABLE IF NOT EXISTS report_comments (
   parent_comment_id UUID REFERENCES report_comments(id) ON DELETE CASCADE,
   author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   message TEXT NOT NULL,
+  mentioned_user_ids JSONB DEFAULT NULL,
   is_resolved BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

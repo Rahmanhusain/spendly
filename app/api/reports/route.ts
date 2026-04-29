@@ -4,7 +4,9 @@ import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import {
   createReport,
   getReportsForTenant,
+  type ReportStatus,
 } from "@/lib/repositories/reportRepository";
+import { createAuditLog } from "@/lib/repositories/auditRepository";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -49,6 +51,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // Basic validation for the story: ensure date range is consistent.
+    if (periodStart && periodEnd) {
+      const start = new Date(periodStart);
+      const end = new Date(periodEnd);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return NextResponse.json(
+          { error: "Invalid periodStart/periodEnd date format" },
+          { status: 400 },
+        );
+      }
+      if (end.getTime() < start.getTime()) {
+        return NextResponse.json(
+          { error: "periodEnd must be on or after periodStart" },
+          { status: 400 },
+        );
+      }
+    }
+
     const report = await createReport(
       authContext!.tenantId,
       authContext!.userId,
@@ -64,6 +84,19 @@ export async function POST(request: Request) {
       requestId,
       reportId: report.id,
       userId: authContext!.userId,
+    });
+
+    // Audit trail for report creation.
+    await createAuditLog(authContext!.tenantId, {
+      userId: authContext!.userId,
+      action: "report_created",
+      resourceType: "expense_report",
+      resourceId: report.id,
+      details: {
+        title: report.title,
+        periodStart: report.periodStart,
+        periodEnd: report.periodEnd,
+      },
     });
 
     return NextResponse.json(report, { status: 201 });
@@ -100,6 +133,20 @@ export async function GET(request: Request) {
     const limit = parseLimit(url.searchParams.get("limit"));
     const offset = parseOffset(url.searchParams.get("offset"));
     const status = url.searchParams.get("status") || "all";
+    const reportStatusOptions: ReportStatus[] = [
+      "draft",
+      "submitted",
+      "info_requested",
+      "approved",
+      "rejected",
+      "paid",
+    ];
+    const safeStatus: ReportStatus | "all" =
+      status === "all"
+        ? "all"
+        : reportStatusOptions.includes(status as ReportStatus)
+          ? (status as ReportStatus)
+          : "all";
 
     // Employees see only their reports, managers/admins see all
     const userId =
@@ -109,7 +156,7 @@ export async function GET(request: Request) {
       authContext!.tenantId,
       {
         userId,
-        status: status as any,
+        status: safeStatus,
         limit,
         offset,
       },

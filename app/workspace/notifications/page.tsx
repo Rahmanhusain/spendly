@@ -128,10 +128,10 @@ export default function NotificationsPage() {
                   {notification.relatedType === "expense_report" &&
                   notification.relatedId ? (
                     <Link
-                      href="/workspace/approvals"
+                      href={`/workspace/reports/${notification.relatedId}`}
                       className="text-xs font-medium text-slate-700 underline underline-offset-4"
                     >
-                      Open approvals
+                      Open report
                     </Link>
                   ) : null}
                 </div>

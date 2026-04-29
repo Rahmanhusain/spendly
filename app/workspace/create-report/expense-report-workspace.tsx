@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ReportActivityPanel } from "@/components/report-activity-panel";
 import { cn } from "@/lib/utils";
 import type {
   ExpenseReport,
@@ -38,6 +39,7 @@ interface ExpenseReportWorkspaceProps {
   initialHasMore: boolean;
   authContext: AuthContext;
   orgName: string;
+  tenantUsers: import("@/lib/repositories/authRepository").UserRecord[];
 }
 
 const statusOptions: Array<{ label: string; value: "all" | ReportStatus }> = [
@@ -90,6 +92,13 @@ type ReportDetailResponse = {
 
 type ReportBrowserReport = ExpenseReport;
 
+type CsvValidationResult = {
+  reportsFound?: number;
+  receiptsFound?: number;
+  errors?: string[];
+  [key: string]: unknown;
+};
+
 function formatMoney(amount: number, currency = "INR") {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -139,7 +148,9 @@ export function ExpenseReportWorkspace({
   initialReports,
   initialReceiptsAvailable,
   initialHasMore,
+  authContext,
   orgName,
+  tenantUsers,
 }: ExpenseReportWorkspaceProps) {
   const [reports, setReports] = useState<ExpenseReport[]>(initialReports);
   const [receiptsAvailable] = useState<ReceiptListItem[]>(
@@ -195,10 +206,10 @@ export function ExpenseReportWorkspace({
     Record<string, ReportDetailResponse>
   >({});
   const browseReportListRef = useRef<HTMLDivElement | null>(null);
-  const [csvValidationResult, setCsvValidationResult] = useState<any | null>(
-    null,
-  );
+  const [csvValidationResult, setCsvValidationResult] =
+    useState<CsvValidationResult | null>(null);
   const [csvValidating, setCsvValidating] = useState(false);
+  const isEmployee = authContext.role === "employee";
 
   const selectedReport = useMemo(
     () => reports.find((r) => r.id === selectedReportId) || null,
@@ -577,6 +588,7 @@ export function ExpenseReportWorkspace({
 
   const handleSubmitReport = useCallback(async () => {
     if (!selectedReportId) return;
+    const submittingFromStatus = selectedReport?.status;
 
     if (reportItems.length === 0) {
       setError("Report must have at least one receipt");
@@ -603,14 +615,18 @@ export function ExpenseReportWorkspace({
       setBrowseReports((prev) =>
         prev.map((r) => (r.id === selectedReportId ? updated : r)),
       );
-      setSuccess("Report submitted for approval");
+      setSuccess(
+        submittingFromStatus === "info_requested"
+          ? "Response submitted for approval"
+          : "Report submitted for approval",
+      );
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit report");
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedReportId, reportItems.length]);
+  }, [reportItems.length, selectedReport?.status, selectedReportId]);
 
   const handleDeleteDraftReport = useCallback(async () => {
     if (!selectedReport || selectedReport.status !== "draft") {
@@ -751,6 +767,34 @@ export function ExpenseReportWorkspace({
     [browseDetailsCache],
   );
 
+  const syncBrowseReport = useCallback((updatedReport: ExpenseReport) => {
+    setReports((current) =>
+      current.map((report) =>
+        report.id === updatedReport.id ? updatedReport : report,
+      ),
+    );
+    setBrowseReports((current) =>
+      current.map((report) =>
+        report.id === updatedReport.id ? updatedReport : report,
+      ),
+    );
+    setBrowseSelectedDetails((current) =>
+      current?.report?.id === updatedReport.id
+        ? {
+            ...current,
+            report: updatedReport,
+          }
+        : current,
+    );
+    setBrowseDetailsCache((current) => ({
+      ...current,
+      [updatedReport.id]: {
+        report: updatedReport,
+        items: current[updatedReport.id]?.items ?? [],
+      },
+    }));
+  }, []);
+
   const exportSelectedReportCsv = useCallback(() => {
     const report = browseSelectedDetails?.report;
     if (!report) return;
@@ -834,6 +878,31 @@ export function ExpenseReportWorkspace({
     if (!report) return;
 
     const items = browseSelectedDetails?.items ?? [];
+    const receiptDates = items
+      .map((item) => item.receiptDate)
+      .filter(Boolean)
+      .map((value) => new Date(value))
+      .filter((date) => !Number.isNaN(date.getTime()));
+    const derivedPeriodStart =
+      receiptDates.length > 0
+        ? receiptDates
+            .reduce((earliest, current) =>
+              current.getTime() < earliest.getTime() ? current : earliest,
+            )
+            .toISOString()
+            .split("T")[0]
+        : null;
+    const derivedPeriodEnd =
+      receiptDates.length > 0
+        ? receiptDates
+            .reduce((latest, current) =>
+              current.getTime() > latest.getTime() ? current : latest,
+            )
+            .toISOString()
+            .split("T")[0]
+        : null;
+    const periodStart = report.periodStart || derivedPeriodStart || "-";
+    const periodEnd = report.periodEnd || derivedPeriodEnd || "-";
     const printFrame = document.createElement("iframe");
     printFrame.style.position = "fixed";
     printFrame.style.right = "0";
@@ -886,7 +955,7 @@ export function ExpenseReportWorkspace({
             <div><strong>Report ID:</strong> ${report.id}</div>
             <div><strong>Total Amount:</strong> ${formatMoney(report.totalAmount)}</div>
             <div><strong>Title:</strong> ${report.title}</div>
-            <div><strong>Period:</strong> ${(report.periodStart || "-") + " to " + (report.periodEnd || "-")}</div>
+            <div><strong>Period:</strong> ${periodStart + " to " + periodEnd}</div>
             <div><strong>Description:</strong> ${report.description || "-"}</div>
             <div><strong>Rejection Reason:</strong> ${report.rejectionReason || "-"}</div>
             <div><strong>Creator:</strong> ${report.creatorName || "-"}</div>
@@ -992,6 +1061,7 @@ export function ExpenseReportWorkspace({
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadBrowseReportDetails(browseSelectedReportId);
   }, [browseSelectedReportId, loadBrowseReportDetails, workspaceMode]);
 
@@ -1079,11 +1149,10 @@ export function ExpenseReportWorkspace({
               Reports workspace
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              Switch between creating a new report and browsing all reports.
+              Switch between creating a new report and browsing your reports.
             </p>
           </div>
 
-          
           <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
             <button
               type="button"
@@ -1107,7 +1176,7 @@ export function ExpenseReportWorkspace({
                   : "text-slate-600 hover:bg-slate-50",
               )}
             >
-              View all reports
+              {isEmployee ? "View my reports" : "View all reports"}
             </button>
           </div>
         </div>
@@ -1122,13 +1191,20 @@ export function ExpenseReportWorkspace({
           <div className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 mb-3">
-                Your Reports
+                {isEmployee ? "My Reports" : "Your Reports"}
               </h2>
 
               <div className="flex gap-2 mb-4">
                 <select
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value as any)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (next === "all") {
+                      setSelectedStatus("all");
+                      return;
+                    }
+                    setSelectedStatus(next as ReportStatus);
+                  }}
                   className="text-sm border border-slate-300 rounded-lg px-3 py-2"
                 >
                   {statusOptions.map((opt) => (
@@ -1248,7 +1324,9 @@ export function ExpenseReportWorkspace({
                               <p className="text-sm font-medium text-slate-900">
                                 {formatMoney(item.amount)}
                               </p>
-                              {selectedReport.status === "draft" && (
+                              {(selectedReport.status === "draft" ||
+                                (selectedReport.status === "info_requested" &&
+                                  isEmployee)) && (
                                 <button
                                   onClick={() =>
                                     handleRemoveReceiptFromReport(item.id)
@@ -1280,7 +1358,9 @@ export function ExpenseReportWorkspace({
                       </p>
                     </div>
 
-                    {selectedReport.status === "draft" && (
+                    {(selectedReport.status === "draft" ||
+                      (selectedReport.status === "info_requested" &&
+                        isEmployee)) && (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-slate-600 mb-2">
                           Add receipts
@@ -1301,7 +1381,9 @@ export function ExpenseReportWorkspace({
                       </div>
                     )}
 
-                    {selectedReport.status === "draft" && (
+                    {(selectedReport.status === "draft" ||
+                      (selectedReport.status === "info_requested" &&
+                        isEmployee)) && (
                       <button
                         onClick={handleSubmitReport}
                         disabled={
@@ -1314,6 +1396,8 @@ export function ExpenseReportWorkspace({
                             <Loader className="h-4 w-4 animate-spin" />
                             Submitting...
                           </span>
+                        ) : selectedReport.status === "info_requested" ? (
+                          "Submit response"
                         ) : (
                           "Submit for Approval"
                         )}
@@ -1375,10 +1459,9 @@ export function ExpenseReportWorkspace({
         {workspaceMode === "reports" ? (
           <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
             <div className="space-y-4">
-             
- <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
-            All Reports
-          </p>
+              <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
+                {isEmployee ? "My Reports" : "All Reports"}
+              </p>
 
               <div className="flex gap-2">
                 <select
@@ -1666,6 +1749,14 @@ export function ExpenseReportWorkspace({
                         ))
                       )}
                     </div>
+
+                    <ReportActivityPanel
+                      report={browseSelectedDetails.report}
+                      reportItemsCount={browseSelectedDetails.items.length}
+                      authContext={authContext}
+                      tenantUsers={tenantUsers}
+                      onReportUpdated={syncBrowseReport}
+                    />
                   </>
                 ) : (
                   <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">

@@ -6,20 +6,26 @@ import {
 } from "@/lib/repositories/authRepository";
 import { getReportsForTenant } from "@/lib/repositories/reportRepository";
 import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
-import { ExpenseReportWorkspace } from "./expense-report-workspace";
+import { ReportsWorkspaceTabs } from "./reports-workspace-tabs";
 
-export default async function CreateReportPage() {
+export default async function ReportsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
     redirect("/login");
   }
 
+  const canApprove =
+    authContext.role === "manager" || authContext.role === "admin";
+
   const pageSize = 25;
 
-  const [reports, receipts, tenant, users] = await Promise.all([
+  const [tenant, users, reportsResult, receipts] = await Promise.all([
+    getTenantById(authContext.tenantId),
+    getUsersByTenant(authContext.tenantId),
     getReportsForTenant(authContext.tenantId, {
       userId: authContext.role === "employee" ? authContext.userId : undefined,
+      status: "all",
       limit: pageSize,
       offset: 0,
     }),
@@ -27,18 +33,17 @@ export default async function CreateReportPage() {
       limit: 999,
       offset: 0,
     }),
-    getTenantById(authContext.tenantId),
-    getUsersByTenant(authContext.tenantId),
   ]);
 
   return (
-    <ExpenseReportWorkspace
-      initialReports={reports.reports}
+    <ReportsWorkspaceTabs
+      initialReports={reportsResult.reports}
       initialReceiptsAvailable={receipts}
-      initialHasMore={reports.reports.length < reports.total}
+      initialHasMore={reportsResult.reports.length < reportsResult.total}
       authContext={authContext}
       orgName={tenant?.name ?? "Your workspace"}
       tenantUsers={users}
     />
   );
 }
+

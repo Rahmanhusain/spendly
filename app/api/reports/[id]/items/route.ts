@@ -5,6 +5,7 @@ import {
   getReportById,
   addReceiptToReport,
 } from "@/lib/repositories/reportRepository";
+import { createAuditLog } from "@/lib/repositories/auditRepository";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -52,11 +53,29 @@ export async function POST(
       );
     }
 
+    const oldTotalAmount = report.totalAmount;
+
     const item = await addReceiptToReport(
       authContext!.tenantId,
       reportId,
       receiptId,
     );
+
+    // Fetch updated totals to keep audit trail accurate.
+    const updatedReport = await getReportById(authContext!.tenantId, reportId);
+    if (updatedReport) {
+      await createAuditLog(authContext!.tenantId, {
+        userId: authContext!.userId,
+        action: "receipt_added",
+        resourceType: "expense_report",
+        resourceId: reportId,
+        details: {
+          receiptId,
+          oldTotalAmount,
+          newTotalAmount: updatedReport.totalAmount,
+        },
+      });
+    }
 
     logger.info("Receipt added to report successfully", {
       requestId,

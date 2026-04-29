@@ -13,6 +13,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  ReportActivityPanel,
+  type WorkspaceAuthContext,
+} from "@/components/report-activity-panel";
+import type { ExpenseReport } from "@/lib/repositories/reportRepository";
+import type { UserRecord } from "@/lib/repositories/authRepository";
 
 type ApprovalStatus = "submitted" | "approved" | "rejected" | "info_requested";
 
@@ -79,7 +85,15 @@ function formatItemAmount(value: unknown) {
   return numeric.toFixed(2);
 }
 
-export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
+export function ApprovalsWorkspace({
+  canApprove,
+  authContext,
+  tenantUsers,
+}: {
+  canApprove: boolean;
+  authContext: WorkspaceAuthContext;
+  tenantUsers: UserRecord[];
+}) {
   const [items, setItems] = useState<ApprovalListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +102,7 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
     message: string;
   }>({ kind: "idle", message: "" });
   const [selectedReportDetails, setSelectedReportDetails] = useState<{
-    report: Report | null;
+    report: ExpenseReport | null;
     items: Array<{
       id: string;
       receiptId: string;
@@ -118,8 +132,30 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
 
   const pendingCount = useMemo(() => items.length, [items.length]);
 
+  const handleReportUpdated = (updatedReport: ExpenseReport) => {
+    setItems((current) =>
+      current.filter((entry) => entry.approval.reportId !== updatedReport.id),
+    );
+
+    setSelectedReportDetails((current) => {
+      if (!current) {
+        return current;
+      }
+
+      if (current.report?.id !== updatedReport.id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        report: updatedReport,
+      };
+    });
+  };
+
   useEffect(() => {
     if (!canApprove) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoading(false);
       return;
     }
@@ -192,24 +228,29 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
     setActiveAction({ approvalId: item.approval.id, kind: decision });
 
     try {
+      const reportId = item.approval.reportId;
       const response = await fetch(
-        `/api/approvals/${item.approval.id}/${decision}`,
+        `/api/reports/${reportId}/${decision}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify({
-            comments: reason.length > 0 ? reason : undefined,
-          }),
+          body:
+            decision === "reject"
+              ? JSON.stringify({ reason })
+              : JSON.stringify({}),
         },
       );
 
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as ExpenseReport & { error?: string };
       if (!response.ok) {
         throw new Error(data.error || `Failed to ${decision} report.`);
       }
+
+      // Keep the shared report panel in sync if it's open for this report.
+      handleReportUpdated(data as ExpenseReport);
 
       setItems((current) =>
         current.filter((entry) => entry.approval.id !== item.approval.id),
@@ -481,63 +522,75 @@ export function ApprovalsWorkspace({ canApprove }: { canApprove: boolean }) {
                     Details will appear here on the right side of the queue.
                   </p>
                 ) : (
-                  <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-1">
-                    {selectedReportDetails.items.map((it) => (
-                      <div
-                        key={it.id}
-                        className="rounded-lg border border-slate-200 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-medium text-slate-900">
-                              {it.vendor ?? "Unknown vendor"}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-600">
-                              ₹{formatItemAmount(it.amount)} ·{" "}
-                              {it.category ?? "uncategorized"}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              Receipt date: {it.receiptDate} · Uploaded:{" "}
-                              {new Date(it.uploadedAt).toLocaleString()}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              Uploaded by: {it.uploadedByName ?? "Unknown"} (
-                              {it.uploadedByRole ?? "unknown"}) · ID:{" "}
-                              {it.uploadedById ?? "—"}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            {it.fileUrl ? (
-                              <a
-                                href={it.fileUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-                              >
-                                Open receipt
-                              </a>
-                            ) : (
-                              <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
-                                Receipt unavailable
-                              </span>
-                            )}
-                            <div className="text-xs text-slate-500">
-                              {it.mimeType ?? ""}{" "}
-                              {it.vendorGstin
-                                ? `· GSTIN ${it.vendorGstin}`
-                                : ""}
+                  <>
+                    <div className="max-h-[68vh] space-y-3 overflow-y-auto pr-1">
+                      {selectedReportDetails.items.map((it) => (
+                        <div
+                          key={it.id}
+                          className="rounded-lg border border-slate-200 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                {it.vendor ?? "Unknown vendor"}
+                              </p>
+                              <p className="mt-1 text-sm text-slate-600">
+                                ₹{formatItemAmount(it.amount)} ·{" "}
+                                {it.category ?? "uncategorized"}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Receipt date: {it.receiptDate} · Uploaded:{" "}
+                                {new Date(it.uploadedAt).toLocaleString()}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Uploaded by: {it.uploadedByName ?? "Unknown"} (
+                                {it.uploadedByRole ?? "unknown"}) · ID:{" "}
+                                {it.uploadedById ?? "—"}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              {it.fileUrl ? (
+                                <a
+                                  href={it.fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                                >
+                                  Open receipt
+                                </a>
+                              ) : (
+                                <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
+                                  Receipt unavailable
+                                </span>
+                              )}
+                              <div className="text-xs text-slate-500">
+                                {it.mimeType ?? ""}{" "}
+                                {it.vendorGstin
+                                  ? `· GSTIN ${it.vendorGstin}`
+                                  : ""}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+
+                    {selectedReportDetails.report ? (
+                      <ReportActivityPanel
+                        report={selectedReportDetails.report}
+                        reportItemsCount={selectedReportDetails.items.length}
+                        authContext={authContext}
+                        tenantUsers={tenantUsers}
+                        onReportUpdated={handleReportUpdated}
+                      />
+                    ) : null}
+                  </>
                 )}
               </CardContent>
             </Card>
 
             <Link
-              href="/workspace/create-report"
+              href="/workspace/reports"
               className="inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-medium text-white transition-colors hover:bg-slate-900"
             >
               Open expense reports

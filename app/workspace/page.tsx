@@ -148,7 +148,7 @@ export default async function WorkspacePage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               {[
                 ["Upload receipt", "/workspace/upload-receipt"],
-                ["Create report", "/workspace/create-report"],
+                ["Reports", "/workspace/reports"],
                 ["View all receipts", "/workspace/receipts"],
               ].map(([label, href]) => (
                 <Link
@@ -285,8 +285,7 @@ export default async function WorkspacePage() {
           <CardContent className="grid gap-3">
             {[
               ["Upload receipt", "/workspace/upload-receipt"],
-              ["Create report", "/workspace/create-report"],
-              ["View approvals", "/workspace/approvals"],
+              ["Reports", "/workspace/reports"],
               ...(canSendInvites
                 ? ([["Open invites", "/workspace/invites"]] as Array<
                     [string, string]

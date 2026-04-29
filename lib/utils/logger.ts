@@ -29,9 +29,12 @@ enum LogLevel {
   MILESTONE = "MILESTONE",
 }
 
-interface LogContext {
-  [key: string]: any;
-}
+type LogContext = Record<string, unknown>;
+
+type FeatureTracking = {
+  last_updated: string;
+  features: Record<string, unknown>;
+};
 
 /**
  * Logger service: writes to files and console
@@ -185,30 +188,32 @@ class Logger {
   private updateFeatureTracking(
     featureName: string,
     status: string,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): void {
     const trackingFile = path.join(logsDir, "feature-completion.json");
-    let tracking: any = {
+    let tracking: FeatureTracking = {
       last_updated: new Date().toISOString(),
       features: {},
     };
 
     if (fs.existsSync(trackingFile)) {
       try {
-        tracking = JSON.parse(fs.readFileSync(trackingFile, "utf-8"));
+        const parsed = JSON.parse(
+          fs.readFileSync(trackingFile, "utf-8"),
+        ) as Partial<FeatureTracking>;
+        tracking = {
+          last_updated: parsed.last_updated ?? new Date().toISOString(),
+          features: parsed.features ?? {},
+        };
       } catch (error) {
         console.warn("Could not parse existing feature tracking file");
       }
     }
 
-    if (!tracking.features) {
-      tracking.features = {};
-    }
-
     tracking.features[featureName] = {
       status,
       last_updated: new Date().toISOString(),
-      ...metadata,
+      ...(metadata ?? {}),
     };
 
     tracking.last_updated = new Date().toISOString();
@@ -269,16 +274,19 @@ class Logger {
   /**
    * Get feature tracking status
    */
-  public getFeatureStatus(): any {
+  public getFeatureStatus(): FeatureTracking | { error: string } {
     const trackingFile = path.join(logsDir, "feature-completion.json");
     if (fs.existsSync(trackingFile)) {
       try {
-        return JSON.parse(fs.readFileSync(trackingFile, "utf-8"));
+        return JSON.parse(fs.readFileSync(trackingFile, "utf-8")) as FeatureTracking;
       } catch (error) {
         return { error: "Could not parse feature tracking" };
       }
     }
-    return { features: {} };
+    return {
+      last_updated: new Date().toISOString(),
+      features: {},
+    };
   }
 
   /**

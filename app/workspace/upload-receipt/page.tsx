@@ -78,6 +78,7 @@ export default function UploadReceiptPage() {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowDuplicateModal(Boolean(pendingDuplicate));
   }, [pendingDuplicate]);
   const [pendingPolicyWarning, setPendingPolicyWarning] =
@@ -223,12 +224,13 @@ export default function UploadReceiptPage() {
 
       // Combined validation response
       if (code === "VALIDATION_FAILED") {
-        const details = (data.error as any)?.details as
-          | {
-              duplicate?: any;
-              policy?: { reasons: string[] };
-            }
-          | undefined;
+        type ValidationDetails = {
+          duplicate?: unknown;
+          policy?: { reasons: string[] };
+        };
+
+        const details = (data.error as unknown as { details?: ValidationDetails })
+          ?.details;
 
         if (!details) {
           // fallback: treat as generic failure
@@ -239,10 +241,43 @@ export default function UploadReceiptPage() {
           return;
         }
 
-        if (details.duplicate) {
-          setPendingDuplicate(
-            details.duplicate.duplicateOf ?? details.duplicate,
+        const isDuplicateReceipt = (
+          value: unknown,
+        ): value is DuplicateReceipt => {
+          if (!value || typeof value !== "object") return false;
+          const v = value as Record<string, unknown>;
+
+          const vendorNameOk =
+            v.vendor_name === null || typeof v.vendor_name === "string";
+          const categoryOk =
+            v.category === null || typeof v.category === "string";
+
+          return (
+            typeof v.id === "string" &&
+            typeof v.amount === "string" &&
+            typeof v.currency === "string" &&
+            typeof v.receipt_date === "string" &&
+            vendorNameOk &&
+            categoryOk
           );
+        };
+
+        if (details.duplicate) {
+          let duplicateToUse: unknown = details.duplicate;
+
+          if (
+            duplicateToUse &&
+            typeof duplicateToUse === "object" &&
+            "duplicateOf" in (duplicateToUse as Record<string, unknown>)
+          ) {
+            const candidate = (duplicateToUse as Record<string, unknown>)
+              .duplicateOf;
+            if (candidate) {
+              duplicateToUse = candidate;
+            }
+          }
+
+          setPendingDuplicate(isDuplicateReceipt(duplicateToUse) ? duplicateToUse : null);
           setShowDuplicateModal(true);
         } else {
           setPendingDuplicate(null);
@@ -541,7 +576,7 @@ export default function UploadReceiptPage() {
               </CardHeader>
               <CardContent>
                 <Link
-                  href="/workspace/create-report"
+                  href="/workspace/reports"
                   className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-900"
                 >
                   <Wand2 className="h-4 w-4" />
