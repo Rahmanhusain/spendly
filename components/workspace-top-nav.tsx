@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Settings, User, UserCircle2 } from "lucide-react";
+import { Bell, RefreshCw, Settings, User, UserCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
 import { cn } from "@/lib/utils";
@@ -50,6 +50,7 @@ export function WorkspaceTopNav({
   const [unreadCount, setUnreadCount] = useState(0);
   const [showMiniToast, setShowMiniToast] = useState(false);
   const [isToastExiting, setIsToastExiting] = useState(false);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   const dismissMiniToast = () => {
     setIsToastExiting(true);
@@ -125,9 +126,10 @@ export function WorkspaceTopNav({
     };
 
     void loadNotifications();
+    // Poll more frequently to ensure notifications appear quickly (every 5 seconds instead of 15)
     const timer = window.setInterval(() => {
       void loadNotifications();
-    }, 15000);
+    }, 5000);
 
     return () => {
       active = false;
@@ -236,6 +238,38 @@ export function WorkspaceTopNav({
                   <Badge className="border-slate-200 bg-slate-50 text-slate-700">
                     {unreadCount} unread
                   </Badge>
+                </div>
+
+                <div className="mb-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLoadingNotifications(true);
+                      fetch("/api/notifications?limit=10&offset=0", {
+                        method: "GET",
+                        credentials: "include",
+                      })
+                        .then(async (response) => {
+                          const payload = (await response.json()) as NotificationsResponse;
+                          if (response.ok && payload.ok && payload.data) {
+                            setNotifications(payload.data.notifications);
+                            setUnreadCount(payload.data.unreadCount);
+                          }
+                        })
+                        .catch(() => {
+                          // Silently fail
+                        })
+                        .finally(() => {
+                          setIsLoadingNotifications(false);
+                        });
+                    }}
+                    disabled={isLoadingNotifications}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                    aria-label="Refresh notifications"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", isLoadingNotifications && "animate-spin")} />
+                    <span>Refresh</span>
+                  </button>
                 </div>
 
                 {notifications.length === 0 ? (

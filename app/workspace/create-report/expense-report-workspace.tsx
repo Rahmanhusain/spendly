@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Loader,
   Search,
+  Copy,
   ExternalLink,
   X,
 } from "lucide-react";
@@ -191,6 +192,7 @@ export function ExpenseReportWorkspace({
   const [browseReports, setBrowseReports] =
     useState<ReportBrowserReport[]>(initialReports);
   const [browseStatus, setBrowseStatus] = useState<"all" | ReportStatus>("all");
+  const [browseSearch, setBrowseSearch] = useState("");
   const [browseOffset, setBrowseOffset] = useState(initialReports.length);
   const [browseHasMore, setBrowseHasMore] = useState(initialHasMore);
   const [browseIsLoading, setBrowseIsLoading] = useState(false);
@@ -220,6 +222,8 @@ export function ExpenseReportWorkspace({
     () => browseReports.find((r) => r.id === browseSelectedReportId) || null,
     [browseReports, browseSelectedReportId],
   );
+  const browseDetailReportId =
+    browseSelectedDetails?.report?.id || browseSelectedReport?.id || "";
 
   const filteredReports = useMemo(() => {
     const source =
@@ -683,6 +687,10 @@ export function ExpenseReportWorkspace({
         status: browseStatus,
       });
 
+      if (browseSearch.trim()) {
+        query.set("search", browseSearch.trim());
+      }
+
       const response = await fetch(`/api/reports?${query.toString()}`, {
         method: "GET",
         credentials: "include",
@@ -713,7 +721,7 @@ export function ExpenseReportWorkspace({
       setBrowseOffset(offset + nextItems.length);
       setBrowseHasMore(payload.pagination.total > offset + nextItems.length);
     },
-    [browseStatus],
+    [browseSearch, browseStatus],
   );
 
   const loadBrowseReportDetails = useCallback(
@@ -1054,7 +1062,7 @@ export function ExpenseReportWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [fetchBrowseReportsPage, browseStatus, workspaceMode]);
+  }, [browseSearch, browseStatus, fetchBrowseReportsPage, workspaceMode]);
 
   useEffect(() => {
     if (workspaceMode !== "reports" || !browseSelectedReportId) {
@@ -1464,6 +1472,22 @@ export function ExpenseReportWorkspace({
               </p>
 
               <div className="flex gap-2">
+                <div className="relative flex-1 min-w-0 max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={browseSearch}
+                    onChange={(event) => {
+                      setBrowseSearch(event.target.value);
+                      setBrowseOffset(0);
+                      setBrowseReports([]);
+                      setBrowseSelectedReportId(null);
+                      setBrowseSelectedDetails(null);
+                      setBrowseHasMore(true);
+                    }}
+                    placeholder="Search by report name or ID"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700"
+                  />
+                </div>
                 <select
                   value={browseStatus}
                   onChange={(event) => {
@@ -1688,6 +1712,32 @@ export function ExpenseReportWorkspace({
                           {browseSelectedDetails.report.creatorName ||
                             "Unknown"}
                         </p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          Report ID
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <code className="rounded-md bg-white px-2 py-1 text-xs text-slate-700">
+                            {browseDetailReportId}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!browseDetailReportId) return;
+                              await navigator.clipboard.writeText(
+                                browseDetailReportId,
+                              );
+                              setSuccess("Report ID copied");
+                              window.setTimeout(() => setSuccess(null), 2000);
+                            }}
+                            disabled={!browseDetailReportId}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy
+                          </button>
+                        </div>
                       </div>
                     </div>
 

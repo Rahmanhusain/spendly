@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import { createReceiptComment } from "@/lib/repositories/receiptRepository";
+import { sendNotification } from "@/lib/utils/notifications";
+import { query } from "@/lib/db/client";
 import logger from "@/lib/utils/logger";
 
 const addCommentSchema = z.object({
@@ -54,6 +56,50 @@ export async function POST(request: Request) {
       receiptId: payload.receiptId,
       commentId: created.id,
     });
+
+    // Send notification to receipt owner if commenter is not the owner
+    try {
+      const receiptResult = await query<{
+        user_id: string;
+        vendor_name: string | null;
+      }>(
+        `SELECT user_id, vendor_name FROM receipts 
+         WHERE tenant_id = $1 AND id = $2`,
+        [authContext!.tenantId, payload.receiptId],
+      );
+
+      const receipt = receiptResult.rows[0];
+
+      if (receipt && receipt.user_id !== authContext!.userId) {
+        await sendNotification({
+          tenantId: authContext!.tenantId,
+          userId: receipt.user_id,
+          channel: "in_app",
+          title: "New comment on your receipt",
+          message: `Comment on receipt from ${receipt.vendor_name || "vendor"}: "${payload.message.substring(0, 50)}${payload.message.length > 50 ? "..." : ""}"`,
+          relatedType: "receipt",
+          relatedId: payload.receiptId,
+        });
+
+        logger.info("Receipt comment notification sent", {
+          requestId,
+          route: "/api/receipts/comments",
+          receiptId: payload.receiptId,
+          notifiedUserId: receipt.user_id,
+        });
+      }
+    } catch (notificationError) {
+      logger.error("Failed to send receipt comment notification", {
+        requestId,
+        route: "/api/receipts/comments",
+        receiptId: payload.receiptId,
+        error:
+          notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError),
+      });
+      // Don't fail the comment if notification fails
+    }
 
     return NextResponse.json(
       {

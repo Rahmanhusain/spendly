@@ -101,6 +101,13 @@ async function handlePost(
       );
     }
 
+    if (userId === report.userId) {
+      return NextResponse.json(
+        { error: "Report creator already has access" },
+        { status: 400 },
+      );
+    }
+
     const accessEntry = await addReportAccess(
       authContext.tenantId,
       reportId,

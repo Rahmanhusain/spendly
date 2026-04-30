@@ -133,6 +133,7 @@ export async function GET(request: Request) {
     const limit = parseLimit(url.searchParams.get("limit"));
     const offset = parseOffset(url.searchParams.get("offset"));
     const status = url.searchParams.get("status") || "all";
+    const search = url.searchParams.get("search") || undefined;
     const reportStatusOptions: ReportStatus[] = [
       "draft",
       "submitted",
@@ -157,6 +158,7 @@ export async function GET(request: Request) {
       {
         userId,
         status: safeStatus,
+        search,
         limit,
         offset,
       },

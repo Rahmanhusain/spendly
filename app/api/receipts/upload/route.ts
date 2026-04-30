@@ -9,6 +9,8 @@ import {
 } from "@/lib/repositories/receiptRepository";
 import { parseReceiptWithOcrAndLlm } from "@/lib/ai/receiptParser";
 import { getDefaultPolicyForTenant } from "@/lib/repositories/policyRepository";
+import { getUsersByTenant } from "@/lib/repositories/authRepository";
+import { sendNotification } from "@/lib/utils/notifications";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -600,6 +602,114 @@ export async function POST(request: Request) {
       policyViolated: policyValidation.violated,
       policyReasons: policyValidation.reasons,
     });
+
+    // Send notification to uploader confirming successful upload
+    try {
+      const statusMessage =
+        createdReceipt.status === "draft"
+          ? "Receipt uploaded successfully and ready to use."
+          : createdReceipt.status === "needs_review"
+            ? "Receipt uploaded. Needs review by managers."
+            : "Receipt uploaded successfully.";
+
+      await sendNotification({
+        tenantId: authContext!.tenantId,
+        userId: authContext!.userId,
+        channel: "in_app",
+        title: "Receipt uploaded",
+        message: `${parsed.vendorName || "Receipt"} (INR ${parsed.amount.toFixed(2)}) - ${statusMessage}`,
+        relatedType: "receipt",
+        relatedId: createdReceipt.id,
+      });
+
+      logger.info("Receipt upload confirmation sent to uploader", {
+        requestId,
+        route: "/api/receipts/upload",
+        receiptId: createdReceipt.id,
+        uploaderId: authContext!.userId,
+      });
+    } catch (notificationError) {
+      logger.error("Failed to send receipt upload confirmation", {
+        requestId,
+        route: "/api/receipts/upload",
+        receiptId: createdReceipt.id,
+        error:
+          notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError),
+      });
+    }
+
+    // Notify approvers (admin/manager) for every new upload.
+    // This ensures approval profiles always see new receipt activity.
+    try {
+      const tenantUsers = await getUsersByTenant(authContext!.tenantId);
+      const uploader = tenantUsers.find((u) => u.id === authContext!.userId);
+      const uploaderName = [uploader?.first_name, uploader?.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      const managersAndAdmins = tenantUsers.filter(
+        (u) =>
+          (u.role === "admin" || u.role === "manager") &&
+          u.id !== authContext!.userId,
+      );
+
+      const reasonsList: string[] = [];
+      if (parsed.confidenceScore < 0.7) {
+        reasonsList.push(
+          `Low confidence score (${(parsed.confidenceScore * 100).toFixed(1)}%)`,
+        );
+      }
+      if (policyValidation.violated) {
+        reasonsList.push("Policy violation");
+      }
+      if (Boolean(duplicateOfId)) {
+        reasonsList.push("Potential duplicate receipt");
+      }
+
+      const notificationTitle =
+        createdReceipt.status === "needs_review"
+          ? "New receipt uploaded (needs review)"
+          : "New receipt uploaded";
+
+      const baseMessage = `${uploaderName || uploader?.email || "A team member"} uploaded ${parsed.vendorName || "a receipt"} (INR ${parsed.amount.toFixed(2)}).`;
+      const notificationMessage =
+        reasonsList.length > 0
+          ? `${baseMessage} ${reasonsList.join(", ")}.`
+          : `${baseMessage} Ready for approval workflow.`;
+
+      for (const manager of managersAndAdmins) {
+        await sendNotification({
+          tenantId: authContext!.tenantId,
+          userId: manager.id,
+          channel: "in_app",
+          title: notificationTitle,
+          message: notificationMessage,
+          relatedType: "receipt",
+          relatedId: createdReceipt.id,
+        });
+      }
+
+      logger.info("Receipt upload notifications sent to approvers", {
+        requestId,
+        route: "/api/receipts/upload",
+        receiptId: createdReceipt.id,
+        notificationCount: managersAndAdmins.length,
+        status: createdReceipt.status,
+      });
+    } catch (notificationError) {
+      logger.error("Failed to send approver upload notifications", {
+        requestId,
+        route: "/api/receipts/upload",
+        receiptId: createdReceipt.id,
+        error:
+          notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError),
+      });
+      // Don't fail the upload if notifications fail
+    }
 
     return NextResponse.json(
       {

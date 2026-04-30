@@ -6,6 +6,8 @@ import {
   approveReceiptByManager,
   rejectReceiptByManager,
 } from "@/lib/repositories/receiptRepository";
+import { sendNotification } from "@/lib/utils/notifications";
+import { query } from "@/lib/db/client";
 import logger from "@/lib/utils/logger";
 
 const reviewSchema = z.object({
@@ -61,6 +63,61 @@ export async function POST(request: Request) {
       reviewerUserId: authContext!.userId,
       reviewerRole: authContext!.role,
     });
+
+    // Send notification to the employee who uploaded the receipt
+    try {
+      const receiptResult = await query<{
+        user_id: string;
+        vendor_name: string | null;
+        amount: number;
+      }>(
+        `SELECT user_id, vendor_name, amount FROM receipts 
+         WHERE tenant_id = $1 AND id = $2`,
+        [authContext!.tenantId, updated.id],
+      );
+
+      const receipt = receiptResult.rows[0];
+
+      if (receipt && receipt.user_id) {
+        const notificationTitle =
+          payload.decision === "approve"
+            ? "Receipt approved"
+            : "Receipt rejected";
+        const notificationMessage =
+          payload.decision === "approve"
+            ? `Your receipt from ${receipt.vendor_name || "vendor"} (INR ${receipt.amount}) has been approved.`
+            : `Your receipt from ${receipt.vendor_name || "vendor"} (INR ${receipt.amount}) has been rejected and archived.`;
+
+        await sendNotification({
+          tenantId: authContext!.tenantId,
+          userId: receipt.user_id,
+          channel: "in_app",
+          title: notificationTitle,
+          message: notificationMessage,
+          relatedType: "receipt",
+          relatedId: updated.id,
+        });
+
+        logger.info("Receipt review notification sent", {
+          requestId,
+          route: "/api/receipts/review",
+          receiptId: updated.id,
+          decision: payload.decision,
+          notifiedUserId: receipt.user_id,
+        });
+      }
+    } catch (notificationError) {
+      logger.error("Failed to send receipt review notification", {
+        requestId,
+        route: "/api/receipts/review",
+        receiptId: updated.id,
+        error:
+          notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError),
+      });
+      // Don't fail the review if notification fails
+    }
 
     return NextResponse.json(
       {

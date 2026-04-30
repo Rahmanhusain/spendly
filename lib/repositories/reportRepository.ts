@@ -144,6 +144,7 @@ export async function getReportsForTenant(
   filters?: {
     userId?: string;
     status?: ReportStatus | "all";
+    search?: string;
     limit?: number;
     offset?: number;
   },
@@ -175,6 +176,15 @@ export async function getReportsForTenant(
   if (filters?.status && filters.status !== "all") {
     whereClause += ` AND er.status = $${params.length + 1}`;
     params.push(filters.status);
+  }
+
+  if (filters?.search && filters.search.trim()) {
+    const searchValue = `%${filters.search.trim()}%`;
+    whereClause += ` AND (
+      er.title ILIKE $${params.length + 1}
+      OR er.id::text ILIKE $${params.length + 1}
+    )`;
+    params.push(searchValue);
   }
 
   const countResult = await query<{ count: string }>(
@@ -286,7 +296,9 @@ export async function addReceiptToReport(
 
     const report = reportCheck.rows[0];
     if (report.status !== "draft" && report.status !== "info_requested") {
-      throw new Error("Cannot add receipts unless the report is draft or info requested");
+      throw new Error(
+        "Cannot add receipts unless the report is draft or info requested",
+      );
     }
 
     // Check receipt exists and get amount
@@ -362,7 +374,9 @@ export async function removeReceiptFromReport(
 
     if (reportCheck.rows[0].status !== "draft") {
       if (reportCheck.rows[0].status !== "info_requested") {
-        throw new Error("Cannot remove receipts unless the report is draft or info requested");
+        throw new Error(
+          "Cannot remove receipts unless the report is draft or info requested",
+        );
       }
     }
 
