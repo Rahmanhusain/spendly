@@ -250,7 +250,8 @@ export function WorkspaceTopNav({
                         credentials: "include",
                       })
                         .then(async (response) => {
-                          const payload = (await response.json()) as NotificationsResponse;
+                          const payload =
+                            (await response.json()) as NotificationsResponse;
                           if (response.ok && payload.ok && payload.data) {
                             setNotifications(payload.data.notifications);
                             setUnreadCount(payload.data.unreadCount);
@@ -267,7 +268,12 @@ export function WorkspaceTopNav({
                     className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
                     aria-label="Refresh notifications"
                   >
-                    <RefreshCw className={cn("h-3 w-3", isLoadingNotifications && "animate-spin")} />
+                    <RefreshCw
+                      className={cn(
+                        "h-3 w-3",
+                        isLoadingNotifications && "animate-spin",
+                      )}
+                    />
                     <span>Refresh</span>
                   </button>
                 </div>

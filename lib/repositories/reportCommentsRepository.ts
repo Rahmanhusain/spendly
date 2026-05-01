@@ -54,17 +54,28 @@ export async function createReportComment(
 
   const result = hasMentions
     ? await query<ReportComment>(
-        `INSERT INTO report_comments (
-          tenant_id, report_id, author_user_id, message,
-          parent_comment_id, mentioned_user_ids
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING
-          id, tenant_id as "tenantId", report_id as "reportId",
-          author_user_id as "authorUserId", message,
-          parent_comment_id as "parentCommentId",
-          is_resolved as "isResolved",
-          mentioned_user_ids as "mentionedUserIds",
-          created_at as "createdAt", updated_at as "updatedAt"`,
+        `WITH inserted AS (
+          INSERT INTO report_comments (
+            tenant_id, report_id, author_user_id, message,
+            parent_comment_id, mentioned_user_ids
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING
+            id, tenant_id as "tenantId", report_id as "reportId",
+            author_user_id as "authorUserId", message,
+            parent_comment_id as "parentCommentId",
+            is_resolved as "isResolved",
+            mentioned_user_ids as "mentionedUserIds",
+            created_at as "createdAt", updated_at as "updatedAt"
+        )
+        SELECT
+          i.*,
+          COALESCE(
+            NULLIF(BTRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+            u.email
+          ) as "authorName",
+          u.role as "authorRole"
+        FROM inserted i
+        JOIN users u ON u.id = i."authorUserId"`,
         [
           tenantId,
           reportId,
@@ -77,17 +88,28 @@ export async function createReportComment(
         ],
       )
     : await query<ReportComment>(
-        `INSERT INTO report_comments (
-          tenant_id, report_id, author_user_id, message,
-          parent_comment_id
-        ) VALUES ($1, $2, $3, $4, $5)
-        RETURNING
-          id, tenant_id as "tenantId", report_id as "reportId",
-          author_user_id as "authorUserId", message,
-          parent_comment_id as "parentCommentId",
-          is_resolved as "isResolved",
-          NULL as "mentionedUserIds",
-          created_at as "createdAt", updated_at as "updatedAt"`,
+        `WITH inserted AS (
+          INSERT INTO report_comments (
+            tenant_id, report_id, author_user_id, message,
+            parent_comment_id
+          ) VALUES ($1, $2, $3, $4, $5)
+          RETURNING
+            id, tenant_id as "tenantId", report_id as "reportId",
+            author_user_id as "authorUserId", message,
+            parent_comment_id as "parentCommentId",
+            is_resolved as "isResolved",
+            NULL as "mentionedUserIds",
+            created_at as "createdAt", updated_at as "updatedAt"
+        )
+        SELECT
+          i.*,
+          COALESCE(
+            NULLIF(BTRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+            u.email
+          ) as "authorName",
+          u.role as "authorRole"
+        FROM inserted i
+        JOIN users u ON u.id = i."authorUserId"`,
         [
           tenantId,
           reportId,
@@ -114,7 +136,10 @@ export async function getReportComments(
       ? `SELECT
           rc.id, rc.tenant_id as "tenantId", rc.report_id as "reportId",
           rc.author_user_id as "authorUserId",
-          u.first_name || ' ' || u.last_name as "authorName",
+          COALESCE(
+            NULLIF(BTRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+            u.email
+          ) as "authorName",
           u.role as "authorRole",
           rc.message, rc.parent_comment_id as "parentCommentId",
           rc.is_resolved as "isResolved",
@@ -127,7 +152,10 @@ export async function getReportComments(
       : `SELECT
           rc.id, rc.tenant_id as "tenantId", rc.report_id as "reportId",
           rc.author_user_id as "authorUserId",
-          u.first_name || ' ' || u.last_name as "authorName",
+          COALESCE(
+            NULLIF(BTRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+            u.email
+          ) as "authorName",
           u.role as "authorRole",
           rc.message, rc.parent_comment_id as "parentCommentId",
           rc.is_resolved as "isResolved",
