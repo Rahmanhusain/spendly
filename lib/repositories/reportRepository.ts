@@ -513,17 +513,23 @@ export async function submitReport(
   }
 
   const result = await query<ExpenseReport>(
-    `UPDATE expense_reports 
-    SET status = $1, submitted_at = NOW()
-    WHERE id = $2 AND tenant_id = $3 AND status = ANY($4::report_status[])
-    RETURNING 
-      id, tenant_id as "tenantId", user_id as "userId",
-      title, description, period_start as "periodStart",
-      period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+    `WITH updated AS (
+      UPDATE expense_reports
+      SET status = $1, submitted_at = NOW()
+      WHERE id = $2 AND tenant_id = $3 AND status = ANY($4::report_status[])
+      RETURNING *
+    )
+    SELECT
+      u2.id, u2.tenant_id as "tenantId", u2.user_id as "userId",
+      COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
+      u2.title, u2.description, u2.period_start as "periodStart",
+      u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
+      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
+      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
+      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+    FROM updated u2
+    LEFT JOIN users usr ON usr.id = u2.user_id`,
     ["submitted", reportId, tenantId, fromStatuses],
   );
 
@@ -543,17 +549,23 @@ export async function approveReport(
   approverId: string,
 ): Promise<ExpenseReport> {
   const result = await query<ExpenseReport>(
-    `UPDATE expense_reports 
-    SET status = $1, approved_at = NOW(), approver_id = $2
-    WHERE id = $3 AND tenant_id = $4 AND status = $5
-    RETURNING 
-      id, tenant_id as "tenantId", user_id as "userId",
-      title, description, period_start as "periodStart",
-      period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+    `WITH updated AS (
+      UPDATE expense_reports
+      SET status = $1, approved_at = NOW(), approver_id = $2
+      WHERE id = $3 AND tenant_id = $4 AND status = $5
+      RETURNING *
+    )
+    SELECT
+      u2.id, u2.tenant_id as "tenantId", u2.user_id as "userId",
+      COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
+      u2.title, u2.description, u2.period_start as "periodStart",
+      u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
+      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
+      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
+      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+    FROM updated u2
+    LEFT JOIN users usr ON usr.id = u2.user_id`,
     ["approved", approverId, reportId, tenantId, "submitted"],
   );
 
@@ -573,17 +585,23 @@ export async function rejectReport(
   reason: string,
 ): Promise<ExpenseReport> {
   const result = await query<ExpenseReport>(
-    `UPDATE expense_reports 
-    SET status = $1, rejected_at = NOW(), rejection_reason = $2
-    WHERE id = $3 AND tenant_id = $4 AND status = $5
-    RETURNING 
-      id, tenant_id as "tenantId", user_id as "userId",
-      title, description, period_start as "periodStart",
-      period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+    `WITH updated AS (
+      UPDATE expense_reports
+      SET status = $1, rejected_at = NOW(), rejection_reason = $2
+      WHERE id = $3 AND tenant_id = $4 AND status = $5
+      RETURNING *
+    )
+    SELECT
+      u2.id, u2.tenant_id as "tenantId", u2.user_id as "userId",
+      COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
+      u2.title, u2.description, u2.period_start as "periodStart",
+      u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
+      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
+      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
+      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+    FROM updated u2
+    LEFT JOIN users usr ON usr.id = u2.user_id`,
     ["rejected", reason, reportId, tenantId, "submitted"],
   );
 
@@ -603,17 +621,23 @@ export async function resubmitReport(
   reportId: string,
 ): Promise<ExpenseReport> {
   const result = await query<ExpenseReport>(
-    `UPDATE expense_reports
-    SET status = 'draft', rejection_reason = NULL, rejected_at = NULL
-    WHERE id = $1 AND tenant_id = $2 AND status = 'rejected'
-    RETURNING
-      id, tenant_id as "tenantId", user_id as "userId",
-      title, description, period_start as "periodStart",
-      period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+    `WITH updated AS (
+      UPDATE expense_reports
+      SET status = 'draft', rejection_reason = NULL, rejected_at = NULL
+      WHERE id = $1 AND tenant_id = $2 AND status = 'rejected'
+      RETURNING *
+    )
+    SELECT
+      u2.id, u2.tenant_id as "tenantId", u2.user_id as "userId",
+      COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
+      u2.title, u2.description, u2.period_start as "periodStart",
+      u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
+      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
+      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
+      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+    FROM updated u2
+    LEFT JOIN users usr ON usr.id = u2.user_id`,
     [reportId, tenantId],
   );
 

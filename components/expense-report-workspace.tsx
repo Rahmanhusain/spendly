@@ -10,6 +10,7 @@ import {
   Copy,
   ExternalLink,
   X,
+  Plus,
 } from "lucide-react";
 import {
   Card,
@@ -157,13 +158,8 @@ export function ExpenseReportWorkspace({
   const [receiptsAvailable] = useState<ReceiptListItem[]>(
     initialReceiptsAvailable,
   );
-  const [workspaceMode, setWorkspaceMode] = useState<"create" | "reports">(
-    "create",
-  );
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<"all" | ReportStatus>(
-    "all",
-  );
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingReport, setIsDeletingReport] = useState(false);
@@ -226,26 +222,6 @@ export function ExpenseReportWorkspace({
   const browseDetailReportId =
     browseSelectedDetails?.report?.id || browseSelectedReport?.id || "";
 
-  const filteredReports = useMemo(() => {
-    const source =
-      selectedStatus === "all"
-        ? reports
-        : reports.filter((r) => r.status === selectedStatus);
-
-    // Guard against duplicate report ids from API/state merges to keep React keys unique.
-    const seen = new Set<string>();
-    return source.filter((report) => {
-      if (!report.id) {
-        return true;
-      }
-      if (seen.has(report.id)) {
-        return false;
-      }
-      seen.add(report.id);
-      return true;
-    });
-  }, [reports, selectedStatus]);
-
   const handleSelectReport = useCallback(
     async (reportId: string) => {
       setSelectedReportId(reportId);
@@ -288,12 +264,6 @@ export function ExpenseReportWorkspace({
     },
     [reportItemsByReportId],
   );
-
-  const handleOpenCreateNew = useCallback(() => {
-    setSelectedReportId(null);
-    setReportItems([]);
-    setError(null);
-  }, []);
 
   const fetchReceiptPickerPage = useCallback(
     async (offset: number, append: boolean) => {
@@ -459,6 +429,10 @@ export function ExpenseReportWorkspace({
         ...prev,
         [newReport.id]: [],
       }));
+      // Collapse the inline form and select the new report
+      // (the useEffect watching browseSelectedReportId will load details)
+      setShowCreateForm(false);
+      setBrowseSelectedReportId(newReport.id);
       setSuccess("Report created successfully");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -495,26 +469,59 @@ export function ExpenseReportWorkspace({
             : [...(prev[selectedReportId] || []), receiptId],
         }));
 
-        // Update report total
+        // Add to the browse detail panel immediately so the UI updates
         const receipt = receiptsAvailable.find((r) => r.id === receiptId);
+        if (receipt) {
+          const newDetailItem = {
+            id: receipt.id,
+            receiptId: receipt.id,
+            vendor: receipt.vendor,
+            amount: receipt.amount,
+            category: receipt.category,
+            receiptDate: receipt.receiptDate,
+            uploadedAt: receipt.uploadedAt,
+            uploadedById: receipt.uploadedByUserId,
+            uploadedByName: receipt.uploadedBy,
+            uploadedByRole: receipt.uploadedByRole,
+            fileUrl: receipt.fileUrl,
+            fileName: receipt.fileName,
+            mimeType: receipt.mimeType,
+            vendorGstin: receipt.vendorGstin,
+          };
+          setBrowseSelectedDetails((prev) => {
+            if (!prev) return prev;
+            const alreadyIn = prev.items.some((i) => i.receiptId === receiptId);
+            if (alreadyIn) return prev;
+            return { ...prev, items: [...prev.items, newDetailItem] };
+          });
+          setBrowseDetailsCache((prev) => {
+            const cached = prev[selectedReportId];
+            if (!cached) return prev;
+            const alreadyIn = cached.items.some((i) => i.receiptId === receiptId);
+            if (alreadyIn) return prev;
+            return {
+              ...prev,
+              [selectedReportId]: {
+                ...cached,
+                items: [...cached.items, newDetailItem],
+              },
+            };
+          });
+        }
+
+        // Update report total
         if (receipt && selectedReport) {
           setReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? {
-                    ...r,
-                    totalAmount: r.totalAmount + receipt.amount,
-                  }
+                ? { ...r, totalAmount: r.totalAmount + receipt.amount }
                 : r,
             ),
           );
           setBrowseReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? {
-                    ...r,
-                    totalAmount: r.totalAmount + receipt.amount,
-                  }
+                ? { ...r, totalAmount: r.totalAmount + receipt.amount }
                 : r,
             ),
           );
@@ -555,6 +562,26 @@ export function ExpenseReportWorkspace({
           ),
         }));
 
+        // Remove from the browse detail panel immediately so the UI updates
+        setBrowseSelectedDetails((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: prev.items.filter((item) => item.receiptId !== receiptId),
+          };
+        });
+        setBrowseDetailsCache((prev) => {
+          const cached = prev[selectedReportId];
+          if (!cached) return prev;
+          return {
+            ...prev,
+            [selectedReportId]: {
+              ...cached,
+              items: cached.items.filter((item) => item.receiptId !== receiptId),
+            },
+          };
+        });
+
         // Update report total
         const receipt = receiptsAvailable.find((r) => r.id === receiptId);
         if (receipt && selectedReport) {
@@ -590,48 +617,6 @@ export function ExpenseReportWorkspace({
     },
     [selectedReportId, selectedReport, receiptsAvailable],
   );
-
-  const handleSubmitReport = useCallback(async () => {
-    if (!selectedReportId) return;
-    const submittingFromStatus = selectedReport?.status;
-
-    if (reportItems.length === 0) {
-      setError("Report must have at least one receipt");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/reports/${selectedReportId}/submit`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to submit report");
-      }
-
-      const updated: ExpenseReport = await response.json();
-      setReports((prev) =>
-        prev.map((r) => (r.id === selectedReportId ? updated : r)),
-      );
-      setBrowseReports((prev) =>
-        prev.map((r) => (r.id === selectedReportId ? updated : r)),
-      );
-      setSuccess(
-        submittingFromStatus === "info_requested"
-          ? "Response submitted for approval"
-          : "Report submitted for approval",
-      );
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit report");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [reportItems.length, selectedReport?.status, selectedReportId]);
 
   const handleDeleteDraftReport = useCallback(async () => {
     if (!selectedReport || selectedReport.status !== "draft") {
@@ -677,34 +662,6 @@ export function ExpenseReportWorkspace({
       setError(err instanceof Error ? err.message : "Failed to delete report");
     } finally {
       setIsDeletingReport(false);
-    }
-  }, [selectedReport]);
-
-  const handleResubmitReport = useCallback(async () => {
-    if (!selectedReport || selectedReport.status !== "rejected") return;
-
-    setIsResubmitting(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/reports/${selectedReport.id}/resubmit`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to resubmit report");
-      }
-
-      const updated: ExpenseReport = await response.json();
-      setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      setBrowseReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      setSuccess("Report moved back to draft — you can now edit and resubmit.");
-      setTimeout(() => setSuccess(null), 4000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resubmit report");
-    } finally {
-      setIsResubmitting(false);
     }
   }, [selectedReport]);
 
@@ -831,6 +788,70 @@ export function ExpenseReportWorkspace({
       },
     }));
   }, []);
+
+  const handleResubmitReport = useCallback(async () => {
+    if (!selectedReport || selectedReport.status !== "rejected") return;
+
+    setIsResubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/reports/${selectedReport.id}/resubmit`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to resubmit report");
+      }
+
+      const updated: ExpenseReport = await response.json();
+      syncBrowseReport(updated);
+      setSuccess("Report moved back to draft — you can now edit and resubmit.");
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resubmit report");
+    } finally {
+      setIsResubmitting(false);
+    }
+  }, [selectedReport, syncBrowseReport]);
+
+  const handleSubmitReport = useCallback(async () => {
+    if (!selectedReportId) return;
+    const submittingFromStatus = selectedReport?.status;
+
+    if (reportItems.length === 0) {
+      setError("Report must have at least one receipt");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/reports/${selectedReportId}/submit`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to submit report");
+      }
+
+      const updated: ExpenseReport = await response.json();
+      syncBrowseReport(updated);
+      setSuccess(
+        submittingFromStatus === "info_requested"
+          ? "Response submitted for approval"
+          : "Report submitted for approval",
+      );
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit report");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [reportItems.length, selectedReport?.status, selectedReportId, syncBrowseReport]);
 
   const exportSelectedReportCsv = useCallback(() => {
     const report = browseSelectedDetails?.report;
@@ -1062,10 +1083,6 @@ export function ExpenseReportWorkspace({
   }, [browseSelectedDetails, orgName]);
 
   useEffect(() => {
-    if (workspaceMode !== "reports") {
-      return;
-    }
-
     let cancelled = false;
 
     const loadReports = async () => {
@@ -1091,16 +1108,16 @@ export function ExpenseReportWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [browseSearch, browseStatus, fetchBrowseReportsPage, workspaceMode]);
+  }, [browseSearch, browseStatus, fetchBrowseReportsPage]);
 
   useEffect(() => {
-    if (workspaceMode !== "reports" || !browseSelectedReportId) {
+    if (!browseSelectedReportId) {
       return;
     }
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadBrowseReportDetails(browseSelectedReportId);
-  }, [browseSelectedReportId, loadBrowseReportDetails, workspaceMode]);
+  }, [browseSelectedReportId, loadBrowseReportDetails]);
 
   const handleBrowseReportsScroll = useCallback(() => {
     const container = browseReportListRef.current;
@@ -1138,17 +1155,57 @@ export function ExpenseReportWorkspace({
     fetchBrowseReportsPage,
   ]);
 
-  const reportReceiptItems = useMemo(
-    () => receiptsAvailable.filter((r) => reportItems.includes(r.id)),
-    [receiptsAvailable, reportItems],
-  );
-
   const availableReceiptsCount = useMemo(
     () =>
       receiptsAvailable.filter(
         (r) => r.status === "verified" && !reportItems.includes(r.id),
       ).length,
     [receiptsAvailable, reportItems],
+  );
+
+  // Unified click handler: select a report in both the browse panel and the
+  // draft-action handlers (which use selectedReportId / reportItems).
+  const handleSelectUnifiedReport = useCallback(
+    async (reportId: string) => {
+      setSelectedReportId(reportId);
+      setError(null);
+
+      // Load browse details (handles its own cache)
+      void loadBrowseReportDetails(reportId);
+
+      // Load receipt IDs for draft actions (handles its own cache)
+      const cachedItems = reportItemsByReportId[reportId];
+      if (cachedItems) {
+        setReportItems(cachedItems);
+        return;
+      }
+
+      setIsLoadingReportItems(true);
+      try {
+        const response = await fetch(`/api/reports/${reportId}`);
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to load report details");
+        }
+        const data = (await response.json()) as {
+          items?: Array<{ receiptId: string }>;
+        };
+        const receiptIds = (data.items || []).map((item) => item.receiptId);
+        setReportItems(receiptIds);
+        setReportItemsByReportId((prev) => ({
+          ...prev,
+          [reportId]: receiptIds,
+        }));
+      } catch (err) {
+        setReportItems([]);
+        setError(
+          err instanceof Error ? err.message : "Failed to load report items",
+        );
+      } finally {
+        setIsLoadingReportItems(false);
+      }
+    },
+    [loadBrowseReportDetails, reportItemsByReportId],
   );
 
   return (
@@ -1165,7 +1222,6 @@ export function ExpenseReportWorkspace({
             Organize your receipts, add notes, and prepare for approval.
           </p>
         </div>
-
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 flex gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -1180,331 +1236,59 @@ export function ExpenseReportWorkspace({
           </div>
         )}
 
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-              Reports workspace
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              Switch between creating a new report and browsing your reports.
-            </p>
-          </div>
-
-          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setWorkspaceMode("create")}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                workspaceMode === "create"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-600 hover:bg-slate-50",
-              )}
-            >
-              Create
-            </button>
-            <button
-              type="button"
-              onClick={() => setWorkspaceMode("reports")}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                workspaceMode === "reports"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-600 hover:bg-slate-50",
-              )}
-            >
-              {isEmployee ? "View my reports" : "View all reports"}
-            </button>
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "grid gap-6 lg:grid-cols-[1fr_1.5fr]",
-            workspaceMode === "create" ? "" : "hidden",
-          )}
-        >
-          {/* Left: Report List */}
+        {/* BROWSE_PANEL_START */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+          {/* ── Left column: New Report button + inline form + search + list ── */}
           <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-3">
-                {isEmployee ? "My Reports" : "Your Reports"}
-              </h2>
-
-              <div className="flex gap-2 mb-4">
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    if (next === "all") {
-                      setSelectedStatus("all");
-                      return;
-                    }
-                    setSelectedStatus(next as ReportStatus);
-                  }}
-                  className="text-sm border border-slate-300 rounded-lg px-3 py-2"
-                >
-                  {statusOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredReports.length === 0 ? (
-                  <p className="text-sm text-slate-500 p-3">No reports found</p>
-                ) : (
-                  filteredReports.map((report, index) => (
-                    <button
-                      key={report.id || `report-${index}-${report.title}`}
-                      onClick={() => {
-                        void handleSelectReport(report.id);
-                      }}
-                      className={cn(
-                        "w-full text-left p-3 rounded-lg border transition-colors",
-                        selectedReportId === report.id
-                          ? "border-slate-300 bg-slate-100"
-                          : "border-slate-200 hover:bg-slate-50",
-                      )}
-                    >
-                      <div className="font-medium text-sm text-slate-900">
-                        {report.title}
-                      </div>
-                      <div className="text-xs text-slate-600 mt-1">
-                        {formatMoney(report.totalAmount)}
-                      </div>
-                      <div
-                        className={cn(
-                          "text-xs mt-2 inline-block px-2 py-1 rounded",
-                          getStatusBadgeColor(report.status),
-                        )}
-                      >
-                        {report.status}
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
+            {/* New Report button */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
+                {isEmployee ? "My Reports" : "All Reports"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowCreateForm((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <Plus className="h-4 w-4" />
+                New Report
+              </button>
             </div>
-          </div>
 
-          {/* Right: Report Details or Create Form */}
-          <div className="space-y-4">
-            {selectedReport ? (
-              <Card className="border-slate-200">
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <CardTitle className="text-lg">
-                    {selectedReport.title}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {selectedReport.status === "draft" ? (
-                      <button
-                        type="button"
-                        onClick={handleDeleteDraftReport}
-                        disabled={isDeletingReport}
-                        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-300 bg-white px-3 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-60"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {isDeletingReport ? "Deleting..." : "Delete draft"}
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={handleOpenCreateNew}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                    >
-                      Create new report
-                    </button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {selectedReport.description && (
-                    <div>
-                      <p className="text-xs font-medium text-slate-600 mb-1">
-                        Description
-                      </p>
-                      <p className="text-sm text-slate-700">
-                        {selectedReport.description}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedReport.status === "rejected" && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
-                      <div className="flex gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-red-800">
-                            Report rejected
-                          </p>
-                          {selectedReport.rejectionReason && (
-                            <p className="mt-1 text-sm text-red-700">
-                              {selectedReport.rejectionReason}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {isEmployee && (
-                        <button
-                          type="button"
-                          onClick={() => void handleResubmitReport()}
-                          disabled={isResubmitting}
-                          className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
-                        >
-                          {isResubmitting ? "Moving to draft..." : "Resubmit (move back to draft)"}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="border-t pt-4">
-                    <p className="text-xs font-medium text-slate-600 mb-2">
-                      Items ({reportReceiptItems.length})
-                    </p>
-                    {isLoadingReportItems ? (
-                      <p className="text-sm text-slate-500">
-                        Loading report items...
-                      </p>
-                    ) : null}
-                    {reportReceiptItems.length === 0 ? (
-                      <p className="text-sm text-slate-500">No items added</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {reportReceiptItems.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex justify-between items-start p-2 rounded-lg bg-slate-50 border border-slate-100"
-                          >
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-slate-900">
-                                {item.vendor}
-                              </p>
-                              <p className="text-xs text-slate-600">
-                                {item.category}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-medium text-slate-900">
-                                {formatMoney(item.amount)}
-                              </p>
-                              {(selectedReport.status === "draft" ||
-                                (selectedReport.status === "info_requested" &&
-                                  isEmployee)) && (
-                                <button
-                                  onClick={() =>
-                                    handleRemoveReceiptFromReport(item.id)
-                                  }
-                                  className="mt-1 text-xs text-red-600 hover:text-red-700"
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-sm font-medium text-slate-900">
-                        Total
-                      </p>
-                      <p className="text-lg font-semibold text-slate-950">
-                        {formatMoney(
-                          reportReceiptItems.reduce(
-                            (sum, item) => sum + item.amount,
-                            0,
-                          ),
-                        )}
-                      </p>
-                    </div>
-
-                    {(selectedReport.status === "draft" ||
-                      (selectedReport.status === "info_requested" &&
-                        isEmployee)) && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-slate-600 mb-2">
-                          Add receipts
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleOpenReceiptPicker}
-                          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                        >
-                          <Search className="h-4 w-4" />
-                          Browse and add receipts
-                        </button>
-                        <p className="text-xs text-slate-500">
-                          {availableReceiptsCount > 0
-                            ? `${availableReceiptsCount} verified receipts are currently available.`
-                            : "No more verified receipts are currently available."}
-                        </p>
-                      </div>
-                    )}
-
-                    {(selectedReport.status === "draft" ||
-                      (selectedReport.status === "info_requested" &&
-                        isEmployee)) && (
-                      <button
-                        onClick={handleSubmitReport}
-                        disabled={
-                          isSubmitting || reportReceiptItems.length === 0
-                        }
-                        className="mt-4 w-full rounded-lg bg-slate-950 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
-                      >
-                        {isSubmitting ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <Loader className="h-4 w-4 animate-spin" />
-                            Submitting...
-                          </span>
-                        ) : selectedReport.status === "info_requested" ? (
-                          "Submit response"
-                        ) : (
-                          "Submit for Approval"
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-slate-200">
-                <CardHeader>
-                  <CardTitle className="text-lg">Create New Report</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Report Title *
-                    </label>
-                    <Input
-                      value={newReportTitle}
-                      onChange={(e) => setNewReportTitle(e.target.value)}
-                      placeholder="e.g., Mumbai Client Trip - April"
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Description
-                    </label>
-                    <Textarea
-                      value={newReportDescription}
-                      onChange={(e) => setNewReportDescription(e.target.value)}
-                      placeholder="Add any notes or context..."
-                      className="text-sm h-24"
-                    />
-                  </div>
-
+            {/* Inline create form */}
+            {showCreateForm && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  Create a new report
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Report Title *
+                  </label>
+                  <Input
+                    value={newReportTitle}
+                    onChange={(e) => setNewReportTitle(e.target.value)}
+                    placeholder="e.g., Mumbai Client Trip - April"
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Description
+                  </label>
+                  <Textarea
+                    value={newReportDescription}
+                    onChange={(e) => setNewReportDescription(e.target.value)}
+                    placeholder="Add any notes or context..."
+                    className="text-sm h-20"
+                  />
+                </div>
+                <div className="flex gap-2">
                   <button
-                    onClick={handleCreateReport}
+                    type="button"
+                    onClick={() => void handleCreateReport()}
                     disabled={isCreating}
-                    className="w-full rounded-lg bg-slate-950 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
+                    className="flex-1 rounded-lg bg-slate-950 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
                   >
                     {isCreating ? (
                       <span className="flex items-center justify-center gap-2">
@@ -1515,418 +1299,513 @@ export function ExpenseReportWorkspace({
                       "Create Report"
                     )}
                   </button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
-
-        {workspaceMode === "reports" ? (
-          <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-            <div className="space-y-4">
-              <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
-                {isEmployee ? "My Reports" : "All Reports"}
-              </p>
-
-              <div className="flex gap-2">
-                <div className="relative flex-1 min-w-0 max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={browseSearch}
-                    onChange={(event) => {
-                      setBrowseSearch(event.target.value);
-                      setBrowseOffset(0);
-                      setBrowseReports([]);
-                      setBrowseSelectedReportId(null);
-                      setBrowseSelectedDetails(null);
-                      setBrowseHasMore(true);
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setNewReportTitle("");
+                      setNewReportDescription("");
                     }}
-                    placeholder="Search by report name or ID"
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700"
-                  />
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <select
-                  value={browseStatus}
+              </div>
+            )}
+
+            {/* Search + status filter */}
+            <div className="flex gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={browseSearch}
                   onChange={(event) => {
-                    setBrowseStatus(event.target.value as "all" | ReportStatus);
+                    setBrowseSearch(event.target.value);
                     setBrowseOffset(0);
                     setBrowseReports([]);
                     setBrowseSelectedReportId(null);
                     setBrowseSelectedDetails(null);
                     setBrowseHasMore(true);
                   }}
-                  className="text-sm border border-slate-300 rounded-lg px-3 py-2"
-                >
-                  {statusOptions.map((opt) => (
-                    <option key={`browse-${opt.value}`} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Search by report name or ID"
+                  className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700"
+                />
               </div>
-
-              <div
-                ref={browseReportListRef}
-                onScroll={handleBrowseReportsScroll}
-                className="max-h-[68vh] space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+              <select
+                value={browseStatus}
+                onChange={(event) => {
+                  setBrowseStatus(event.target.value as "all" | ReportStatus);
+                  setBrowseOffset(0);
+                  setBrowseReports([]);
+                  setBrowseSelectedReportId(null);
+                  setBrowseSelectedDetails(null);
+                  setBrowseHasMore(true);
+                }}
+                className="text-sm border border-slate-300 rounded-lg px-3 py-2"
               >
-                {browseIsLoading ? (
-                  <p className="py-8 text-center text-sm text-slate-500">
-                    Loading reports...
-                  </p>
-                ) : browseError ? (
-                  <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                    {browseError}
-                  </p>
-                ) : browseReports.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-slate-500">
-                    No reports found.
-                  </p>
-                ) : (
-                  browseReports.map((report, index) => (
-                    <button
-                      key={
-                        report.id || `browse-report-${index}-${report.title}`
-                      }
-                      type="button"
-                      onClick={() => {
-                        void loadBrowseReportDetails(report.id);
-                      }}
-                      className={cn(
-                        "w-full rounded-xl border p-4 text-left transition-colors",
-                        browseSelectedReportId === report.id
-                          ? "border-slate-900 bg-slate-950 text-white"
-                          : "border-slate-200 bg-white hover:bg-slate-50",
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-sm">{report.title}</p>
-                          <p
-                            className={cn(
-                              "mt-1 text-xs",
-                              browseSelectedReportId === report.id
-                                ? "text-slate-300"
-                                : "text-slate-500",
-                            )}
-                          >
-                            {formatMoney(report.totalAmount)} · Submitted{" "}
-                            {formatDateTime(report.createdAt)}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "inline-block rounded-full px-2 py-1 text-[11px] font-medium",
-                            getStatusBadgeColor(report.status),
-                            browseSelectedReportId === report.id
-                              ? "bg-white/10 text-white"
-                              : "",
-                          )}
-                        >
-                          {report.status}
-                        </span>
-                      </div>
-                    </button>
-                  ))
-                )}
-
-                {browseIsLoadingMore ? (
-                  <p className="py-2 text-center text-xs text-slate-500">
-                    Loading more reports...
-                  </p>
-                ) : null}
-              </div>
+                {statusOptions.map((opt) => (
+                  <option key={`browse-${opt.value}`} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-slate-100">
-                <div>
-                  <CardTitle className="text-lg text-slate-950">
-                    {browseSelectedDetails?.report?.title ||
-                      browseSelectedReport?.title ||
-                      "Report details"}
-                  </CardTitle>
-                  <CardDescription>
-                    {browseSelectedDetails?.report?.status ||
-                      browseSelectedReport?.status ||
-                      "Select a report to view its items, export, and print."}
-                  </CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-2">
+            {/* Scrollable report list */}
+            <div
+              ref={browseReportListRef}
+              onScroll={handleBrowseReportsScroll}
+              className="max-h-[68vh] space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+            >
+              {browseIsLoading ? (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  Loading reports...
+                </p>
+              ) : browseError ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  {browseError}
+                </p>
+              ) : browseReports.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  No reports found.
+                </p>
+              ) : (
+                browseReports.map((report, index) => (
                   <button
+                    key={report.id || `browse-report-${index}-${report.title}`}
                     type="button"
-                    onClick={printSelectedReportPdf}
-                    disabled={!browseSelectedDetails?.report}
-                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                    onClick={() => {
+                      void handleSelectUnifiedReport(report.id);
+                    }}
+                    className={cn(
+                      "w-full rounded-xl border p-4 text-left transition-colors",
+                      browseSelectedReportId === report.id
+                        ? "border-slate-900 bg-slate-950 text-white"
+                        : "border-slate-200 bg-white hover:bg-slate-50",
+                    )}
                   >
-                    Print PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={exportSelectedReportCsv}
-                    disabled={!browseSelectedDetails?.report}
-                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Export CSV
-                  </button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-slate-700">
-                    Import report CSV
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept=".csv,text/csv"
-                      onChange={(e) =>
-                        handleValidateCsvFile(e.target.files?.[0] ?? null)
-                      }
-                      className="text-sm"
-                    />
-                    {csvValidating ? (
-                      <span className="text-sm text-slate-500">
-                        Validating...
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {csvValidationResult ? (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                      <p className="font-medium">Validation summary</p>
-                      <p className="mt-1 text-xs text-slate-600">
-                        Reports found: {csvValidationResult.reportsFound ?? 0} ·
-                        Receipts: {csvValidationResult.receiptsFound ?? 0}
-                      </p>
-                      {csvValidationResult.errors &&
-                      csvValidationResult.errors.length > 0 ? (
-                        <div className="mt-2 text-xs text-rose-700">
-                          <p className="font-medium">Errors</p>
-                          <ul className="list-disc pl-5 mt-1">
-                            {csvValidationResult.errors
-                              .slice(0, 10)
-                              .map((err: string, idx: number) => (
-                                <li key={idx}>{err}</li>
-                              ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-xs text-emerald-700">
-                          No validation errors found.
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-                {browseIsLoadingDetails ? (
-                  <p className="text-sm text-slate-500">
-                    Loading report details...
-                  </p>
-                ) : browseSelectedDetails?.report ? (
-                  <>
-                    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                          Total
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-slate-950">
-                          {formatMoney(
-                            browseSelectedDetails.report.totalAmount,
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                          Status
-                        </p>
+                        <p className="font-medium text-sm">{report.title}</p>
                         <p
                           className={cn(
-                            "mt-1 inline-flex rounded-full px-2 py-1 text-xs font-medium",
-                            getStatusBadgeColor(
-                              browseSelectedDetails.report.status,
-                            ),
+                            "mt-1 text-xs",
+                            browseSelectedReportId === report.id
+                              ? "text-slate-300"
+                              : "text-slate-500",
                           )}
                         >
-                          {browseSelectedDetails.report.status}
+                          {formatMoney(report.totalAmount)} · Created{" "}
+                          {formatDateTime(report.createdAt)}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                          Created
-                        </p>
-                        <p className="mt-1">
-                          {formatDateTime(
-                            browseSelectedDetails.report.createdAt,
-                          )}
-                        </p>
+                      <span
+                        className={cn(
+                          "inline-block rounded-full px-2 py-1 text-[11px] font-medium",
+                          getStatusBadgeColor(report.status),
+                          browseSelectedReportId === report.id
+                            ? "bg-white/10 text-white"
+                            : "",
+                        )}
+                      >
+                        {report.status}
+                      </span>
+                    </div>
+                  </button>
+                ))
+              )}
+
+              {browseIsLoadingMore ? (
+                <p className="py-2 text-center text-xs text-slate-500">
+                  Loading more reports...
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          {/* ── Right column: detail panel ── */}
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-slate-100">
+              <div>
+                <CardTitle className="text-lg text-slate-950">
+                  {browseSelectedDetails?.report?.title ||
+                    browseSelectedReport?.title ||
+                    "Report details"}
+                </CardTitle>
+                <CardDescription>
+                  {browseSelectedDetails?.report?.status ||
+                    browseSelectedReport?.status ||
+                    "Select a report to view its items, export, and print."}
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {/* Delete draft button — shown in header for draft reports */}
+                {browseSelectedDetails?.report?.status === "draft" && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteDraftReport()}
+                    disabled={isDeletingReport}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {isDeletingReport ? "Deleting..." : "Delete draft"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={printSelectedReportPdf}
+                  disabled={!browseSelectedDetails?.report}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Print PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={exportSelectedReportCsv}
+                  disabled={!browseSelectedDetails?.report}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Export CSV
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* CSV import section */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-700">
+                  Import report CSV
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) =>
+                      handleValidateCsvFile(e.target.files?.[0] ?? null)
+                    }
+                    className="text-sm"
+                  />
+                  {csvValidating ? (
+                    <span className="text-sm text-slate-500">
+                      Validating...
+                    </span>
+                  ) : null}
+                </div>
+
+                {csvValidationResult ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                    <p className="font-medium">Validation summary</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Reports found: {csvValidationResult.reportsFound ?? 0} ·
+                      Receipts: {csvValidationResult.receiptsFound ?? 0}
+                    </p>
+                    {csvValidationResult.errors &&
+                    csvValidationResult.errors.length > 0 ? (
+                      <div className="mt-2 text-xs text-rose-700">
+                        <p className="font-medium">Errors</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {csvValidationResult.errors
+                            .slice(0, 10)
+                            .map((err: string, idx: number) => (
+                              <li key={idx}>{err}</li>
+                            ))}
+                        </ul>
                       </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                          Creator
-                        </p>
-                        <p className="mt-1">
-                          {browseSelectedDetails.report.creatorName ||
-                            "Unknown"}
-                        </p>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                          Report ID
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <code className="rounded-md bg-white px-2 py-1 text-xs text-slate-700">
-                            {browseDetailReportId}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!browseDetailReportId) return;
-                              await navigator.clipboard.writeText(
-                                browseDetailReportId,
-                              );
-                              setSuccess("Report ID copied");
-                              window.setTimeout(() => setSuccess(null), 2000);
-                            }}
-                            disabled={!browseDetailReportId}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy
-                          </button>
-                        </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-emerald-700">
+                        No validation errors found.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              {browseIsLoadingDetails ? (
+                <p className="text-sm text-slate-500">
+                  Loading report details...
+                </p>
+              ) : browseSelectedDetails?.report ? (
+                <>
+                  {/* Metadata grid */}
+                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Total
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-slate-950">
+                        {formatMoney(
+                          browseSelectedDetails.report.totalAmount,
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Status
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-1 inline-flex rounded-full px-2 py-1 text-xs font-medium",
+                          getStatusBadgeColor(
+                            browseSelectedDetails.report.status,
+                          ),
+                        )}
+                      >
+                        {browseSelectedDetails.report.status}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Created
+                      </p>
+                      <p className="mt-1">
+                        {formatDateTime(
+                          browseSelectedDetails.report.createdAt,
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Creator
+                      </p>
+                      <p className="mt-1">
+                        {browseSelectedDetails.report.creatorName ||
+                          "Unknown"}
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Report ID
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <code className="rounded-md bg-white px-2 py-1 text-xs text-slate-700">
+                          {browseDetailReportId}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!browseDetailReportId) return;
+                            await navigator.clipboard.writeText(
+                              browseDetailReportId,
+                            );
+                            setSuccess("Report ID copied");
+                            window.setTimeout(() => setSuccess(null), 2000);
+                          }}
+                          disabled={!browseDetailReportId}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy
+                        </button>
                       </div>
                     </div>
+                  </div>
 
-                    {browseSelectedDetails.report.status === "rejected" && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
-                        <div className="flex gap-2">
-                          <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-red-800">
-                              Report rejected
+                  {/* Rejection banner */}
+                  {browseSelectedDetails.report.status === "rejected" && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+                      <div className="flex gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-red-800">
+                            Report rejected
+                          </p>
+                          {browseSelectedDetails.report.rejectionReason && (
+                            <p className="mt-1 text-sm text-red-700">
+                              {browseSelectedDetails.report.rejectionReason}
                             </p>
-                            {browseSelectedDetails.report.rejectionReason && (
-                              <p className="mt-1 text-sm text-red-700">
-                                {browseSelectedDetails.report.rejectionReason}
-                              </p>
-                            )}
-                          </div>
+                          )}
                         </div>
-                        {isEmployee && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!browseSelectedDetails.report) return;
-                              setIsResubmitting(true);
-                              setBrowseError(null);
-                              try {
-                                const response = await fetch(
-                                  `/api/reports/${browseSelectedDetails.report.id}/resubmit`,
-                                  { method: "POST" },
-                                );
-                                if (!response.ok) {
-                                  const data = await response.json();
-                                  throw new Error(data.error || "Failed to resubmit");
+                      </div>
+                      {(isEmployee || browseSelectedDetails.report.userId === authContext.userId) && (
+                        <button
+                          type="button"
+                          onClick={() => void handleResubmitReport()}
+                          disabled={isResubmitting}
+                          className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+                        >
+                          {isResubmitting
+                            ? "Moving to draft..."
+                            : "Resubmit (move back to draft)"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Draft / info_requested actions — visible to report owner or admin */}
+                  {(() => {
+                    const r = browseSelectedDetails.report;
+                    const isOwner = r.userId === authContext.userId;
+                    const canEdit =
+                      authContext.role === "admin" ||
+                      isOwner ||
+                      (authContext.role === "manager" && isOwner);
+                    return (
+                      (r.status === "draft" && canEdit) ||
+                      (r.status === "info_requested" && (isEmployee || isOwner))
+                    );
+                  })() && (
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Receipts in this report
+                      </p>
+
+                      {isLoadingReportItems ? (
+                        <p className="text-sm text-slate-500">
+                          Loading receipts...
+                        </p>
+                      ) : browseSelectedDetails.items.length === 0 ? (
+                        <p className="text-sm text-slate-500">
+                          No receipts added yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {browseSelectedDetails.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">
+                                  {item.vendor ?? "Unknown vendor"}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {formatMoney(toReportAmount(item.amount))} ·{" "}
+                                  {item.category ?? "uncategorized"}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleRemoveReceiptFromReport(
+                                    item.receiptId,
+                                  )
                                 }
-                                const updated: ExpenseReport = await response.json();
-                                syncBrowseReport(updated);
-                                setSuccess("Report moved back to draft — you can now edit and resubmit.");
-                                setTimeout(() => setSuccess(null), 4000);
-                              } catch (err) {
-                                setBrowseError(
-                                  err instanceof Error ? err.message : "Failed to resubmit report",
-                                );
-                              } finally {
-                                setIsResubmitting(false);
-                              }
-                            }}
-                            disabled={isResubmitting}
-                            className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
-                          >
-                            {isResubmitting ? "Moving to draft..." : "Resubmit (move back to draft)"}
-                          </button>
+                                className="shrink-0 text-xs text-rose-600 hover:text-rose-700 font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleOpenReceiptPicker}
+                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      >
+                        <Search className="h-4 w-4" />
+                        Add receipts
+                      </button>
+                      <p className="text-xs text-slate-500">
+                        {availableReceiptsCount > 0
+                          ? `${availableReceiptsCount} verified receipts are currently available.`
+                          : "No more verified receipts are currently available."}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleSubmitReport()}
+                        disabled={isSubmitting || reportItems.length === 0}
+                        className="w-full rounded-lg bg-slate-950 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
+                      >
+                        {isSubmitting ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader className="h-4 w-4 animate-spin" />
+                            Submitting...
+                          </span>
+                        ) : browseSelectedDetails.report.status ===
+                          "info_requested" ? (
+                          "Submit response"
+                        ) : (
+                          "Submit for Approval"
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Read-only items list (for non-draft statuses) */}
+                  {browseSelectedDetails.report.status !== "draft" &&
+                    !(
+                      browseSelectedDetails.report.status ===
+                        "info_requested" && isEmployee
+                    ) && (
+                      <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
+                        {browseSelectedDetails.items.length === 0 ? (
+                          <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                            No items found for this report.
+                          </p>
+                        ) : (
+                          browseSelectedDetails.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="rounded-xl border border-slate-200 p-4"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="font-medium text-slate-900">
+                                    {item.vendor ?? "Unknown vendor"}
+                                  </p>
+                                  <p className="mt-1 text-sm text-slate-600">
+                                    ₹{formatMoney(toReportAmount(item.amount))}{" "}
+                                    · {item.category ?? "uncategorized"}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Receipt: {item.receiptId} · Date:{" "}
+                                    {item.receiptDate}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Uploaded by:{" "}
+                                    {item.uploadedByName ?? "Unknown"} (
+                                    {item.uploadedByRole ?? "unknown"}) · ID:{" "}
+                                    {item.uploadedById ?? "—"}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  {item.fileUrl ? (
+                                    <a
+                                      href={item.fileUrl}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                                    >
+                                      Open receipt
+                                    </a>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
+                                      Receipt unavailable
+                                    </span>
+                                  )}
+                                  <div className="text-xs text-slate-500">
+                                    {item.mimeType ?? ""}{" "}
+                                    {item.vendorGstin
+                                      ? `· GSTIN ${item.vendorGstin}`
+                                      : ""}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
                         )}
                       </div>
                     )}
 
-                    <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
-                      {browseSelectedDetails.items.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                          No items found for this report.
-                        </p>
-                      ) : (
-                        browseSelectedDetails.items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="rounded-xl border border-slate-200 p-4"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {item.vendor ?? "Unknown vendor"}
-                                </p>
-                                <p className="mt-1 text-sm text-slate-600">
-                                  ₹{formatMoney(toReportAmount(item.amount))} ·{" "}
-                                  {item.category ?? "uncategorized"}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Receipt: {item.receiptId} · Date:{" "}
-                                  {item.receiptDate}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Uploaded by:{" "}
-                                  {item.uploadedByName ?? "Unknown"} (
-                                  {item.uploadedByRole ?? "unknown"}) · ID:{" "}
-                                  {item.uploadedById ?? "—"}
-                                </p>
-                              </div>
-                              <div className="flex flex-col items-end gap-2">
-                                {item.fileUrl ? (
-                                  <a
-                                    href={item.fileUrl}
-                                    target="_blank"
-                                    rel="noreferrer noopener"
-                                    className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-                                  >
-                                    Open receipt
-                                  </a>
-                                ) : (
-                                  <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
-                                    Receipt unavailable
-                                  </span>
-                                )}
-                                <div className="text-xs text-slate-500">
-                                  {item.mimeType ?? ""}{" "}
-                                  {item.vendorGstin
-                                    ? `· GSTIN ${item.vendorGstin}`
-                                    : ""}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <ReportActivityPanel
-                      report={browseSelectedDetails.report}
-                      reportItemsCount={browseSelectedDetails.items.length}
-                      authContext={authContext}
-                      tenantUsers={tenantUsers}
-                      onReportUpdated={syncBrowseReport}
-                    />
-                  </>
-                ) : (
-                  <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                    Select a report from the left to see details, export CSV, or
-                    print as PDF.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        ) : null}
+                  <ReportActivityPanel
+                    report={browseSelectedDetails.report}
+                    reportItemsCount={browseSelectedDetails.items.length}
+                    authContext={authContext}
+                    tenantUsers={tenantUsers}
+                    onReportUpdated={syncBrowseReport}
+                  />
+                </>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                  Select a report from the left to see details, export CSV, or
+                  print as PDF.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       {isReceiptDialogOpen ? (
