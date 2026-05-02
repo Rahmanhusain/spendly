@@ -90,13 +90,13 @@ export async function POST(
       reason,
     );
 
-    // Since the report returns to draft after rejection, reflect that in the audit trail.
+    // Audit the status transition.
     await logReportStatusChange(
       authContext.tenantId,
       reportId,
       authContext.userId,
       "submitted",
-      "draft",
+      "rejected",
       { workflowId: workflow.id, reason },
     );
 

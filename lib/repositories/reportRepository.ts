@@ -584,12 +584,41 @@ export async function rejectReport(
       approved_at as "approvedAt", rejected_at as "rejectedAt",
       paid_at as "paidAt", rejection_reason as "rejectionReason",
       created_at as "createdAt", updated_at as "updatedAt"`,
-    // Story requirement: rejected report returns to draft for employee to fix/resubmit.
-    ["draft", reason, reportId, tenantId, "submitted"],
+    ["rejected", reason, reportId, tenantId, "submitted"],
   );
 
   if (result.rows.length === 0) {
     throw new Error("Report not found or not in submitted state");
+  }
+
+  return result.rows[0];
+}
+
+/**
+ * Resubmit a rejected report — transitions it back to draft so the employee
+ * can edit and re-submit for approval.
+ */
+export async function resubmitReport(
+  tenantId: string,
+  reportId: string,
+): Promise<ExpenseReport> {
+  const result = await query<ExpenseReport>(
+    `UPDATE expense_reports
+    SET status = 'draft', rejection_reason = NULL, rejected_at = NULL
+    WHERE id = $1 AND tenant_id = $2 AND status = 'rejected'
+    RETURNING
+      id, tenant_id as "tenantId", user_id as "userId",
+      title, description, period_start as "periodStart",
+      period_end as "periodEnd", total_amount as "totalAmount",
+      status, approver_id as "approverId", submitted_at as "submittedAt",
+      approved_at as "approvedAt", rejected_at as "rejectedAt",
+      paid_at as "paidAt", rejection_reason as "rejectionReason",
+      created_at as "createdAt", updated_at as "updatedAt"`,
+    [reportId, tenantId],
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error("Report not found or not in rejected state");
   }
 
   return result.rows[0];

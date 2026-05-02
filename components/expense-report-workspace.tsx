@@ -167,6 +167,7 @@ export function ExpenseReportWorkspace({
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingReport, setIsDeletingReport] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const [isLoadingReportItems, setIsLoadingReportItems] = useState(false);
   const [newReportTitle, setNewReportTitle] = useState("");
   const [newReportDescription, setNewReportDescription] = useState("");
@@ -676,6 +677,34 @@ export function ExpenseReportWorkspace({
       setError(err instanceof Error ? err.message : "Failed to delete report");
     } finally {
       setIsDeletingReport(false);
+    }
+  }, [selectedReport]);
+
+  const handleResubmitReport = useCallback(async () => {
+    if (!selectedReport || selectedReport.status !== "rejected") return;
+
+    setIsResubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/reports/${selectedReport.id}/resubmit`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to resubmit report");
+      }
+
+      const updated: ExpenseReport = await response.json();
+      setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setBrowseReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setSuccess("Report moved back to draft — you can now edit and resubmit.");
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resubmit report");
+    } finally {
+      setIsResubmitting(false);
     }
   }, [selectedReport]);
 
@@ -1302,6 +1331,34 @@ export function ExpenseReportWorkspace({
                     </div>
                   )}
 
+                  {selectedReport.status === "rejected" && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+                      <div className="flex gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-red-800">
+                            Report rejected
+                          </p>
+                          {selectedReport.rejectionReason && (
+                            <p className="mt-1 text-sm text-red-700">
+                              {selectedReport.rejectionReason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {isEmployee && (
+                        <button
+                          type="button"
+                          onClick={() => void handleResubmitReport()}
+                          disabled={isResubmitting}
+                          className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+                        >
+                          {isResubmitting ? "Moving to draft..." : "Resubmit (move back to draft)"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="border-t pt-4">
                     <p className="text-xs font-medium text-slate-600 mb-2">
                       Items ({reportReceiptItems.length})
@@ -1740,6 +1797,58 @@ export function ExpenseReportWorkspace({
                         </div>
                       </div>
                     </div>
+
+                    {browseSelectedDetails.report.status === "rejected" && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+                        <div className="flex gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-red-800">
+                              Report rejected
+                            </p>
+                            {browseSelectedDetails.report.rejectionReason && (
+                              <p className="mt-1 text-sm text-red-700">
+                                {browseSelectedDetails.report.rejectionReason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {isEmployee && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!browseSelectedDetails.report) return;
+                              setIsResubmitting(true);
+                              setBrowseError(null);
+                              try {
+                                const response = await fetch(
+                                  `/api/reports/${browseSelectedDetails.report.id}/resubmit`,
+                                  { method: "POST" },
+                                );
+                                if (!response.ok) {
+                                  const data = await response.json();
+                                  throw new Error(data.error || "Failed to resubmit");
+                                }
+                                const updated: ExpenseReport = await response.json();
+                                syncBrowseReport(updated);
+                                setSuccess("Report moved back to draft — you can now edit and resubmit.");
+                                setTimeout(() => setSuccess(null), 4000);
+                              } catch (err) {
+                                setBrowseError(
+                                  err instanceof Error ? err.message : "Failed to resubmit report",
+                                );
+                              } finally {
+                                setIsResubmitting(false);
+                              }
+                            }}
+                            disabled={isResubmitting}
+                            className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+                          >
+                            {isResubmitting ? "Moving to draft..." : "Resubmit (move back to draft)"}
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
                       {browseSelectedDetails.items.length === 0 ? (

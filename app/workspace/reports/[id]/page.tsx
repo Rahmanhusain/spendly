@@ -14,14 +14,14 @@ import {
 export default async function ReportByIdPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const authContext = await getServerAuthContext();
   if (!authContext) {
     redirect("/login");
   }
 
-  const reportId = params.id;
+  const { id: reportId } = await params;
 
   const [report, tenantUsers] = await Promise.all([
     getReportById(authContext.tenantId, reportId),

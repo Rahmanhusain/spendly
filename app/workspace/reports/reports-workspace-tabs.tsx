@@ -6,7 +6,7 @@ import type { ReceiptListItem } from "@/lib/repositories/receiptRepository";
 import type { UserRecord } from "@/lib/repositories/authRepository";
 import type { WorkspaceAuthContext } from "@/components/report-activity-panel";
 import { ApprovalsWorkspace } from "../approvals/approvals-workspace";
-import { ExpenseReportWorkspace } from "../create-report/expense-report-workspace";
+import { ExpenseReportWorkspace } from "@/components/expense-report-workspace";
 
 type Tab = "approvals" | "reports";
 
