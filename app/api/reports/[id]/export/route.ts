@@ -11,36 +11,6 @@ import logger from "@/lib/utils/logger";
 export const runtime = "nodejs";
 
 /**
- * Helper function to get date range from receipts
- */
-async function getDateRangeFromReceipts(
-  reportItems: any[],
-): Promise<{ periodStart?: string; periodEnd?: string }> {
-  if (reportItems.length === 0) {
-    return {};
-  }
-
-  const dates = reportItems
-    .map((item) => item.receiptDate || item.receipt_date)
-    .filter(Boolean)
-    .map((value) => new Date(value as string))
-    .filter((date) => !Number.isNaN(date.getTime()));
-
-  if (dates.length === 0) {
-    return {};
-  }
-
-  // Get min and max dates
-  const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-  const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-
-  return {
-    periodStart: minDate.toISOString().split("T")[0],
-    periodEnd: maxDate.toISOString().split("T")[0],
-  };
-}
-
-/**
  * GET /api/reports/[id]/export?format=csv|json
  * Export a report in CSV or JSON format
  */
@@ -86,10 +56,9 @@ export async function GET(
       reportId,
     );
 
-    // Get date range from receipts if not already set
-    const dateRange = await getDateRangeFromReceipts(items);
-    const periodStart = report.periodStart || dateRange.periodStart;
-    const periodEnd = report.periodEnd || dateRange.periodEnd;
+    // Use report's period directly (no fallback to receipt dates)
+    const periodStart = report.periodStart;
+    const periodEnd = report.periodEnd;
 
     // Prepare report data
     const reportData = {

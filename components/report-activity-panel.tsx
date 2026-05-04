@@ -291,14 +291,15 @@ export function ReportActivityPanel({
   );
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [infoRequestReason, setInfoRequestReason] = useState<string | null>(null);
   const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentUserIsManager =
     authContext.role === "manager" || authContext.role === "admin";
   const currentUserIsReportOwner = report.userId === authContext.userId;
 
-  // For employees, only show users in access list as mentionable
-  // For managers/admins, show all users but filter by access list for dropdown
+  // For employees, only show users in access list + managers/admins + report owner as mentionable
+  // For managers/admins, show all users but include report owner always
   const accessListUserIds = useMemo(
     () => new Set(accessList.map((entry) => entry.userId)),
     [accessList],
@@ -314,10 +315,11 @@ export function ReportActivityPanel({
         return (
           user.role === "manager" ||
           user.role === "admin" ||
+          user.id === report.userId ||
           accessListUserIds.has(user.id)
         );
       }),
-    [authContext.userId, tenantUsers, accessListUserIds],
+    [authContext.userId, report.userId, tenantUsers, accessListUserIds],
   );
   const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
   const mentionedSet = useMemo(
@@ -409,6 +411,25 @@ export function ReportActivityPanel({
       }
       if (accessResponse.ok && "ok" in accessPayload && accessPayload.ok) {
         setAccessList(accessPayload.data?.accessList ?? []);
+      }
+
+      // Fetch info request reason if status is info_requested
+      if (report.status === "info_requested") {
+        try {
+          const infoResponse = await fetch(`/api/reports/${report.id}/info-request-reason`, {
+            credentials: "include",
+          });
+          if (infoResponse.ok) {
+            const infoPayload = await infoResponse.json();
+            setInfoRequestReason(infoPayload.ok ? infoPayload.data?.reason || null : null);
+          } else {
+            setInfoRequestReason(null);
+          }
+        } catch {
+          setInfoRequestReason(null);
+        }
+      } else {
+        setInfoRequestReason(null);
       }
 
       if (
@@ -1085,6 +1106,17 @@ export function ReportActivityPanel({
             </div>
           </div>
 
+          {report.status === "info_requested" && infoRequestReason ? (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+                Information Request Reason
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                {infoRequestReason}
+              </p>
+            </div>
+          ) : null}
+
           {report.description ? (
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
@@ -1353,6 +1385,7 @@ export function ReportActivityPanel({
                       .filter(
                         (user) =>
                           user.id !== authContext.userId &&
+                          user.id !== report.userId &&
                           user.role === "employee" &&
                           user.status === "active" &&
                           !accessListUserIds.has(user.id),

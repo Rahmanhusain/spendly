@@ -167,6 +167,8 @@ export function ExpenseReportWorkspace({
   const [isLoadingReportItems, setIsLoadingReportItems] = useState(false);
   const [newReportTitle, setNewReportTitle] = useState("");
   const [newReportDescription, setNewReportDescription] = useState("");
+  const [newReportPeriodStart, setNewReportPeriodStart] = useState("");
+  const [newReportPeriodEnd, setNewReportPeriodEnd] = useState("");
   const [reportItems, setReportItems] = useState<string[]>([]);
   const [reportItemsByReportId, setReportItemsByReportId] = useState<
     Record<string, string[]>
@@ -410,6 +412,8 @@ export function ExpenseReportWorkspace({
         body: JSON.stringify({
           title: newReportTitle.trim(),
           description: newReportDescription.trim() || undefined,
+          periodStart: newReportPeriodStart || undefined,
+          periodEnd: newReportPeriodEnd || undefined,
         }),
       });
 
@@ -424,6 +428,8 @@ export function ExpenseReportWorkspace({
       setSelectedReportId(newReport.id);
       setNewReportTitle("");
       setNewReportDescription("");
+      setNewReportPeriodStart("");
+      setNewReportPeriodEnd("");
       setReportItems([]);
       setReportItemsByReportId((prev) => ({
         ...prev,
@@ -440,7 +446,7 @@ export function ExpenseReportWorkspace({
     } finally {
       setIsCreating(false);
     }
-  }, [newReportTitle, newReportDescription]);
+  }, [newReportTitle, newReportDescription, newReportPeriodStart, newReportPeriodEnd]);
 
   const handleAddReceiptToReport = useCallback(
     async (receiptId: string) => {
@@ -1283,6 +1289,30 @@ export function ExpenseReportWorkspace({
                     className="text-sm h-20"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Period Start
+                    </label>
+                    <Input
+                      type="date"
+                      value={newReportPeriodStart}
+                      onChange={(e) => setNewReportPeriodStart(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Period End
+                    </label>
+                    <Input
+                      type="date"
+                      value={newReportPeriodEnd}
+                      onChange={(e) => setNewReportPeriodEnd(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -1305,6 +1335,8 @@ export function ExpenseReportWorkspace({
                       setShowCreateForm(false);
                       setNewReportTitle("");
                       setNewReportDescription("");
+                      setNewReportPeriodStart("");
+                      setNewReportPeriodEnd("");
                     }}
                     className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                   >
