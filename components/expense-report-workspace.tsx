@@ -39,9 +39,12 @@ interface ExpenseReportWorkspaceProps {
   initialReports: ExpenseReport[];
   initialReceiptsAvailable: ReceiptListItem[];
   initialHasMore: boolean;
+  initialSelectedReportId?: string;
+  initialSelectedDetails?: ReportDetailResponse | null;
   authContext: AuthContext;
   orgName: string;
   tenantUsers: import("@/lib/repositories/authRepository").UserRecord[];
+  showReportBrowser?: boolean;
 }
 
 const statusOptions: Array<{ label: string; value: "all" | ReportStatus }> = [
@@ -150,16 +153,21 @@ export function ExpenseReportWorkspace({
   initialReports,
   initialReceiptsAvailable,
   initialHasMore,
+  initialSelectedReportId,
+  initialSelectedDetails,
   authContext,
   orgName,
   tenantUsers,
+  showReportBrowser = true,
 }: ExpenseReportWorkspaceProps) {
   const [reports, setReports] = useState<ExpenseReport[]>(initialReports);
   const [receiptsAvailable] = useState<ReceiptListItem[]>(
     initialReceiptsAvailable,
   );
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(
+    initialSelectedReportId ?? null,
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingReport, setIsDeletingReport] = useState(false);
@@ -169,10 +177,20 @@ export function ExpenseReportWorkspace({
   const [newReportDescription, setNewReportDescription] = useState("");
   const [newReportPeriodStart, setNewReportPeriodStart] = useState("");
   const [newReportPeriodEnd, setNewReportPeriodEnd] = useState("");
-  const [reportItems, setReportItems] = useState<string[]>([]);
+  const [reportItems, setReportItems] = useState<string[]>(
+    initialSelectedDetails?.items.map((item) => item.receiptId) ?? [],
+  );
   const [reportItemsByReportId, setReportItemsByReportId] = useState<
     Record<string, string[]>
-  >({});
+  >(
+    initialSelectedDetails && initialSelectedReportId
+      ? {
+          [initialSelectedReportId]: initialSelectedDetails.items.map(
+            (item) => item.receiptId,
+          ),
+        }
+      : {},
+  );
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [receiptSearch, setReceiptSearch] = useState("");
   const [receiptDateFrom, setReceiptDateFrom] = useState("");
@@ -199,13 +217,17 @@ export function ExpenseReportWorkspace({
   const [browseError, setBrowseError] = useState<string | null>(null);
   const [browseSelectedReportId, setBrowseSelectedReportId] = useState<
     string | null
-  >(null);
+  >(initialSelectedReportId ?? null);
   const [browseSelectedDetails, setBrowseSelectedDetails] =
-    useState<ReportDetailResponse | null>(null);
+    useState<ReportDetailResponse | null>(initialSelectedDetails ?? null);
   const [browseIsLoadingDetails, setBrowseIsLoadingDetails] = useState(false);
   const [browseDetailsCache, setBrowseDetailsCache] = useState<
     Record<string, ReportDetailResponse>
-  >({});
+  >(
+    initialSelectedDetails && initialSelectedReportId
+      ? { [initialSelectedReportId]: initialSelectedDetails }
+      : {},
+  );
   const browseReportListRef = useRef<HTMLDivElement | null>(null);
   const [csvValidationResult, setCsvValidationResult] =
     useState<CsvValidationResult | null>(null);
@@ -1089,6 +1111,10 @@ export function ExpenseReportWorkspace({
   }, [browseSelectedDetails, orgName]);
 
   useEffect(() => {
+    if (!showReportBrowser) {
+      return;
+    }
+
     let cancelled = false;
 
     const loadReports = async () => {
@@ -1114,7 +1140,7 @@ export function ExpenseReportWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [browseSearch, browseStatus, fetchBrowseReportsPage]);
+  }, [browseSearch, browseStatus, fetchBrowseReportsPage, showReportBrowser]);
 
   useEffect(() => {
     if (!browseSelectedReportId) {
@@ -1219,13 +1245,17 @@ export function ExpenseReportWorkspace({
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6">
           <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
-            Expense Reports
+            {showReportBrowser ? "Expense Reports" : "Report details"}
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-950">
-            Group expenses into reports
+            {showReportBrowser
+              ? "Group expenses into reports"
+              : "Open report and manage its items"}
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Organize your receipts, add notes, and prepare for approval.
+            {showReportBrowser
+              ? "Organize your receipts, add notes, and prepare for approval."
+              : "Manage this report, add receipts, export or print, and respond to workflow requests."}
           </p>
         </div>
         {error && (
@@ -1243,9 +1273,15 @@ export function ExpenseReportWorkspace({
         )}
 
         {/* BROWSE_PANEL_START */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <div
+          className={cn(
+            "grid gap-6",
+            showReportBrowser ? "lg:grid-cols-[1fr_1.2fr]" : "",
+          )}
+        >
           {/* ── Left column: New Report button + inline form + search + list ── */}
-          <div className="space-y-4">
+          {showReportBrowser ? (
+            <div className="space-y-4">
             {/* New Report button */}
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
@@ -1455,6 +1491,7 @@ export function ExpenseReportWorkspace({
               ) : null}
             </div>
           </div>
+          ) : null}
 
           {/* ── Right column: detail panel ── */}
           <Card className="border-slate-200 shadow-sm">
@@ -1472,6 +1509,14 @@ export function ExpenseReportWorkspace({
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-2">
+                {!showReportBrowser ? (
+                  <a
+                    href="/workspace/reports"
+                    className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    Back to reports
+                  </a>
+                ) : null}
                 {/* Delete draft button — shown in header for draft reports */}
                 {browseSelectedDetails?.report?.status === "draft" && (
                   <button

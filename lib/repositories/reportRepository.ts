@@ -87,10 +87,10 @@ export async function createReport(
       id, tenant_id as "tenantId", user_id as "userId", 
       title, description, period_start as "periodStart", 
       period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+      status, approver_id as "approverId", submitted_at::text as "submittedAt",
+      approved_at::text as "approvedAt", rejected_at::text as "rejectedAt",
+      paid_at::text as "paidAt", rejection_reason as "rejectionReason",
+      created_at::text as "createdAt", updated_at::text as "updatedAt"`,
     [
       tenantId,
       userId,
@@ -123,10 +123,10 @@ export async function getReportById(
       COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as "creatorName",
       er.title, er.description, er.period_start as "periodStart",
       er.period_end as "periodEnd", er.total_amount as "totalAmount",
-      er.status, er.approver_id as "approverId", er.submitted_at as "submittedAt",
-      er.approved_at as "approvedAt", er.rejected_at as "rejectedAt",
-      er.paid_at as "paidAt", er.rejection_reason as "rejectionReason",
-      er.created_at as "createdAt", er.updated_at as "updatedAt"
+      er.status, er.approver_id as "approverId", er.submitted_at::text as "submittedAt",
+      er.approved_at::text as "approvedAt", er.rejected_at::text as "rejectedAt",
+      er.paid_at::text as "paidAt", er.rejection_reason as "rejectionReason",
+      er.created_at::text as "createdAt", er.updated_at::text as "updatedAt"
     FROM expense_reports er
     LEFT JOIN users u ON u.id = er.user_id
     WHERE er.id = $1 AND er.tenant_id = $2`,
@@ -198,10 +198,10 @@ export async function getReportsForTenant(
       COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as "creatorName",
       er.title, er.description, er.period_start as "periodStart",
       er.period_end as "periodEnd", er.total_amount as "totalAmount",
-      er.status, er.approver_id as "approverId", er.submitted_at as "submittedAt",
-      er.approved_at as "approvedAt", er.rejected_at as "rejectedAt",
-      er.paid_at as "paidAt", er.rejection_reason as "rejectionReason",
-      er.created_at as "createdAt", er.updated_at as "updatedAt"
+      er.status, er.approver_id as "approverId", er.submitted_at::text as "submittedAt",
+      er.approved_at::text as "approvedAt", er.rejected_at::text as "rejectedAt",
+      er.paid_at::text as "paidAt", er.rejection_reason as "rejectionReason",
+      er.created_at::text as "createdAt", er.updated_at::text as "updatedAt"
     FROM expense_reports er
     LEFT JOIN users u ON u.id = er.user_id
     ${whereClause}
@@ -260,10 +260,10 @@ export async function updateReport(
       id, tenant_id as "tenantId", user_id as "userId",
       title, description, period_start as "periodStart",
       period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+      status, approver_id as "approverId", submitted_at::text as "submittedAt",
+      approved_at::text as "approvedAt", rejected_at::text as "rejectedAt",
+      paid_at::text as "paidAt", rejection_reason as "rejectionReason",
+      created_at::text as "createdAt", updated_at::text as "updatedAt"`,
     params,
   );
 
@@ -336,7 +336,7 @@ export async function addReceiptToReport(
       RETURNING 
         id, tenant_id as "tenantId", report_id as "reportId",
         receipt_id as "receiptId", line_number as "lineNumber",
-        created_at as "createdAt"`,
+        created_at::text as "createdAt"`,
       [tenantId, reportId, receiptId],
     );
 
@@ -450,7 +450,7 @@ export async function getReportItemsWithDetails(
       r.vendor_name as vendor,
       r.amount,
       r.category,
-      r.receipt_date as "receiptDate",
+      r.receipt_date::text as "receiptDate",
       r.created_at::text as "uploadedAt",
       r.user_id::text as "uploadedById",
       COALESCE(NULLIF(CONCAT(u.first_name, ' ', u.last_name), ''), u.email) as "uploadedByName",
@@ -524,10 +524,10 @@ export async function submitReport(
       COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
       u2.title, u2.description, u2.period_start as "periodStart",
       u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
-      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
-      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
-      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
-      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+      u2.status, u2.approver_id as "approverId", u2.submitted_at::text as "submittedAt",
+      u2.approved_at::text as "approvedAt", u2.rejected_at::text as "rejectedAt",
+      u2.paid_at::text as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at::text as "createdAt", u2.updated_at::text as "updatedAt"
     FROM updated u2
     LEFT JOIN users usr ON usr.id = u2.user_id`,
     ["submitted", reportId, tenantId, fromStatuses],
@@ -560,10 +560,10 @@ export async function approveReport(
       COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
       u2.title, u2.description, u2.period_start as "periodStart",
       u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
-      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
-      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
-      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
-      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+      u2.status, u2.approver_id as "approverId", u2.submitted_at::text as "submittedAt",
+      u2.approved_at::text as "approvedAt", u2.rejected_at::text as "rejectedAt",
+      u2.paid_at::text as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at::text as "createdAt", u2.updated_at::text as "updatedAt"
     FROM updated u2
     LEFT JOIN users usr ON usr.id = u2.user_id`,
     ["approved", approverId, reportId, tenantId, "submitted"],
@@ -596,10 +596,10 @@ export async function rejectReport(
       COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
       u2.title, u2.description, u2.period_start as "periodStart",
       u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
-      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
-      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
-      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
-      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+      u2.status, u2.approver_id as "approverId", u2.submitted_at::text as "submittedAt",
+      u2.approved_at::text as "approvedAt", u2.rejected_at::text as "rejectedAt",
+      u2.paid_at::text as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at::text as "createdAt", u2.updated_at::text as "updatedAt"
     FROM updated u2
     LEFT JOIN users usr ON usr.id = u2.user_id`,
     ["rejected", reason, reportId, tenantId, "submitted"],
@@ -632,10 +632,10 @@ export async function resubmitReport(
       COALESCE(NULLIF(CONCAT(usr.first_name, ' ', usr.last_name), ''), usr.email) as "creatorName",
       u2.title, u2.description, u2.period_start as "periodStart",
       u2.period_end as "periodEnd", u2.total_amount as "totalAmount",
-      u2.status, u2.approver_id as "approverId", u2.submitted_at as "submittedAt",
-      u2.approved_at as "approvedAt", u2.rejected_at as "rejectedAt",
-      u2.paid_at as "paidAt", u2.rejection_reason as "rejectionReason",
-      u2.created_at as "createdAt", u2.updated_at as "updatedAt"
+      u2.status, u2.approver_id as "approverId", u2.submitted_at::text as "submittedAt",
+      u2.approved_at::text as "approvedAt", u2.rejected_at::text as "rejectedAt",
+      u2.paid_at::text as "paidAt", u2.rejection_reason as "rejectionReason",
+      u2.created_at::text as "createdAt", u2.updated_at::text as "updatedAt"
     FROM updated u2
     LEFT JOIN users usr ON usr.id = u2.user_id`,
     [reportId, tenantId],
@@ -682,10 +682,10 @@ export async function requestInfoReport(
       id, tenant_id as "tenantId", user_id as "userId",
       title, description, period_start as "periodStart",
       period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+      status, approver_id as "approverId", submitted_at::text as "submittedAt",
+      approved_at::text as "approvedAt", rejected_at::text as "rejectedAt",
+      paid_at::text as "paidAt", rejection_reason as "rejectionReason",
+      created_at::text as "createdAt", updated_at::text as "updatedAt"`,
     ["info_requested", reportId, tenantId, "submitted"],
   );
 
@@ -711,10 +711,10 @@ export async function markReportAsPaid(
       id, tenant_id as "tenantId", user_id as "userId",
       title, description, period_start as "periodStart",
       period_end as "periodEnd", total_amount as "totalAmount",
-      status, approver_id as "approverId", submitted_at as "submittedAt",
-      approved_at as "approvedAt", rejected_at as "rejectedAt",
-      paid_at as "paidAt", rejection_reason as "rejectionReason",
-      created_at as "createdAt", updated_at as "updatedAt"`,
+      status, approver_id as "approverId", submitted_at::text as "submittedAt",
+      approved_at::text as "approvedAt", rejected_at::text as "rejectedAt",
+      paid_at::text as "paidAt", rejection_reason as "rejectionReason",
+      created_at::text as "createdAt", updated_at::text as "updatedAt"`,
     ["paid", reportId, tenantId, "approved"],
   );
 

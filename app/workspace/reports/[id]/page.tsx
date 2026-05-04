@@ -3,13 +3,13 @@ import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getReportById,
   getReportItemsWithDetails,
+  getReportsForTenant,
   type ExpenseReport,
 } from "@/lib/repositories/reportRepository";
-import { getUsersByTenant } from "@/lib/repositories/authRepository";
+import { getUsersByTenant, getTenantById } from "@/lib/repositories/authRepository";
+import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
 import { query } from "@/lib/db/client";
-import {
-  ReportWorkspaceClient,
-} from "./report-workspace-client";
+import { ExpenseReportWorkspace } from "@/components/expense-report-workspace";
 
 export default async function ReportByIdPage({
   params,
@@ -23,17 +23,27 @@ export default async function ReportByIdPage({
 
   const { id: reportId } = await params;
 
-  const [report, tenantUsers] = await Promise.all([
-    getReportById(authContext.tenantId, reportId),
-    getUsersByTenant(authContext.tenantId),
-  ]);
+  const [tenant, tenantUsers, report, reportsResult, receipts] =
+    await Promise.all([
+      getTenantById(authContext.tenantId),
+      getUsersByTenant(authContext.tenantId),
+      getReportById(authContext.tenantId, reportId),
+      getReportsForTenant(authContext.tenantId, {
+        userId: authContext.role === "employee" ? authContext.userId : undefined,
+        status: "all",
+        limit: 25,
+        offset: 0,
+      }),
+      getReceiptsForTenant(authContext.tenantId, {
+        limit: 999,
+        offset: 0,
+      }),
+    ]);
 
   if (!report) {
     notFound();
   }
 
-  // Collaboration rules: employees can open reports they own, comment on, or are mentioned about.
-  // For MVP we use the existence of an in-app notification targeting this report as the "mention/involvement" signal.
   if (authContext.role === "employee" && report.userId !== authContext.userId) {
     const mentionResult = await query<{ exists: boolean }>(
       `SELECT EXISTS(
@@ -54,14 +64,26 @@ export default async function ReportByIdPage({
     }
   }
 
-  const items = await getReportItemsWithDetails(authContext.tenantId, reportId);
+  const reportItems = await getReportItemsWithDetails(
+    authContext.tenantId,
+    reportId,
+  );
+
+  const initialReports = reportsResult.reports.some((r) => r.id === report.id)
+    ? reportsResult.reports
+    : [report, ...reportsResult.reports];
 
   return (
-    <ReportWorkspaceClient
-      initialReport={report as ExpenseReport}
-      reportItemsCount={items.length}
+    <ExpenseReportWorkspace
+      initialReports={initialReports}
+      initialReceiptsAvailable={receipts}
+      initialHasMore={reportsResult.reports.length < reportsResult.total}
+      initialSelectedReportId={report.id}
+      initialSelectedDetails={{ report, items: reportItems }}
       authContext={authContext}
+      orgName={tenant?.name ?? "Your workspace"}
       tenantUsers={tenantUsers}
+      showReportBrowser={false}
     />
   );
 }
