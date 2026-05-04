@@ -3,7 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bell, RefreshCw, Settings, User, UserCircle2 } from "lucide-react";
+import {
+  Bell,
+  FileText,
+  Receipt,
+  RefreshCw,
+  Settings,
+  User,
+  UserCircle2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
 import { cn } from "@/lib/utils";
@@ -184,6 +192,17 @@ export function WorkspaceTopNav({
     });
   };
 
+  const getNotificationIcon = (relatedType: string | null) => {
+    switch (relatedType) {
+      case "receipt":
+        return <Receipt className="h-3 w-3 text-red-600" />;
+      case "expense_report":
+        return <FileText className="h-3 w-3 text-blue-600" />;
+      default:
+        return <Bell className="h-3 w-3 text-slate-600" />;
+    }
+  };
+
   const handleOpenNotifications = async () => {
     const nextOpen = !isNotificationsOpen;
     setIsNotificationsOpen(nextOpen);
@@ -289,15 +308,52 @@ export function WorkspaceTopNav({
                         key={notification.id}
                         className="rounded-lg border border-slate-200 p-3"
                       >
-                        <p className="text-sm font-medium text-slate-900">
-                          {notification.title}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-600">
-                          {notification.message}
-                        </p>
-                        <p className="mt-2 text-xs text-slate-400">
-                          {formatNotificationTime(notification.createdAt)}
-                        </p>
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5">
+                            {getNotificationIcon(notification.relatedType)}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900">
+                              {notification.title}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600">
+                              {notification.message}
+                            </p>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <p className="text-xs text-slate-400">
+                                {formatNotificationTime(notification.createdAt)}
+                              </p>
+                              <div className="flex gap-1">
+                                {notification.relatedType ===
+                                  "expense_report" && notification.relatedId ? (
+                                  <Link
+                                    href={`/workspace/reports/${notification.relatedId}`}
+                                    className="text-xs font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700"
+                                    onClick={() =>
+                                      setIsNotificationsOpen(false)
+                                    }
+                                  >
+                                    Open
+                                  </Link>
+                                ) : notification.relatedType === "receipt" ? (
+                                  <Link
+                                    href={
+                                      notification.relatedId
+                                        ? `/workspace/receipts/${notification.relatedId}`
+                                        : "/workspace/receipts"
+                                    }
+                                    className="text-xs font-medium text-red-600 underline underline-offset-4 hover:text-red-700"
+                                    onClick={() =>
+                                      setIsNotificationsOpen(false)
+                                    }
+                                  >
+                                    Open
+                                  </Link>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </article>
                     ))}
                   </div>

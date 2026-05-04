@@ -571,6 +571,117 @@ export async function getReceiptsForTenant(
   }));
 }
 
+export async function getReceiptById(
+  tenantId: string,
+  receiptId: string,
+): Promise<ReceiptListItem | null> {
+  await ensureReceiptCommentsTable();
+
+  const result = await query<ReceiptQueryRow>(
+    `WITH all_comments AS (
+      SELECT id, tenant_id, receipt_id, author_user_id, message, created_at
+      FROM report_comments
+      WHERE receipt_id IS NOT NULL
+      UNION ALL
+      SELECT id, tenant_id, receipt_id, author_user_id, message, created_at
+      FROM receipt_comments
+    )
+    SELECT
+      r.id,
+      COALESCE(r.receipt_number, CONCAT('RCPT-', UPPER(SUBSTRING(REPLACE(r.id::text, '-', '') FROM 1 FOR 8)))) AS receipt_id,
+      r.vendor_name,
+      r.amount,
+      r.currency,
+      r.category,
+      r.status,
+      r.receipt_date::text,
+      r.created_at::text AS uploaded_at,
+      COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email) AS uploaded_by,
+      u.id::text AS uploaded_by_user_id,
+      u.role AS uploaded_by_role,
+      r.file_path,
+      r.file_name,
+      r.mime_type,
+      r.file_size_bytes,
+      r.description,
+      r.gst_rate,
+      r.cgst_rate,
+      r.igst_rate,
+      r.sgst_rate,
+      r.cgst_amount,
+      r.igst_amount,
+      r.sgst_amount,
+      r.tax_amount,
+      r.vendor_gstin,
+      r.confidence_score,
+      r.is_duplicate,
+      r.duplicate_of,
+      r.submitted_in_report_id,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', c.id,
+            'author', COALESCE(NULLIF(TRIM(CONCAT(cu.first_name, ' ', cu.last_name)), ''), cu.email),
+            'authorRole', COALESCE(cu.role::text, 'unknown'),
+            'message', c.message,
+            'createdAt', c.created_at::text
+          )
+          ORDER BY c.created_at DESC
+        ) FILTER (WHERE c.id IS NOT NULL),
+        '[]'::json
+      ) AS comments
+    FROM receipts r
+    JOIN users u ON u.id = r.user_id
+    LEFT JOIN all_comments c ON c.receipt_id = r.id AND c.tenant_id = r.tenant_id
+    LEFT JOIN users cu ON cu.id = c.author_user_id
+    WHERE r.tenant_id = $1 AND (
+      r.id::text = $2
+      OR r.receipt_number = $2
+      OR CONCAT('RCPT-', UPPER(SUBSTRING(REPLACE(r.id::text, '-', '') FROM 1 FOR 8))) = $2
+    )
+    GROUP BY r.id, u.id, u.first_name, u.last_name, u.email, u.role
+    LIMIT 1`,
+    [tenantId, receiptId],
+  );
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    receiptId: row.receipt_id,
+    vendor: row.vendor_name ?? "Unknown vendor",
+    amount: Number(row.amount),
+    currency: row.currency,
+    category: row.category ?? "Uncategorized",
+    status: row.status,
+    receiptDate: row.receipt_date,
+    uploadedAt: row.uploaded_at,
+    uploadedBy: row.uploaded_by,
+    uploadedByUserId: row.uploaded_by_user_id,
+    uploadedByRole: row.uploaded_by_role,
+    fileUrl: toPublicReceiptUrl(row.file_path),
+    fileName: row.file_name ?? "receipt-file",
+    mimeType: row.mime_type ?? "application/octet-stream",
+    fileSizeBytes: toNumber(row.file_size_bytes),
+    description: row.description ?? "No description provided.",
+    gstRate: toNumber(row.gst_rate),
+    cgstRate: toNumber(row.cgst_rate),
+    igstRate: toNumber(row.igst_rate),
+    sgstRate: toNumber(row.sgst_rate),
+    cgstAmount: toNumber(row.cgst_amount),
+    igstAmount: toNumber(row.igst_amount),
+    sgstAmount: toNumber(row.sgst_amount),
+    taxAmount: toNumber(row.tax_amount),
+    vendorGstin: row.vendor_gstin,
+    confidenceScore: toNumber(row.confidence_score),
+    isDuplicate: row.is_duplicate,
+    duplicateOf: row.duplicate_of,
+    submittedInReportId: row.submitted_in_report_id,
+    comments: parseComments(row.comments),
+  };
+}
+
 type ReceiptCountRow = {
   total: string | number;
 };

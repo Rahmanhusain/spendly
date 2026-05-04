@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, FileText, Receipt } from "lucide-react";
 
 type NotificationItem = {
   id: string;
@@ -23,6 +23,8 @@ type NotificationsResponse = {
   error?: string;
 };
 
+type TabType = "all" | "receipts" | "reports";
+
 function formatTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -34,11 +36,23 @@ function formatTime(value: string) {
   });
 }
 
+function getNotificationIcon(relatedType: string | null) {
+  switch (relatedType) {
+    case "receipt":
+      return <Receipt className="h-4 w-4 text-red-600" />;
+    case "expense_report":
+      return <FileText className="h-4 w-4 text-blue-600" />;
+    default:
+      return <Bell className="h-4 w-4 text-slate-600" />;
+  }
+}
+
 export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("all");
 
   useEffect(() => {
     let mounted = true;
@@ -76,6 +90,27 @@ export default function NotificationsPage() {
     };
   }, []);
 
+  const filteredItems = useMemo(() => {
+    switch (activeTab) {
+      case "receipts":
+        return items.filter((item) => item.relatedType === "receipt");
+      case "reports":
+        return items.filter((item) => item.relatedType === "expense_report");
+      default:
+        return items;
+    }
+  }, [items, activeTab]);
+
+  const tabCounts = useMemo(() => {
+    const receipts = items.filter(
+      (item) => item.relatedType === "receipt",
+    ).length;
+    const reports = items.filter(
+      (item) => item.relatedType === "expense_report",
+    ).length;
+    return { receipts, reports, all: items.length };
+  }, [items]);
+
   const title = useMemo(() => {
     if (unreadCount > 0) {
       return `Notifications (${unreadCount} unread)`;
@@ -102,38 +137,93 @@ export default function NotificationsPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        {/* Tabs */}
+        <div className="mb-6 flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === "all"
+                ? "bg-white text-slate-950 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            All ({tabCounts.all})
+          </button>
+          <button
+            onClick={() => setActiveTab("receipts")}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === "receipts"
+                ? "bg-white text-slate-950 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Receipts ({tabCounts.receipts})
+          </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === "reports"
+                ? "bg-white text-slate-950 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Reports ({tabCounts.reports})
+          </button>
+        </div>
+
         {loading ? (
           <p className="text-sm text-slate-600">Loading notifications...</p>
         ) : error ? (
           <p className="text-sm text-rose-700">{error}</p>
-        ) : items.length === 0 ? (
-          <p className="text-sm text-slate-600">No notifications yet.</p>
+        ) : filteredItems.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            {activeTab === "all"
+              ? "No notifications yet."
+              : `No ${activeTab} notifications yet.`}
+          </p>
         ) : (
           <div className="space-y-3">
-            {items.map((notification) => (
+            {filteredItems.map((notification) => (
               <article
                 key={notification.id}
                 className="rounded-xl border border-slate-200 p-4"
               >
-                <p className="text-sm font-semibold text-slate-900">
-                  {notification.title}
-                </p>
-                <p className="mt-1 text-sm text-slate-700">
-                  {notification.message}
-                </p>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="text-xs text-slate-500">
-                    {formatTime(notification.createdAt)}
-                  </p>
-                  {notification.relatedType === "expense_report" &&
-                  notification.relatedId ? (
-                    <Link
-                      href={`/workspace/reports/${notification.relatedId}`}
-                      className="text-xs font-medium text-slate-700 underline underline-offset-4"
-                    >
-                      Open report
-                    </Link>
-                  ) : null}
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    {getNotificationIcon(notification.relatedType)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {notification.title}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      {notification.message}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-xs text-slate-500">
+                        {formatTime(notification.createdAt)}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {notification.relatedType === "expense_report" &&
+                        notification.relatedId ? (
+                          <Link
+                            href={`/workspace/reports/${notification.relatedId}`}
+                            className="text-xs font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700"
+                          >
+                            Open report
+                          </Link>
+                        ) : notification.relatedType === "receipt" &&
+                          notification.relatedId ? (
+                          <Link
+                            href={`/workspace/receipts/${notification.relatedId}`}
+                            className="text-xs font-medium text-red-600 underline underline-offset-4 hover:text-red-700"
+                          >
+                            Open receipt
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </article>
             ))}

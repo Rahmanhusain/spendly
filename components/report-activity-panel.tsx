@@ -291,7 +291,9 @@ export function ReportActivityPanel({
   );
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [infoRequestReason, setInfoRequestReason] = useState<string | null>(null);
+  const [infoRequestReason, setInfoRequestReason] = useState<string | null>(
+    null,
+  );
   const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentUserIsManager =
@@ -416,12 +418,17 @@ export function ReportActivityPanel({
       // Fetch info request reason if status is info_requested
       if (report.status === "info_requested") {
         try {
-          const infoResponse = await fetch(`/api/reports/${report.id}/info-request-reason`, {
-            credentials: "include",
-          });
+          const infoResponse = await fetch(
+            `/api/reports/${report.id}/info-request-reason`,
+            {
+              credentials: "include",
+            },
+          );
           if (infoResponse.ok) {
             const infoPayload = await infoResponse.json();
-            setInfoRequestReason(infoPayload.ok ? infoPayload.data?.reason || null : null);
+            setInfoRequestReason(
+              infoPayload.ok ? infoPayload.data?.reason || null : null,
+            );
           } else {
             setInfoRequestReason(null);
           }

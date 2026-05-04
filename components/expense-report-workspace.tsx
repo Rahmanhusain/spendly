@@ -468,7 +468,12 @@ export function ExpenseReportWorkspace({
     } finally {
       setIsCreating(false);
     }
-  }, [newReportTitle, newReportDescription, newReportPeriodStart, newReportPeriodEnd]);
+  }, [
+    newReportTitle,
+    newReportDescription,
+    newReportPeriodStart,
+    newReportPeriodEnd,
+  ]);
 
   const handleAddReceiptToReport = useCallback(
     async (receiptId: string) => {
@@ -525,7 +530,9 @@ export function ExpenseReportWorkspace({
           setBrowseDetailsCache((prev) => {
             const cached = prev[selectedReportId];
             if (!cached) return prev;
-            const alreadyIn = cached.items.some((i) => i.receiptId === receiptId);
+            const alreadyIn = cached.items.some(
+              (i) => i.receiptId === receiptId,
+            );
             if (alreadyIn) return prev;
             return {
               ...prev,
@@ -605,7 +612,9 @@ export function ExpenseReportWorkspace({
             ...prev,
             [selectedReportId]: {
               ...cached,
-              items: cached.items.filter((item) => item.receiptId !== receiptId),
+              items: cached.items.filter(
+                (item) => item.receiptId !== receiptId,
+              ),
             },
           };
         });
@@ -824,9 +833,12 @@ export function ExpenseReportWorkspace({
     setError(null);
 
     try {
-      const response = await fetch(`/api/reports/${selectedReport.id}/resubmit`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/reports/${selectedReport.id}/resubmit`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -838,7 +850,9 @@ export function ExpenseReportWorkspace({
       setSuccess("Report moved back to draft — you can now edit and resubmit.");
       setTimeout(() => setSuccess(null), 4000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resubmit report");
+      setError(
+        err instanceof Error ? err.message : "Failed to resubmit report",
+      );
     } finally {
       setIsResubmitting(false);
     }
@@ -879,7 +893,12 @@ export function ExpenseReportWorkspace({
     } finally {
       setIsSubmitting(false);
     }
-  }, [reportItems.length, selectedReport?.status, selectedReportId, syncBrowseReport]);
+  }, [
+    reportItems.length,
+    selectedReport?.status,
+    selectedReportId,
+    syncBrowseReport,
+  ]);
 
   const exportSelectedReportCsv = useCallback(() => {
     const report = browseSelectedDetails?.report;
@@ -1282,215 +1301,219 @@ export function ExpenseReportWorkspace({
           {/* ── Left column: New Report button + inline form + search + list ── */}
           {showReportBrowser ? (
             <div className="space-y-4">
-            {/* New Report button */}
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
-                {isEmployee ? "My Reports" : "All Reports"}
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowCreateForm((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                <Plus className="h-4 w-4" />
-                New Report
-              </button>
-            </div>
-
-            {/* Inline create form */}
-            {showCreateForm && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                <p className="text-sm font-semibold text-slate-900">
-                  Create a new report
+              {/* New Report button */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
+                  {isEmployee ? "My Reports" : "All Reports"}
                 </p>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Report Title *
-                  </label>
-                  <Input
-                    value={newReportTitle}
-                    onChange={(e) => setNewReportTitle(e.target.value)}
-                    placeholder="e.g., Mumbai Client Trip - April"
-                    className="text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Description
-                  </label>
-                  <Textarea
-                    value={newReportDescription}
-                    onChange={(e) => setNewReportDescription(e.target.value)}
-                    placeholder="Add any notes or context..."
-                    className="text-sm h-20"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Period Start
-                    </label>
-                    <Input
-                      type="date"
-                      value={newReportPeriodStart}
-                      onChange={(e) => setNewReportPeriodStart(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Period End
-                    </label>
-                    <Input
-                      type="date"
-                      value={newReportPeriodEnd}
-                      onChange={(e) => setNewReportPeriodEnd(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateReport()}
-                    disabled={isCreating}
-                    className="flex-1 rounded-lg bg-slate-950 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
-                  >
-                    {isCreating ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader className="h-4 w-4 animate-spin" />
-                        Creating...
-                      </span>
-                    ) : (
-                      "Create Report"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      setNewReportTitle("");
-                      setNewReportDescription("");
-                      setNewReportPeriodStart("");
-                      setNewReportPeriodEnd("");
-                    }}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateForm((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Report
+                </button>
               </div>
-            )}
 
-            {/* Search + status filter */}
-            <div className="flex gap-2">
-              <div className="relative flex-1 min-w-0">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={browseSearch}
+              {/* Inline create form */}
+              {showCreateForm && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Create a new report
+                  </p>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Report Title *
+                    </label>
+                    <Input
+                      value={newReportTitle}
+                      onChange={(e) => setNewReportTitle(e.target.value)}
+                      placeholder="e.g., Mumbai Client Trip - April"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Description
+                    </label>
+                    <Textarea
+                      value={newReportDescription}
+                      onChange={(e) => setNewReportDescription(e.target.value)}
+                      placeholder="Add any notes or context..."
+                      className="text-sm h-20"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        Period Start
+                      </label>
+                      <Input
+                        type="date"
+                        value={newReportPeriodStart}
+                        onChange={(e) =>
+                          setNewReportPeriodStart(e.target.value)
+                        }
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        Period End
+                      </label>
+                      <Input
+                        type="date"
+                        value={newReportPeriodEnd}
+                        onChange={(e) => setNewReportPeriodEnd(e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateReport()}
+                      disabled={isCreating}
+                      className="flex-1 rounded-lg bg-slate-950 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
+                    >
+                      {isCreating ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader className="h-4 w-4 animate-spin" />
+                          Creating...
+                        </span>
+                      ) : (
+                        "Create Report"
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        setNewReportTitle("");
+                        setNewReportDescription("");
+                        setNewReportPeriodStart("");
+                        setNewReportPeriodEnd("");
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Search + status filter */}
+              <div className="flex gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={browseSearch}
+                    onChange={(event) => {
+                      setBrowseSearch(event.target.value);
+                      setBrowseOffset(0);
+                      setBrowseReports([]);
+                      setBrowseSelectedReportId(null);
+                      setBrowseSelectedDetails(null);
+                      setBrowseHasMore(true);
+                    }}
+                    placeholder="Search by report name or ID"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700"
+                  />
+                </div>
+                <select
+                  value={browseStatus}
                   onChange={(event) => {
-                    setBrowseSearch(event.target.value);
+                    setBrowseStatus(event.target.value as "all" | ReportStatus);
                     setBrowseOffset(0);
                     setBrowseReports([]);
                     setBrowseSelectedReportId(null);
                     setBrowseSelectedDetails(null);
                     setBrowseHasMore(true);
                   }}
-                  placeholder="Search by report name or ID"
-                  className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700"
-                />
+                  className="text-sm border border-slate-300 rounded-lg px-3 py-2"
+                >
+                  {statusOptions.map((opt) => (
+                    <option key={`browse-${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={browseStatus}
-                onChange={(event) => {
-                  setBrowseStatus(event.target.value as "all" | ReportStatus);
-                  setBrowseOffset(0);
-                  setBrowseReports([]);
-                  setBrowseSelectedReportId(null);
-                  setBrowseSelectedDetails(null);
-                  setBrowseHasMore(true);
-                }}
-                className="text-sm border border-slate-300 rounded-lg px-3 py-2"
-              >
-                {statusOptions.map((opt) => (
-                  <option key={`browse-${opt.value}`} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
 
-            {/* Scrollable report list */}
-            <div
-              ref={browseReportListRef}
-              onScroll={handleBrowseReportsScroll}
-              className="max-h-[68vh] space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
-            >
-              {browseIsLoading ? (
-                <p className="py-8 text-center text-sm text-slate-500">
-                  Loading reports...
-                </p>
-              ) : browseError ? (
-                <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  {browseError}
-                </p>
-              ) : browseReports.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-500">
-                  No reports found.
-                </p>
-              ) : (
-                browseReports.map((report, index) => (
-                  <button
-                    key={report.id || `browse-report-${index}-${report.title}`}
-                    type="button"
-                    onClick={() => {
-                      void handleSelectUnifiedReport(report.id);
-                    }}
-                    className={cn(
-                      "w-full rounded-xl border p-4 text-left transition-colors",
-                      browseSelectedReportId === report.id
-                        ? "border-slate-900 bg-slate-950 text-white"
-                        : "border-slate-200 bg-white hover:bg-slate-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-sm">{report.title}</p>
-                        <p
+              {/* Scrollable report list */}
+              <div
+                ref={browseReportListRef}
+                onScroll={handleBrowseReportsScroll}
+                className="max-h-[68vh] space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+              >
+                {browseIsLoading ? (
+                  <p className="py-8 text-center text-sm text-slate-500">
+                    Loading reports...
+                  </p>
+                ) : browseError ? (
+                  <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                    {browseError}
+                  </p>
+                ) : browseReports.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-slate-500">
+                    No reports found.
+                  </p>
+                ) : (
+                  browseReports.map((report, index) => (
+                    <button
+                      key={
+                        report.id || `browse-report-${index}-${report.title}`
+                      }
+                      type="button"
+                      onClick={() => {
+                        void handleSelectUnifiedReport(report.id);
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border p-4 text-left transition-colors",
+                        browseSelectedReportId === report.id
+                          ? "border-slate-900 bg-slate-950 text-white"
+                          : "border-slate-200 bg-white hover:bg-slate-50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-sm">{report.title}</p>
+                          <p
+                            className={cn(
+                              "mt-1 text-xs",
+                              browseSelectedReportId === report.id
+                                ? "text-slate-300"
+                                : "text-slate-500",
+                            )}
+                          >
+                            {formatMoney(report.totalAmount)} · Created{" "}
+                            {formatDateTime(report.createdAt)}
+                          </p>
+                        </div>
+                        <span
                           className={cn(
-                            "mt-1 text-xs",
+                            "inline-block rounded-full px-2 py-1 text-[11px] font-medium",
+                            getStatusBadgeColor(report.status),
                             browseSelectedReportId === report.id
-                              ? "text-slate-300"
-                              : "text-slate-500",
+                              ? "bg-white/10 text-white"
+                              : "",
                           )}
                         >
-                          {formatMoney(report.totalAmount)} · Created{" "}
-                          {formatDateTime(report.createdAt)}
-                        </p>
+                          {report.status}
+                        </span>
                       </div>
-                      <span
-                        className={cn(
-                          "inline-block rounded-full px-2 py-1 text-[11px] font-medium",
-                          getStatusBadgeColor(report.status),
-                          browseSelectedReportId === report.id
-                            ? "bg-white/10 text-white"
-                            : "",
-                        )}
-                      >
-                        {report.status}
-                      </span>
-                    </div>
-                  </button>
-                ))
-              )}
+                    </button>
+                  ))
+                )}
 
-              {browseIsLoadingMore ? (
-                <p className="py-2 text-center text-xs text-slate-500">
-                  Loading more reports...
-                </p>
-              ) : null}
+                {browseIsLoadingMore ? (
+                  <p className="py-2 text-center text-xs text-slate-500">
+                    Loading more reports...
+                  </p>
+                ) : null}
+              </div>
             </div>
-          </div>
           ) : null}
 
           {/* ── Right column: detail panel ── */}
@@ -1609,9 +1632,7 @@ export function ExpenseReportWorkspace({
                         Total
                       </p>
                       <p className="mt-1 text-lg font-semibold text-slate-950">
-                        {formatMoney(
-                          browseSelectedDetails.report.totalAmount,
-                        )}
+                        {formatMoney(browseSelectedDetails.report.totalAmount)}
                       </p>
                     </div>
                     <div>
@@ -1634,9 +1655,7 @@ export function ExpenseReportWorkspace({
                         Created
                       </p>
                       <p className="mt-1">
-                        {formatDateTime(
-                          browseSelectedDetails.report.createdAt,
-                        )}
+                        {formatDateTime(browseSelectedDetails.report.createdAt)}
                       </p>
                     </div>
                     <div>
@@ -1644,8 +1663,7 @@ export function ExpenseReportWorkspace({
                         Creator
                       </p>
                       <p className="mt-1">
-                        {browseSelectedDetails.report.creatorName ||
-                          "Unknown"}
+                        {browseSelectedDetails.report.creatorName || "Unknown"}
                       </p>
                     </div>
                     <div className="sm:col-span-2">
@@ -1692,7 +1710,9 @@ export function ExpenseReportWorkspace({
                           )}
                         </div>
                       </div>
-                      {(isEmployee || browseSelectedDetails.report.userId === authContext.userId) && (
+                      {(isEmployee ||
+                        browseSelectedDetails.report.userId ===
+                          authContext.userId) && (
                         <button
                           type="button"
                           onClick={() => void handleResubmitReport()}

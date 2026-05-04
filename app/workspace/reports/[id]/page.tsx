@@ -6,7 +6,10 @@ import {
   getReportsForTenant,
   type ExpenseReport,
 } from "@/lib/repositories/reportRepository";
-import { getUsersByTenant, getTenantById } from "@/lib/repositories/authRepository";
+import {
+  getUsersByTenant,
+  getTenantById,
+} from "@/lib/repositories/authRepository";
 import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
 import { query } from "@/lib/db/client";
 import { ExpenseReportWorkspace } from "@/components/expense-report-workspace";
@@ -29,7 +32,8 @@ export default async function ReportByIdPage({
       getUsersByTenant(authContext.tenantId),
       getReportById(authContext.tenantId, reportId),
       getReportsForTenant(authContext.tenantId, {
-        userId: authContext.role === "employee" ? authContext.userId : undefined,
+        userId:
+          authContext.role === "employee" ? authContext.userId : undefined,
         status: "all",
         limit: 25,
         offset: 0,
@@ -87,4 +91,3 @@ export default async function ReportByIdPage({
     />
   );
 }
-

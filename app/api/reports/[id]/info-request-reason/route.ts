@@ -17,7 +17,10 @@ export async function GET(
   try {
     const workflow = await getApprovalWorkflow(authContext.tenantId, reportId);
     if (!workflow) {
-      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+      return NextResponse.json(
+        { ok: false, error: "Not found" },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({ ok: true, data: { reason: workflow.comments } });

@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -114,6 +115,9 @@ export function ReceiptsWorkspace({
   initialHasMore,
   initialDateFrom,
   initialDateTo,
+  showReceiptBrowser = true,
+  initialSelectedReceiptId,
+  initialSelectedDetails,
 }: {
   receipts: ReceiptListItem[];
   canReview: boolean;
@@ -121,6 +125,9 @@ export function ReceiptsWorkspace({
   initialHasMore: boolean;
   initialDateFrom: string;
   initialDateTo: string;
+  showReceiptBrowser?: boolean;
+  initialSelectedReceiptId?: string;
+  initialSelectedDetails?: ReceiptListItem | null;
 }) {
   const [receiptRows, setReceiptRows] = useState(receipts);
   const [dateFrom, setDateFrom] = useState(initialDateFrom);
@@ -140,7 +147,7 @@ export function ReceiptsWorkspace({
   );
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedReceiptId, setSelectedReceiptId] = useState(
-    receipts[0]?.receiptId ?? "",
+    initialSelectedReceiptId ?? receipts[0]?.receiptId ?? "",
   );
   const [reviewState, setReviewState] = useState<{
     kind: "idle" | "loading" | "success" | "error";
@@ -584,100 +591,114 @@ export function ReceiptsWorkspace({
     <div className="space-y-5">
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-          View all receipts
+          {showReceiptBrowser ? "View all receipts" : "Receipt details"}
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Search by receipt ID, filter by category and status, then open any
-          receipt for full details and comments.
+          {showReceiptBrowser
+            ? "Search by receipt ID, filter by category and status, then open any receipt for full details and comments."
+            : "Viewing a single receipt."}
         </p>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_180px_180px_180px]">
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search receipt ID or vendor"
-              className="pl-9"
-            />
-          </label>
-
-          <label className="relative block">
-            <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800"
+        {!showReceiptBrowser ? (
+          <div className="mt-4">
+            <Link
+              href="/workspace/receipts"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category === "all" ? "All categories" : category}
-                </option>
-              ))}
-            </select>
-          </label>
+              ← Back to receipts
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_180px_180px_180px]">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search receipt ID or vendor"
+                className="pl-9"
+              />
+            </label>
 
-          <button
-            type="button"
-            onClick={openDateDialog}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <CalendarDays className="h-4 w-4 text-slate-500" />
-            Date range
-          </button>
+            <label className="relative block">
+              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800"
+              >
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category === "all" ? "All categories" : category}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="relative block">
-            <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as "all" | ReceiptStatus)
-              }
-              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <p className="text-xs text-slate-500">
-            {showAll
-              ? "Showing all receipts across all time periods."
-              : `Showing receipts from ${dateFrom} to ${dateTo}.`}
-          </p>
-
-          {!showAll ? (
             <button
               type="button"
-              onClick={showAllReceipts}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              onClick={openDateDialog}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
-              Show all receipts
+              <CalendarDays className="h-4 w-4 text-slate-500" />
+              Date range
             </button>
-          ) : null}
 
-          <label className="relative block ml-auto">
-            <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <select
-              value={String(pageSize)}
-              onChange={(event) => {
-                void onPageSizeChange(Number(event.target.value));
-              }}
-              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800"
-            >
-              {PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}/load
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+            <label className="relative block">
+              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as "all" | ReceiptStatus)
+                }
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800"
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {showReceiptBrowser ? (
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <p className="text-xs text-slate-500">
+              {showAll
+                ? "Showing all receipts across all time periods."
+                : `Showing receipts from ${dateFrom} to ${dateTo}.`}
+            </p>
+
+            {!showAll ? (
+              <button
+                type="button"
+                onClick={showAllReceipts}
+                className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Show all receipts
+              </button>
+            ) : null}
+
+            <label className="relative block ml-auto">
+              <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select
+                value={String(pageSize)}
+                onChange={(event) => {
+                  void onPageSizeChange(Number(event.target.value));
+                }}
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-9 py-2 text-sm text-slate-800"
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}/load
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
       </section>
 
       {isDateDialogOpen ? (
@@ -772,117 +793,121 @@ export function ReceiptsWorkspace({
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[430px_1fr]">
-        <Card className="border-slate-200">
-          <CardHeader className="border-b border-slate-200 pb-4">
-            <CardTitle className="text-lg text-slate-950">
-              Receipts ({filteredReceipts.length})
-            </CardTitle>
-          </CardHeader>
-          <div
-            ref={listContainerRef}
-            onScroll={onListScroll}
-            className="max-h-[68vh] space-y-2 overflow-y-auto p-3"
-          >
-            {isRefreshing ? (
-              <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                Loading receipts...
-              </div>
-            ) : null}
+      <div
+        className={cn(
+          "grid gap-5",
+          showReceiptBrowser ? "xl:grid-cols-[430px_1fr]" : "xl:grid-cols-1",
+        )}
+      >
+        {showReceiptBrowser ? (
+          <Card className="border-slate-200">
+            <CardHeader className="border-b border-slate-200 pb-4">
+              <CardTitle className="text-lg text-slate-950">
+                Receipts ({filteredReceipts.length})
+              </CardTitle>
+            </CardHeader>
+            <div
+              ref={listContainerRef}
+              onScroll={onListScroll}
+              className="max-h-[68vh] space-y-2 overflow-y-auto p-3"
+            >
+              {isRefreshing ? (
+                <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                  Loading receipts...
+                </div>
+              ) : null}
 
-            {listError ? (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                {listError}
-              </div>
-            ) : null}
+              {listError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  {listError}
+                </div>
+              ) : null}
 
-            {filteredReceipts.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-                No receipts match your filters.
-              </div>
-            ) : (
-              filteredReceipts.map((row) => {
-                const isActive = selectedReceipt?.receiptId === row.receiptId;
+              {filteredReceipts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+                  No receipts match your filters.
+                </div>
+              ) : (
+                filteredReceipts.map((row) => {
+                  const isActive = selectedReceipt?.receiptId === row.receiptId;
 
-                return (
-                  <button
-                    key={row.receiptId}
-                    type="button"
-                    onClick={() => setSelectedReceiptId(row.receiptId)}
-                    className={cn(
-                      "w-full rounded-xl border px-4 py-3 text-left transition-colors",
-                      isActive
-                        ? "border-slate-900 bg-slate-950 text-white"
-                        : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">{row.receiptId}</p>
-                        <p
+                  return (
+                    <button
+                      key={row.receiptId}
+                      type="button"
+                      onClick={() => setSelectedReceiptId(row.receiptId)}
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-3 text-left transition-colors",
+                        isActive
+                          ? "border-slate-900 bg-slate-950 text-white"
+                          : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {row.receiptId}
+                          </p>
+                          <p
+                            className={cn(
+                              "text-sm",
+                              isActive ? "text-slate-200" : "text-slate-600",
+                            )}
+                          >
+                            {row.vendor}
+                          </p>
+                        </div>
+                        <span
                           className={cn(
-                            "text-sm",
-                            isActive ? "text-slate-200" : "text-slate-600",
+                            "rounded-full border px-2 py-1 text-xs capitalize",
+                            isActive
+                              ? "border-white/30 text-white"
+                              : "border-slate-200 text-slate-600",
                           )}
                         >
-                          {row.vendor}
-                        </p>
+                          {row.status.replace("_", " ")}
+                        </span>
                       </div>
-                      <span
-                        className={cn(
-                          "rounded-full border px-2 py-1 text-xs capitalize",
-                          isActive
-                            ? "border-white/30 text-white"
-                            : "border-slate-200 text-slate-600",
-                        )}
-                      >
-                        {row.status.replace("_", " ")}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs">
-                      <span
-                        className={
-                          isActive ? "text-slate-300" : "text-slate-500"
-                        }
-                      >
-                        {row.category}
-                      </span>
-                      <span
-                        className={
-                          isActive ? "text-slate-100" : "text-slate-800"
-                        }
-                      >
-                        {formatMoney(row.amount, row.currency)}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
+                      <div className="mt-3 flex items-center justify-between text-xs">
+                        <span
+                          className={
+                            isActive ? "text-slate-300" : "text-slate-500"
+                          }
+                        >
+                          {row.category}
+                        </span>
+                        <span
+                          className={
+                            isActive ? "text-slate-100" : "text-slate-800"
+                          }
+                        >
+                          {formatMoney(row.amount, row.currency)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
 
-            {hasMore ? (
-              <button
-                type="button"
-                onClick={() => {
-                  void loadMore();
-                }}
-                disabled={isLoadingMore || isRefreshing}
-                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
-              >
-                {isLoadingMore
-                  ? "Loading more..."
-                  : `Load next ${pageSize} receipts`}
-              </button>
-            ) : null}
-          </div>
-        </Card>
+              {hasMore ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void loadMore();
+                  }}
+                  disabled={isLoadingMore || isRefreshing}
+                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {isLoadingMore
+                    ? "Loading more..."
+                    : `Load next ${pageSize} receipts`}
+                </button>
+              ) : null}
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="border-slate-200">
-          <CardHeader className="border-b border-slate-200 pb-4">
-            <CardTitle className="text-lg text-slate-950">
-              Receipt details
-            </CardTitle>
-          </CardHeader>
           <CardContent className="space-y-5 p-5">
             {!selectedReceipt ? (
               <p className="text-sm text-slate-500">
@@ -1011,7 +1036,7 @@ export function ReceiptsWorkspace({
                   </div>
                 </div>
 
-                  {canReview &&
+                {canReview &&
                 (selectedReceipt.status === "needs_review" ||
                   selectedReceipt.status === "draft") ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -1115,7 +1140,6 @@ export function ReceiptsWorkspace({
                     </p>
                   </div>
                 </div>
-
 
                 {!canReview && selectedReceipt.status === "needs_review" ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
