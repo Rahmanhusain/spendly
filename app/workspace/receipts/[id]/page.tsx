@@ -40,7 +40,7 @@ export default async function ReceiptByIdPage({
           AND n.user_id = $2
           AND n.channel = 'in_app'
           AND n.related_type = 'receipt'
-          AND n.related_id = $3
+          AND n.related_id::text = $3
       ) as "exists"`,
       [authContext.tenantId, authContext.userId, receiptId],
     );

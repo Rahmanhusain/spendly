@@ -341,6 +341,93 @@ export async function POST(request: Request) {
       );
     }
 
+    // Heuristic: ensure parsed result looks like a receipt. Require GST evidence (GSTIN or GST rate)
+    const ocrText = (parsed?.ocrText ?? "").toString();
+    const ocrLength = ocrText.replace(/\s+/g, "").length;
+    const hasAmount = Number.isFinite(parsed?.amount) && parsed.amount > 0;
+    const vendorDetected =
+      typeof parsed?.vendorName === "string" &&
+      parsed.vendorName.trim().length > 0 &&
+      parsed.vendorName.trim().toLowerCase() !== "unknown vendor";
+
+    // Detect GSTIN (Indian GSTIN pattern: 15 chars with state code + PAN + entity + Z + checksum)
+    const gstinRegex = /\b\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]\b/i;
+    const gstinPresent = gstinRegex.test(ocrText);
+
+    // Detect GST/CGST/SGST/IGST rates like 'CGST 9%','GST 18%', or standalone '18%'
+    const gstRateNearbyRegex =
+      /(?:cgst|sgst|igst|gst|tax|rate).{0,40}?\d{1,2}(?:\.\d+)?\s*%/i;
+    const percentOnlyRegex = /\d{1,2}(?:\.\d+)?\s*%/g;
+    const gstRatePresent =
+      gstRateNearbyRegex.test(ocrText) ||
+      (percentOnlyRegex.test(ocrText) &&
+        /gst|cgst|sgst|igst|tax/i.test(ocrText));
+
+    // Exclude common academic document keywords when GST evidence is absent
+    const academicKeywords = [
+      "college",
+      "bonafide",
+      "certificate",
+      "student",
+      "roll",
+      "semester",
+      "university",
+      "institute",
+      "admission",
+      "marks",
+      "grade",
+    ];
+    const containsAcademic = academicKeywords.some((k) =>
+      ocrText.toLowerCase().includes(k),
+    );
+
+    const hasReceiptKeywords =
+      /\b(total|subtotal|amount|invoice|rupees|\u20b9|tax)\b/i.test(ocrText);
+
+    // Require GST evidence (gstin or gst rate). If none, allow only when parsing confidence is high and vendor/amount are present.
+    const likelyReceiptWithGst = gstinPresent || gstRatePresent;
+
+    const likelyReceipt =
+      Boolean(parsed && parsed.parserStatus === "completed") &&
+      (likelyReceiptWithGst ||
+        ((parsed.confidenceScore ?? 0) >= 0.65 &&
+          hasAmount &&
+          vendorDetected &&
+          ocrLength > 80 &&
+          hasReceiptKeywords));
+
+    if (!likelyReceipt || (containsAcademic && !likelyReceiptWithGst)) {
+      logger.warn("Uploaded file rejected: not recognized as a GST receipt", {
+        requestId,
+        fileName: receiptFile.name,
+        mimeType: receiptFile.type,
+        ocrLength,
+        confidence: parsed?.confidenceScore,
+        vendorDetected,
+        hasAmount,
+        gstinPresent,
+        gstRatePresent,
+        containsAcademic,
+      });
+
+      const message =
+        containsAcademic && !likelyReceiptWithGst
+          ? "Document appears to be an academic or non-invoice document (no GST detected). Upload receipts/invoices that include GSTIN or GST rates."
+          : "Uploaded file does not appear to be a valid tax invoice/receipt with GST details. Please upload a receipt image or PDF that includes GSTIN or GST rate information.";
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "NOT_A_RECEIPT",
+            message,
+            requestId,
+          },
+        },
+        { status: 422 },
+      );
+    }
+
     const uploadDir = getUploadDirectory(
       authContext!.tenantId,
       authContext!.userId,

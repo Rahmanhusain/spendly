@@ -190,6 +190,16 @@ export default function UploadReceiptPage() {
       };
       error?: { code?: string; message?: string };
     };
+    // Handle 'not a receipt' detection
+    if (response.status === 422 && data.error?.code === "NOT_A_RECEIPT") {
+      setState({
+        kind: "error",
+        message:
+          data.error?.message ??
+          "Uploaded file doesn't look like a receipt. Please try another file.",
+      });
+      return;
+    }
 
     // Handle legacy single-error responses and combined validation failures
     if (response.status === 409) {
@@ -229,8 +239,9 @@ export default function UploadReceiptPage() {
           policy?: { reasons: string[] };
         };
 
-        const details = (data.error as unknown as { details?: ValidationDetails })
-          ?.details;
+        const details = (
+          data.error as unknown as { details?: ValidationDetails }
+        )?.details;
 
         if (!details) {
           // fallback: treat as generic failure
@@ -277,7 +288,9 @@ export default function UploadReceiptPage() {
             }
           }
 
-          setPendingDuplicate(isDuplicateReceipt(duplicateToUse) ? duplicateToUse : null);
+          setPendingDuplicate(
+            isDuplicateReceipt(duplicateToUse) ? duplicateToUse : null,
+          );
           setShowDuplicateModal(true);
         } else {
           setPendingDuplicate(null);
@@ -317,6 +330,48 @@ export default function UploadReceiptPage() {
       kind: "success",
       message: data.message ?? "Receipt uploaded and parsing started.",
     });
+  };
+
+  const onQuickReview = async (decision: "approve" | "reject") => {
+    if (!result?.id) return;
+
+    setState({
+      kind: "loading",
+      message: `${decision === "approve" ? "Approving" : "Rejecting"} receipt...`,
+    });
+
+    try {
+      const response = await fetch("/api/receipts/review", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiptId: result.id, decision }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        setState({
+          kind: "error",
+          message: payload.error?.message ?? "Failed to update receipt.",
+        });
+        return;
+      }
+
+      const updated = payload.data?.receipt;
+      if (updated) {
+        setResult((r) => (r ? { ...r, status: updated.status } : r));
+      }
+
+      setState({
+        kind: "success",
+        message: payload.data?.message ?? "Updated receipt.",
+      });
+    } catch (err) {
+      setState({
+        kind: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
   };
 
   const openPreviewInNewTab = (url: string | null) => {
@@ -559,6 +614,25 @@ export default function UploadReceiptPage() {
                           {extracted.vendorGstin ?? "N/A"}
                         </p>
                       </>
+                    ) : null}
+                    {result.status === "needs_review" ? (
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          onClick={() => void onQuickReview("approve")}
+                          disabled={state.kind === "loading"}
+                          className="inline-flex items-center gap-2 bg-emerald-600"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => void onQuickReview("reject")}
+                          disabled={state.kind === "loading"}
+                          className="inline-flex items-center gap-2 border-rose-300 text-rose-700"
+                        >
+                          Reject & Archive
+                        </Button>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
