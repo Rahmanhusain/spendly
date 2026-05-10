@@ -8,6 +8,7 @@ import {
 } from "@/lib/repositories/reportCommentsRepository";
 import { createAuditLog } from "@/lib/repositories/auditRepository";
 import { getReportById } from "@/lib/repositories/reportRepository";
+import { getUserById } from "@/lib/repositories/authRepository";
 import {
   hasReportAccess,
   canBeMentioned,
@@ -118,20 +119,26 @@ async function handlePost(
 
     // Validate mentioned users - they must be mentionable
     if (mentionedUserIds && mentionedUserIds.length > 0) {
-      const mentionPromises = mentionedUserIds.map((userId: string) =>
-        canBeMentioned(
+      const mentionPromises = mentionedUserIds.map(async (userId: string) => {
+        const mentionedUser = await getUserById(userId);
+
+        if (!mentionedUser || mentionedUser.tenant_id !== authContext.tenantId) {
+          return { userId, canMention: false };
+        }
+
+        if (userId === report.userId) {
+          return { userId, canMention: true };
+        }
+
+        const canMention = await canBeMentioned(
           authContext.tenantId,
           reportId,
           userId,
-          "employee", // Check assuming they're employee; actual role will be checked
-        ).then(async (canMention) => {
-          if (!canMention) {
-            // Get user details to provide better error message
-            return { userId, canMention: false };
-          }
-          return { userId, canMention: true };
-        }),
-      );
+          mentionedUser.role,
+        );
+
+        return { userId, canMention };
+      });
 
       const mentionResults = await Promise.all(mentionPromises);
       const failedMentions = mentionResults.filter((m) => !m.canMention);

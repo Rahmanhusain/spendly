@@ -35,12 +35,17 @@ export type ParsedReceiptData = {
 function extractGstinFromText(text: string): string | null {
   if (!text || typeof text !== "string") return null;
   // GSTIN pattern: 2 digits state code + 10 char PAN + 1 entity + 1 checksum (15 total)
-  const match = text
+  const matches = text
     .toUpperCase()
-    .match(/([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}[A-Z0-9]{1})/);
-  if (match) {
-    return match[0].slice(0, 20).replace(/\s+/g, "");
+    .match(/\b[0-9]{2}[A-Z0-9]{13}\b/g);
+
+  if (matches) {
+    const validMatch = matches.find((candidate) => isValidGstin(candidate));
+    if (validMatch) {
+      return validMatch.replace(/\s+/g, "");
+    }
   }
+
   return null;
 }
 
@@ -209,7 +214,42 @@ function normalizeGstin(value: unknown): string | null {
     return null;
   }
 
-  return compact.slice(0, 20);
+  return isValidGstin(compact) ? compact : null;
+}
+
+function isValidGstin(value: string): boolean {
+  const compact = value.trim().toUpperCase().replace(/\s+/g, "");
+
+  if (!/^[0-9]{2}[A-Z0-9]{13}$/.test(compact) || compact.length !== 15) {
+    return false;
+  }
+
+  const expectedChecksum = computeGstinCheckDigit(compact.slice(0, 14));
+  return expectedChecksum === compact.slice(14);
+}
+
+function computeGstinCheckDigit(payload: string): string {
+  const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const charToValue = (char: string) => alphabet.indexOf(char);
+  const valueToChar = (value: number) => alphabet[value] ?? "";
+
+  let factor = 2;
+  let sum = 0;
+
+  for (let index = payload.length - 1; index >= 0; index -= 1) {
+    const codePoint = charToValue(payload[index]);
+    if (codePoint < 0) {
+      return "";
+    }
+
+    let addend = factor * codePoint;
+    factor = factor === 2 ? 1 : 2;
+    addend = Math.floor(addend / 36) + (addend % 36);
+    sum += addend;
+  }
+
+  const checkCode = (36 - (sum % 36)) % 36;
+  return valueToChar(checkCode);
 }
 
 function stripCodeFence(content: string): string {
@@ -394,9 +434,9 @@ async function structureReceiptWithGroq(
         ? null
         : Number(parsed.tax_amount);
 
-    // If LLM-parsed GSTIN is missing or looks suspicious, try extracting from raw OCR text
+    // If the model output is missing or invalid, fall back to a checksum-verified OCR GSTIN.
     const gstFromOcr = extractGstinFromText(ocrText);
-    const finalGstin = normalizeGstin(parsed.vendor_gstin ?? gstFromOcr);
+    const finalGstin = normalizeGstin(parsed.vendor_gstin) ?? gstFromOcr;
 
     return {
       vendorName:
