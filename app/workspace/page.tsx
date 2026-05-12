@@ -165,6 +165,30 @@ export default async function WorkspacePage() {
         </div>
       </section>
 
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-slate-950">
+            GST compliance center
+          </CardTitle>
+          <CardDescription>
+            Dedicated export workspace for managers and admins.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-2xl text-sm leading-6 text-slate-600">
+            Generate month-end compliance exports, review grouped vendor rows,
+            and track every saved handoff from one focused page.
+          </p>
+          <Link
+            href="/workspace/gst"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-900"
+          >
+            Open GST workspace
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metricCards.map((metric) => (
           <Card key={metric.label} className="border-slate-200 shadow-sm">

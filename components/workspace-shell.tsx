@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   ClipboardList,
+  FileSpreadsheet,
   Inbox,
   LayoutDashboard,
   MailPlus,
@@ -21,6 +22,7 @@ type WorkspaceShellProps = {
   tenantId: string;
   roleLabel: string;
   canSendInvites: boolean;
+  canExportGst: boolean;
   userLabel: string;
   children: React.ReactNode;
 };
@@ -57,6 +59,13 @@ const navigationItems = [
     description: "Configure limits and warnings",
   },
   {
+    label: "GST export",
+    href: "/workspace/gst",
+    icon: FileSpreadsheet,
+    description: "Generate compliance-ready reports",
+    requiresGstAccess: true,
+  },
+  {
     label: "Open invites",
     href: "/workspace/invites",
     icon: Inbox,
@@ -70,12 +79,15 @@ export function WorkspaceShell({
   tenantId,
   roleLabel,
   canSendInvites,
+  canExportGst,
   userLabel,
   children,
 }: WorkspaceShellProps) {
   const pathname = usePathname();
   const visibleNavigationItems = navigationItems.filter(
-    (item) => !item.requiresInviteAccess || canSendInvites,
+    (item) =>
+      (!item.requiresInviteAccess || canSendInvites) &&
+      (!item.requiresGstAccess || canExportGst),
   );
 
   return (

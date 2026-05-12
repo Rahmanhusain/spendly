@@ -34,6 +34,9 @@ export default async function WorkspaceLayout({
       canSendInvites={
         authContext.role === "admin" || authContext.role === "manager"
       }
+      canExportGst={
+        authContext.role === "admin" || authContext.role === "manager"
+      }
       userLabel={displayName || "Workspace user"}
     >
       {children}
