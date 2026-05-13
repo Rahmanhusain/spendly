@@ -29,7 +29,9 @@ type GstSummary = {
   totalCgst: number;
   totalSgst: number;
   totalIgst: number;
+  totalTax: number;
   receiptCount: number;
+  effectiveTaxRate: number;
 };
 
 type GstVendorRow = {
@@ -271,17 +273,17 @@ export function GstComplianceWorkspace({
       };
 
       if (response.ok && payload.ok && payload.data) {
-         // Filter out duplicates before appending
-         const newRecords = payload.data.filter(
-           (record) => !historyIdsRef.current.has(record.id),
-         );
+        // Filter out duplicates before appending
+        const newRecords = payload.data.filter(
+          (record) => !historyIdsRef.current.has(record.id),
+        );
 
-         // Add new IDs to the set
-         newRecords.forEach((record) => {
-           historyIdsRef.current.add(record.id);
-         });
+        // Add new IDs to the set
+        newRecords.forEach((record) => {
+          historyIdsRef.current.add(record.id);
+        });
 
-         setHistoryItems((prev) => [...prev, ...newRecords]);
+        setHistoryItems((prev) => [...prev, ...newRecords]);
         setHistoryOffset((prev) => prev + HISTORY_PAGE_SIZE);
         setHasMoreHistory(payload.hasMore ?? false);
       }
@@ -315,11 +317,11 @@ export function GstComplianceWorkspace({
 
       if (response.ok && payload.ok && payload.data) {
         setHistoryItems(payload.data);
-                 // Update the ID tracking set
-                 historyIdsRef.current.clear();
-                 payload.data.forEach((record) => {
-                   historyIdsRef.current.add(record.id);
-                 });
+        // Update the ID tracking set
+        historyIdsRef.current.clear();
+        payload.data.forEach((record) => {
+          historyIdsRef.current.add(record.id);
+        });
         setHistoryOffset(HISTORY_PAGE_SIZE);
         setHasMoreHistory(payload.hasMore ?? false);
       }
@@ -593,12 +595,27 @@ export function GstComplianceWorkspace({
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         {[
           [
             "Total spend",
             formatMoney(summary.totals.totalAmount),
             "All matching receipts",
+          ],
+          [
+            "Receipts",
+            String(summary.totals.receiptCount),
+            "Receipts in the selected range",
+          ],
+          [
+            "Total tax",
+            formatMoney(summary.totals.totalTax),
+            "CGST + SGST + IGST",
+          ],
+          [
+            "Tax rate",
+            `${summary.totals.effectiveTaxRate.toFixed(2)}%`,
+            "Effective tax on total spend",
           ],
           ["CGST", formatMoney(summary.totals.totalCgst), "Local supply tax"],
           ["SGST", formatMoney(summary.totals.totalSgst), "Local supply tax"],
@@ -887,11 +904,11 @@ export function GstComplianceWorkspace({
                     setHistoryDateFrom("");
                     setHistoryDateTo("");
                     setHistoryItems(initialHistory);
-                                         // Reset the ID tracking set
-                                         historyIdsRef.current.clear();
-                                         initialHistory.forEach((record) => {
-                                           historyIdsRef.current.add(record.id);
-                                         });
+                    // Reset the ID tracking set
+                    historyIdsRef.current.clear();
+                    initialHistory.forEach((record) => {
+                      historyIdsRef.current.add(record.id);
+                    });
                     setHistoryOffset(HISTORY_PAGE_SIZE);
                     setHasMoreHistory(
                       initialHistory.length >= HISTORY_PAGE_SIZE,

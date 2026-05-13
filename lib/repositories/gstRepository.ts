@@ -17,7 +17,9 @@ export type GstAggregateResult = {
     totalCgst: number;
     totalSgst: number;
     totalIgst: number;
+    totalTax: number;
     receiptCount: number;
+    effectiveTaxRate: number;
   };
   byVendor: GstVendorRow[];
 };
@@ -66,6 +68,7 @@ export async function aggregateGstForPeriod(
       SUM(COALESCE(cgst_amount,0))::text AS total_cgst,
       SUM(COALESCE(sgst_amount,0))::text AS total_sgst,
       SUM(COALESCE(igst_amount,0))::text AS total_igst,
+      SUM(COALESCE(tax_amount,0))::text AS total_tax,
       COUNT(*)::text AS receipt_count
     FROM receipts
     WHERE tenant_id = $1
@@ -79,15 +82,21 @@ export async function aggregateGstForPeriod(
     total_cgst: "0",
     total_sgst: "0",
     total_igst: "0",
+    total_tax: "0",
   };
+
+  const totalAmount = Number(t.total_amount ?? 0);
+  const totalTax = Number(t.total_tax ?? 0);
 
   return {
     totals: {
-      totalAmount: Number(t.total_amount ?? 0),
+      totalAmount,
       totalCgst: Number(t.total_cgst ?? 0),
       totalSgst: Number(t.total_sgst ?? 0),
       totalIgst: Number(t.total_igst ?? 0),
+      totalTax,
       receiptCount: Number(t.receipt_count ?? 0),
+      effectiveTaxRate: totalAmount > 0 ? (totalTax / totalAmount) * 100 : 0,
     },
     byVendor: vendorRows.rows,
   };

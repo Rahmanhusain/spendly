@@ -71,57 +71,90 @@ export function renderGstHtml(opts: {
     <meta charset="utf-8" />
     <title>GST Compliance Report</title>
     <style>
-      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 24px; color: #111827 }
-      header { display:flex; justify-content:space-between; align-items:baseline }
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 24px; color: #111827; line-height: 1.6 }
+      header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb; padding-bottom: 16px }
       h1 { margin:0; font-size:20px }
+      h2 { font-size:14px; margin-top:20px; margin-bottom:12px }
       table { width:100%; border-collapse:collapse; margin-top:12px }
       th, td { border:1px solid #e5e7eb; padding:8px; text-align:left }
       th { background:#f9fafb; font-weight:600 }
       .right { text-align:right }
-      .muted { color:#6b7280 }
+      .muted { color:#6b7280; font-size: 13px }
+      .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 12px 0 }
+      .summary-card { border: 1px solid #e5e7eb; padding: 12px; border-radius: 4px; background: #f9fafb }
+      .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 4px }
+      .summary-card .value { font-size: 16px; font-weight: 700; color: #111827 }
+      .summary-card .unit { font-size: 12px; color: #9ca3af }
+      footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px }
     </style>
   </head>
   <body>
     <header>
       <div>
         <h1>${companyName}</h1>
-        <div class="muted">GSTIN: ${companyGstin}</div>
+        <div class="muted">GSTIN: ${companyGstin || "Not configured"}</div>
+        <div class="muted">Report Period: ${periodStart} to ${periodEnd}</div>
       </div>
       <div class="muted">Generated: ${now}</div>
     </header>
 
     <section>
-      <h2 style="margin-top:18px">GST Summary (${periodStart} → ${periodEnd})</h2>
+      <h2>Report Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="label">Total Amount</div>
+          <div class="value">₹${fmtINR(data.totals.totalAmount)}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Total Tax</div>
+          <div class="value">₹${fmtINR(data.totals.totalTax)}</div>
+          <div class="unit">${data.totals.effectiveTaxRate.toFixed(2)}% effective rate</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Receipts</div>
+          <div class="value">${data.totals.receiptCount}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Avg per Receipt</div>
+          <div class="value">₹${fmtINR(data.totals.receiptCount > 0 ? data.totals.totalAmount / data.totals.receiptCount : 0)}</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tax Breakdown</h2>
       <table>
         <thead>
           <tr>
             <th>Category</th>
-            <th class="right">Total</th>
+            <th class="right">Amount</th>
             <th class="right">CGST</th>
             <th class="right">SGST</th>
             <th class="right">IGST</th>
+            <th class="right">Total Tax</th>
           </tr>
         </thead>
         <tbody>
           ${categoryRows
-            .map(
-              (c) =>
-                `<tr><td>${c.category}</td><td class="right">₹${fmtINR(c.total)}</td><td class="right">₹${fmtINR(c.cgst)}</td><td class="right">₹${fmtINR(c.sgst)}</td><td class="right">₹${fmtINR(c.igst)}</td></tr>`,
-            )
+            .map((c) => {
+              const totalTax = c.cgst + c.sgst + c.igst;
+              return `<tr><td>${c.category}</td><td class="right">₹${fmtINR(c.total)}</td><td class="right">₹${fmtINR(c.cgst)}</td><td class="right">₹${fmtINR(c.sgst)}</td><td class="right">₹${fmtINR(c.igst)}</td><td class="right">₹${fmtINR(totalTax)}</td></tr>`;
+            })
             .join("")}
-          <tr style="font-weight:700">
+          <tr style="font-weight:700; background: #f9fafb">
             <td>Total</td>
             <td class="right">₹${fmtINR(data.totals.totalAmount)}</td>
             <td class="right">₹${fmtINR(data.totals.totalCgst)}</td>
             <td class="right">₹${fmtINR(data.totals.totalSgst)}</td>
             <td class="right">₹${fmtINR(data.totals.totalIgst)}</td>
+            <td class="right">₹${fmtINR(data.totals.totalTax)}</td>
           </tr>
         </tbody>
       </table>
     </section>
 
     <section>
-      <h2 style="margin-top:18px">Detail By Vendor</h2>
+      <h2>Vendor Details</h2>
       <table>
         <thead>
           <tr>
@@ -148,7 +181,7 @@ export function renderGstHtml(opts: {
       </table>
     </section>
 
-    <footer style="margin-top:20px; color:#6b7280">This report is for GSTR-1 filing purposes. Generated ${now}.</footer>
+    <footer>This report includes ${data.totals.receiptCount} receipt(s) with an effective tax rate of ${data.totals.effectiveTaxRate.toFixed(2)}%. Generated ${now}.</footer>
   </body>
   </html>`;
 

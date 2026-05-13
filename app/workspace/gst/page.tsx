@@ -39,6 +39,7 @@ export default async function GstWorkspacePage() {
 
   return (
     <GstComplianceWorkspace
+      key={initialHistory.map((entry) => entry.id).join("|")}
       orgName={tenant?.name ?? "Your workspace"}
       orgGstin={tenant?.gstin ?? process.env.GSTIN ?? null}
       orgAddress={

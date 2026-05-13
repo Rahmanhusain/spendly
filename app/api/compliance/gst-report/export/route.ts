@@ -37,6 +37,22 @@ function buildCsvReport(input: {
     ["Period Start", input.periodStart],
     ["Period End", input.periodEnd],
     [],
+    ["REPORT SUMMARY"],
+    ["Metric", "Value"],
+    ["Total Amount", input.data.totals.totalAmount],
+    ["Total Tax", input.data.totals.totalTax],
+    ["Effective Tax Rate %", input.data.totals.effectiveTaxRate.toFixed(2)],
+    ["Number of Receipts", input.data.totals.receiptCount],
+    [
+      "Average per Receipt",
+      input.data.totals.receiptCount > 0
+        ? (
+            input.data.totals.totalAmount / input.data.totals.receiptCount
+          ).toFixed(2)
+        : 0,
+    ],
+    [],
+    ["VENDOR DETAILS"],
     [
       "Category",
       "Vendor",
@@ -45,7 +61,7 @@ function buildCsvReport(input: {
       "CGST",
       "SGST",
       "IGST",
-      "Tax Amount",
+      "Total Tax",
     ],
     ...input.data.byVendor.map((row) => [
       row.category ?? "Uncategorized",
@@ -58,13 +74,23 @@ function buildCsvReport(input: {
       Number(row.total_tax || 0),
     ]),
     [],
-    ["Summary", "Amount", "CGST", "SGST", "IGST", "Receipts"],
+    ["TOTALS"],
+    [
+      "Description",
+      "Amount",
+      "CGST",
+      "SGST",
+      "IGST",
+      "Total Tax",
+      "Receipt Count",
+    ],
     [
       "Total",
       input.data.totals.totalAmount,
       input.data.totals.totalCgst,
       input.data.totals.totalSgst,
       input.data.totals.totalIgst,
+      input.data.totals.totalTax,
       input.data.totals.receiptCount,
     ],
   ];
@@ -193,7 +219,7 @@ export async function POST(request: NextRequest) {
       filePath: `/uploads/gst-exports/${filename}`,
     });
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition":
