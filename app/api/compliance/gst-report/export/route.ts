@@ -37,7 +37,16 @@ function buildCsvReport(input: {
     ["Period Start", input.periodStart],
     ["Period End", input.periodEnd],
     [],
-    ["Category", "Vendor", "Vendor GSTIN", "Amount", "CGST", "SGST", "IGST", "Tax Amount"],
+    [
+      "Category",
+      "Vendor",
+      "Vendor GSTIN",
+      "Amount",
+      "CGST",
+      "SGST",
+      "IGST",
+      "Tax Amount",
+    ],
     ...input.data.byVendor.map((row) => [
       row.category ?? "Uncategorized",
       row.vendor_name ?? "Unknown vendor",
@@ -61,7 +70,11 @@ function buildCsvReport(input: {
   ];
 
   return rows
-    .map((row) => row.map((cell) => toCsvCell(cell as string | number | null | undefined)).join(","))
+    .map((row) =>
+      row
+        .map((cell) => toCsvCell(cell as string | number | null | undefined))
+        .join(","),
+    )
     .join("\n");
 }
 
@@ -103,7 +116,10 @@ export async function POST(request: NextRequest) {
     // Validate: Prevent exporting empty receipt reports
     if (data.totals.receiptCount === 0) {
       return NextResponse.json(
-        { error: "Cannot export: No receipts found for the selected period. Please import receipts or select a different date range." },
+        {
+          error:
+            "Cannot export: No receipts found for the selected period. Please import receipts or select a different date range.",
+        },
         { status: 400 },
       );
     }
@@ -111,7 +127,9 @@ export async function POST(request: NextRequest) {
     const companyName = tenant?.name || process.env.COMPANY_NAME || "Company";
     const companyGstin = tenant?.gstin || process.env.GSTIN || "";
     const requestedFormat = (
-      body.format || request.nextUrl.searchParams.get("format") || "pdf"
+      body.format ||
+      request.nextUrl.searchParams.get("format") ||
+      "pdf"
     ).toLowerCase() as ExportFormat;
     const format =
       requestedFormat === "csv" ||
@@ -154,9 +172,9 @@ export async function POST(request: NextRequest) {
       );
       filename = `${filename}.csv`;
       contentType = "text/csv; charset=utf-8";
-      } else {
+    } else {
       fileBuffer = Buffer.from(html, "utf8");
-        filename = `${filename}.${format === "pdf" ? "html" : "html"}`;
+      filename = `${filename}.${format === "pdf" ? "html" : "html"}`;
       contentType = "text/html; charset=utf-8";
     }
 

@@ -75,6 +75,8 @@ type Props = {
   initialHistory: GstExportHistoryRow[];
 };
 
+const HISTORY_PAGE_SIZE = 5;
+
 function formatMoney(value: number | string) {
   const amount = Number(value || 0);
   return new Intl.NumberFormat("en-IN", {
@@ -160,8 +162,21 @@ export function GstComplianceWorkspace({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState("gst-report.html");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("pdf");
+  const [historyItems, setHistoryItems] =
+    useState<GstExportHistoryRow[]>(initialHistory);
+  const [historyOffset, setHistoryOffset] = useState(HISTORY_PAGE_SIZE);
+  const [historyDateFrom, setHistoryDateFrom] = useState("");
+  const [historyDateTo, setHistoryDateTo] = useState("");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(
+    initialHistory.length > HISTORY_PAGE_SIZE,
+  );
   const firstRenderRef = useRef(true);
   const refreshTimerRef = useRef<number | null>(null);
+  const reportPeriodRef = useRef<HTMLDivElement>(null);
+  const historyIdsRef = useRef<Set<string>>(
+    new Set(initialHistory.map((item) => item.id)),
+  );
 
   const printReportHtml = (html: string) => {
     const printFrame = document.createElement("iframe");
@@ -210,10 +225,7 @@ export function GstComplianceWorkspace({
     printFrame.src = "about:blank";
   };
 
-  const handleViewFile = (
-    filePath: string,
-    format: "html" | "csv" | "pdf",
-  ) => {
+  const handleViewFile = (filePath: string, format: "html" | "csv" | "pdf") => {
     // For PDF, use the print dialog (we don't have native PDF on server, it's HTML)
     if (format === "pdf") {
       // Fetch the HTML and show print dialog
@@ -232,11 +244,91 @@ export function GstComplianceWorkspace({
   };
 
   const hasReceipts = summary.totals.receiptCount > 0;
-  const hasHistory = initialHistory.length > 0;
+  const hasHistory = historyItems.length > 0;
 
   const detailRows = useMemo(() => {
     return summary.byVendor.slice(0, 6);
   }, [summary.byVendor]);
+
+  const loadMoreHistory = useCallback(async () => {
+    setIsLoadingMore(true);
+    try {
+      const params = new URLSearchParams();
+      params.append("offset", String(historyOffset));
+      params.append("limit", String(HISTORY_PAGE_SIZE));
+      if (historyDateFrom) params.append("from", historyDateFrom);
+      if (historyDateTo) params.append("to", historyDateTo);
+
+      const response = await fetch(
+        `/api/compliance/gst-report/history?${params.toString()}`,
+        { credentials: "include" },
+      );
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        data?: GstExportHistoryRow[];
+        hasMore?: boolean;
+      };
+
+      if (response.ok && payload.ok && payload.data) {
+         // Filter out duplicates before appending
+         const newRecords = payload.data.filter(
+           (record) => !historyIdsRef.current.has(record.id),
+         );
+
+         // Add new IDs to the set
+         newRecords.forEach((record) => {
+           historyIdsRef.current.add(record.id);
+         });
+
+         setHistoryItems((prev) => [...prev, ...newRecords]);
+        setHistoryOffset((prev) => prev + HISTORY_PAGE_SIZE);
+        setHasMoreHistory(payload.hasMore ?? false);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to load more history.",
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [historyOffset, historyDateFrom, historyDateTo]);
+
+  const applyHistoryDateFilter = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      params.append("offset", "0");
+      params.append("limit", String(HISTORY_PAGE_SIZE));
+      if (historyDateFrom) params.append("from", historyDateFrom);
+      if (historyDateTo) params.append("to", historyDateTo);
+
+      const response = await fetch(
+        `/api/compliance/gst-report/history?${params.toString()}`,
+        { credentials: "include" },
+      );
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        data?: GstExportHistoryRow[];
+        hasMore?: boolean;
+      };
+
+      if (response.ok && payload.ok && payload.data) {
+        setHistoryItems(payload.data);
+                 // Update the ID tracking set
+                 historyIdsRef.current.clear();
+                 payload.data.forEach((record) => {
+                   historyIdsRef.current.add(record.id);
+                 });
+        setHistoryOffset(HISTORY_PAGE_SIZE);
+        setHasMoreHistory(payload.hasMore ?? false);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to filter history.",
+      );
+    }
+  }, [historyDateFrom, historyDateTo]);
 
   const applyPreset = (kind: "month" | "last-month" | "quarter") => {
     const range = getRangePreset(kind);
@@ -244,6 +336,13 @@ export function GstComplianceWorkspace({
     setEnd(range.end);
     setErrorMessage(null);
     setStatusMessage(null);
+    // Scroll to report period card
+    setTimeout(() => {
+      reportPeriodRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
   };
 
   const refreshSummary = useCallback(async () => {
@@ -398,7 +497,11 @@ export function GstComplianceWorkspace({
         );
       }
 
-      // Refresh history after successful export (don't add preview)
+      // Reset history filters and reload
+      setHistoryDateFrom("");
+      setHistoryDateTo("");
+      setHistoryOffset(HISTORY_PAGE_SIZE);
+      setHasMoreHistory(true);
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -471,7 +574,7 @@ export function GstComplianceWorkspace({
               {[
                 ["Receipts in range", String(summary.totals.receiptCount)],
                 ["Vendor groups", String(summary.byVendor.length)],
-                ["History items", String(history.length)],
+                ["History items", String(historyItems.length)],
               ].map(([label, value]) => (
                 <div
                   key={label}
@@ -516,7 +619,7 @@ export function GstComplianceWorkspace({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="border-slate-200 shadow-sm">
+        <Card ref={reportPeriodRef} className="border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl text-slate-950">
               <CalendarDays className="h-5 w-5 text-slate-500" />
@@ -527,13 +630,18 @@ export function GstComplianceWorkspace({
               need for GST exports now.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent
+            className="space-y-4 overflow-y-auto"
+            style={{ maxHeight: "400px" }}
+          >
             <div className="flex flex-wrap gap-2">
-              {([
-                ["pdf", "PDF"],
-                ["csv", "CSV"],
-                ["html", "HTML"],
-              ] as Array<[ExportFormat, string]>).map(([value, label]) => (
+              {(
+                [
+                  ["pdf", "PDF"],
+                  ["csv", "CSV"],
+                  ["html", "HTML"],
+                ] as Array<[ExportFormat, string]>
+              ).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -649,8 +757,8 @@ export function GstComplianceWorkspace({
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 <p className="font-medium">No receipts in this period</p>
                 <p className="mt-1 text-xs">
-                  Try a wider date range, import receipts, or upload new expenses
-                  to generate an export.
+                  Try a wider date range, import receipts, or upload new
+                  expenses to generate an export.
                 </p>
               </div>
             ) : null}
@@ -667,7 +775,10 @@ export function GstComplianceWorkspace({
               The first six grouped rows for the chosen period.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent
+            className="space-y-3 overflow-y-auto"
+            style={{ maxHeight: "500px" }}
+          >
             {detailRows.length > 0 ? (
               detailRows.map((row) => (
                 <div
@@ -739,11 +850,67 @@ export function GstComplianceWorkspace({
             <CardDescription>
               Recent compliance handoffs generated by your workspace.
             </CardDescription>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <label className="block flex-1 sm:flex-none">
+                <span className="mb-2 block text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+                  From
+                </span>
+                <Input
+                  type="date"
+                  value={historyDateFrom}
+                  onChange={(e) => setHistoryDateFrom(e.target.value)}
+                  className="w-full min-w-40"
+                />
+              </label>
+              <label className="block flex-1 sm:flex-none">
+                <span className="mb-2 block text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+                  To
+                </span>
+                <Input
+                  type="date"
+                  value={historyDateTo}
+                  onChange={(e) => setHistoryDateTo(e.target.value)}
+                  className="w-full min-w-40"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void applyHistoryDateFilter()}
+                className="w-full sm:w-auto rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Filter
+              </button>
+              {historyDateFrom || historyDateTo ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryDateFrom("");
+                    setHistoryDateTo("");
+                    setHistoryItems(initialHistory);
+                                         // Reset the ID tracking set
+                                         historyIdsRef.current.clear();
+                                         initialHistory.forEach((record) => {
+                                           historyIdsRef.current.add(record.id);
+                                         });
+                    setHistoryOffset(HISTORY_PAGE_SIZE);
+                    setHasMoreHistory(
+                      initialHistory.length >= HISTORY_PAGE_SIZE,
+                    );
+                  }}
+                  className="w-full sm:w-auto rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent
+            className="space-y-3 overflow-y-auto"
+            style={{ maxHeight: "500px" }}
+          >
             {hasHistory ? (
               <div className="space-y-3">
-                {initialHistory.map((entry) => {
+                {historyItems.map((entry) => {
                   const fileUrl = entry.file_path ?? null;
                   return (
                     <div
@@ -777,11 +944,12 @@ export function GstComplianceWorkspace({
                             type="button"
                             onClick={() => {
                               // Detect format from file path
-                              const format: "html" | "csv" | "pdf" = fileUrl.endsWith(".csv")
-                                ? "csv"
-                                : fileUrl.endsWith(".pdf")
-                                  ? "pdf"
-                                  : "html";
+                              const format: "html" | "csv" | "pdf" =
+                                fileUrl.endsWith(".csv")
+                                  ? "csv"
+                                  : fileUrl.endsWith(".pdf")
+                                    ? "pdf"
+                                    : "html";
                               handleViewFile(fileUrl, format);
                             }}
                             className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -800,6 +968,16 @@ export function GstComplianceWorkspace({
                     </div>
                   );
                 })}
+                {hasMoreHistory && (
+                  <button
+                    type="button"
+                    onClick={() => void loadMoreHistory()}
+                    disabled={isLoadingMore}
+                    className="w-full rounded-md border border-slate-200 bg-white py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {isLoadingMore ? "Loading..." : "Load more"}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
