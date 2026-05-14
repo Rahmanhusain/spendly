@@ -338,7 +338,7 @@ export default function Home() {
               <Badge className="w-fit border-white/10 bg-white/10 text-white">
                 Contact
               </Badge>
-              <CardTitle className="text-3xl text-white sm:text-4xl">
+              <CardTitle className="text-3xl text-slate-900 sm:text-4xl">
                 Need a clearer expense workflow for your team?
               </CardTitle>
               <CardDescription className="max-w-2xl text-slate-300">
@@ -349,7 +349,7 @@ export default function Home() {
             <CardContent className="flex flex-wrap gap-3 pt-6">
               <Link
                 href="/sign-up"
-                className="inline-flex h-11 items-center justify-center rounded-md bg-white px-5 text-sm font-medium text-slate-950 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-slate-950 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg border"
               >
                 Start 15-day trial
               </Link>

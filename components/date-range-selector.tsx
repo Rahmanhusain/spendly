@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,48 +11,66 @@ type DateMode = "monthly" | "all-time" | "custom";
 
 export function DateRangeSelector() {
   const router = useRouter();
-  const [mode, setMode] = useState<DateMode>("monthly");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const monthStart = useMemo(
+    () =>
+      new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        .toISOString()
+        .split("T")[0],
+    [],
+  );
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  const modeFromUrl = searchParams.get("dateRange") as DateMode | null;
+  const mode: DateMode =
+    modeFromUrl === "all-time" || modeFromUrl === "custom"
+      ? modeFromUrl
+      : "monthly";
+
   const [startDate, setStartDate] = useState<string>(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .split("T")[0],
+    searchParams.get("startDate") ?? monthStart,
   );
   const [endDate, setEndDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
+    searchParams.get("endDate") ?? today,
   );
   const [loading, setLoading] = useState(false);
 
   const handleModeChange = useCallback(
     (newMode: DateMode) => {
-      setMode(newMode);
       setLoading(true);
 
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams.toString());
       params.set("dateRange", newMode);
+      if (newMode !== "custom") {
+        params.delete("startDate");
+        params.delete("endDate");
+      }
 
       setTimeout(() => {
-        router.push(`?${params.toString()}`);
+        router.push(`${pathname}?${params.toString()}`);
         setLoading(false);
       }, 200);
     },
-    [router],
+    [pathname, router, searchParams],
   );
 
   const handleCustomApply = useCallback(() => {
     if (startDate && endDate) {
       setLoading(true);
 
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams.toString());
       params.set("dateRange", "custom");
       params.set("startDate", startDate);
       params.set("endDate", endDate);
 
       setTimeout(() => {
-        router.push(`?${params.toString()}`);
+        router.push(`${pathname}?${params.toString()}`);
         setLoading(false);
       }, 200);
     }
-  }, [startDate, endDate, router]);
+  }, [endDate, pathname, router, searchParams, startDate]);
 
   return (
     <div className="space-y-3">
@@ -84,7 +102,8 @@ export function DateRangeSelector() {
         <Button
           variant={mode === "custom" ? "default" : "outline"}
           size="sm"
-          onClick={() => setMode("custom")}
+          onClick={() => handleModeChange("custom")}
+          disabled={loading}
         >
           <CalendarIcon className="h-4 w-4 mr-2" />
           Custom
