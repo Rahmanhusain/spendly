@@ -28,6 +28,7 @@ export interface UserRecord {
   status: "active" | "inactive" | "suspended";
   timezone: string;
   email_summary_enabled: boolean;
+  can_export_gst: boolean;
   created_at: string;
   updated_at: string;
 }

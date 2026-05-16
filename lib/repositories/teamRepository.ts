@@ -231,6 +231,7 @@ export async function getTeamMembersByTenant(tenantId: string): Promise<
     role: "employee" | "manager" | "admin";
     status: string;
     joined_at: string;
+    can_export_gst: boolean;
   }[]
 > {
   const result = await query<{
@@ -241,6 +242,7 @@ export async function getTeamMembersByTenant(tenantId: string): Promise<
     role: "employee" | "manager" | "admin";
     status: string;
     joined_at: string;
+    can_export_gst: boolean;
   }>(
     `SELECT
        u.id,
@@ -249,7 +251,8 @@ export async function getTeamMembersByTenant(tenantId: string): Promise<
        u.last_name,
        u.role,
        u.status,
-       u.created_at AS joined_at
+       u.created_at AS joined_at,
+       u.can_export_gst
      FROM users u
      WHERE u.tenant_id = $1
        AND u.status = 'active'
@@ -258,6 +261,23 @@ export async function getTeamMembersByTenant(tenantId: string): Promise<
   );
 
   return result.rows;
+}
+
+/**
+ * Update the can_export_gst permission flag for a workspace member.
+ * Only admins and managers may call this.
+ */
+export async function setMemberGstExportPermission(
+  tenantId: string,
+  memberId: string,
+  canExportGst: boolean,
+): Promise<void> {
+  await query(
+    `UPDATE users
+     SET can_export_gst = $1, updated_at = NOW()
+     WHERE id = $2 AND tenant_id = $3`,
+    [canExportGst, memberId, tenantId],
+  );
 }
 
 /**

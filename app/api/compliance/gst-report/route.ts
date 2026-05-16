@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
+import { query } from "@/lib/db/client";
 import {
   aggregateGstForPeriod,
   createGstExportRecord,
@@ -25,7 +26,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const authContext = await extractAuthContext(request, requestId);
-    requireAuth(authContext, "manager", "admin");
+    requireAuth(authContext);
+
+    // Admins and managers always have access.
+    // Employees need the can_export_gst flag explicitly set.
+    if (authContext!.role === "employee") {
+      const userResult = await query<{ can_export_gst: boolean }>(
+        `SELECT can_export_gst FROM users WHERE id = $1`,
+        [authContext!.userId],
+      );
+      if (!userResult.rows[0]?.can_export_gst) {
+        return NextResponse.json(
+          { error: "You do not have permission to access GST reports." },
+          { status: 403 },
+        );
+      }
+    }
 
     const start = request.nextUrl.searchParams.get("start");
     const end = request.nextUrl.searchParams.get("end");
@@ -65,7 +81,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const authContext = await extractAuthContext(request, requestId);
-    requireAuth(authContext, "manager", "admin");
+    requireAuth(authContext);
+
+    // Admins and managers always have access.
+    // Employees need the can_export_gst flag explicitly set.
+    if (authContext!.role === "employee") {
+      const userResult = await query<{ can_export_gst: boolean }>(
+        `SELECT can_export_gst FROM users WHERE id = $1`,
+        [authContext!.userId],
+      );
+      if (!userResult.rows[0]?.can_export_gst) {
+        return NextResponse.json(
+          { error: "You do not have permission to export GST reports." },
+          { status: 403 },
+        );
+      }
+    }
 
     const body = (await request.json().catch(() => ({}))) as {
       start?: string;

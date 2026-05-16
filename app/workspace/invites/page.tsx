@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RemoveTeamMemberButton } from "@/components/remove-team-member-button";
+import { GstPermissionToggle } from "@/components/gst-permission-toggle";
 
 export default async function InvitesPage() {
   const authContext = await getServerAuthContext();
@@ -22,9 +23,10 @@ export default async function InvitesPage() {
     redirect("/api/auth/logout?next=/login");
   }
 
-  
   const canManageMembers =
     authContext.role === "admin" || authContext.role === "manager";
+  // Only admins can delete members
+  const canDeleteMembers = authContext.role === "admin";
 
   const [teamMembers, invitedMembers] = await Promise.all([
     getTeamMembersByTenant(authContext.tenantId),
@@ -70,32 +72,42 @@ export default async function InvitesPage() {
                 teamMembers.map((member) => (
                   <article
                     key={member.id}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4"
+                    className="rounded-2xl border border-slate-200 p-4"
                   >
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-950">
-                        {member.first_name || member.last_name
-                          ? `${member.first_name || ""} ${member.last_name || ""}`.trim()
-                          : member.email}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {member.email}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {member.role.charAt(0).toUpperCase() +
-                          member.role.slice(1)}{" "}
-                        · Joined{" "}
-                        {new Date(member.joined_at).toLocaleDateString()}
-                      </p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-950">
+                          {member.first_name || member.last_name
+                            ? `${member.first_name || ""} ${member.last_name || ""}`.trim()
+                            : member.email}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {member.email}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {member.role.charAt(0).toUpperCase() +
+                            member.role.slice(1)}{" "}
+                          · Joined{" "}
+                          {new Date(member.joined_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="border-slate-200 bg-emerald-50 text-emerald-700">
+                          Active
+                        </Badge>
+                        {canDeleteMembers && member.id !== authContext.userId && (
+                          <RemoveTeamMemberButton memberId={member.id} />
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="border-slate-200 bg-emerald-50 text-emerald-700">
-                        Active
-                      </Badge>
-                      {canManageMembers && member.id !== authContext.userId && (
-                        <RemoveTeamMemberButton memberId={member.id} />
-                      )}
-                    </div>
+                    {canManageMembers && member.id !== authContext.userId && (
+                      <div className="mt-3 border-t border-slate-100 pt-3">
+                        <GstPermissionToggle
+                          memberId={member.id}
+                          initialValue={member.can_export_gst}
+                        />
+                      </div>
+                    )}
                   </article>
                 ))
               ) : (

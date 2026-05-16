@@ -36,7 +36,9 @@ export default async function WorkspaceLayout({
         authContext.role === "admin" || authContext.role === "manager"
       }
       canExportGst={
-        authContext.role === "admin" || authContext.role === "manager"
+        authContext.role === "admin" ||
+        authContext.role === "manager" ||
+        (user?.can_export_gst ?? false)
       }
       userLabel={displayName || "Workspace user"}
     >

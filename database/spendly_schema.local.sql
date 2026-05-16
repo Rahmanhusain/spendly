@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS users (
   status record_status NOT NULL DEFAULT 'active',
   timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Kolkata',
   email_summary_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  can_export_gst BOOLEAN NOT NULL DEFAULT FALSE,
   last_login_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

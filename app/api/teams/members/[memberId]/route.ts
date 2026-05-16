@@ -28,7 +28,7 @@ export async function DELETE(
 
   try {
     const authContext = await extractAuthContext(request, requestId);
-    requireAuth(authContext, "admin", "manager");
+    requireAuth(authContext, "admin");
 
     // Prevent removing self
     if (memberId === authContext!.userId) {
@@ -75,24 +75,6 @@ export async function DELETE(
           error: {
             code: "FORBIDDEN",
             message: "Cannot remove a member from a different workspace.",
-            requestId,
-          },
-        },
-        { status: 403 },
-      );
-    }
-
-    // Managers cannot remove other managers or admins
-    if (
-      authContext!.role === "manager" &&
-      (target.role === "manager" || target.role === "admin")
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Managers can only remove employees.",
             requestId,
           },
         },

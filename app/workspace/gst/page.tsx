@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getServerAuthContext, requireAuth } from "@/lib/middleware/auth";
-import { getTenantById } from "@/lib/repositories/authRepository";
+import { getServerAuthContext } from "@/lib/middleware/auth";
+import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import {
   aggregateGstForPeriod,
   getGstExportHistoryForTenant,
@@ -24,7 +24,16 @@ export default async function GstWorkspacePage() {
     redirect("/api/auth/logout?next=/login");
   }
 
-  requireAuth(authContext, "manager", "admin");
+  const isManagerOrAdmin =
+    authContext.role === "manager" || authContext.role === "admin";
+
+  // Employees need the can_export_gst flag — check the DB
+  if (!isManagerOrAdmin) {
+    const user = await getUserById(authContext.userId);
+    if (!user?.can_export_gst) {
+      redirect("/workspace");
+    }
+  }
 
   const tenant = await getTenantById(authContext.tenantId);
 
@@ -34,9 +43,6 @@ export default async function GstWorkspacePage() {
     getGstExportHistoryForTenant(authContext.tenantId, 5),
   ]);
 
-  const canExport =
-    authContext.role === "manager" || authContext.role === "admin";
-
   return (
     <GstComplianceWorkspace
       key={initialHistory.map((entry) => entry.id).join("|")}
@@ -45,7 +51,7 @@ export default async function GstWorkspacePage() {
       orgAddress={
         tenant?.company_address ?? process.env.COMPANY_ADDRESS ?? null
       }
-      canExport={canExport}
+      canExport={isManagerOrAdmin}
       initialStart={start}
       initialEnd={end}
       initialSummary={initialSummary}
