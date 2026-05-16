@@ -21,7 +21,7 @@ export default async function GstWorkspacePage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   requireAuth(authContext, "manager", "admin");

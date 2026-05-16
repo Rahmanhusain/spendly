@@ -30,7 +30,7 @@ export default async function AllReceiptsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const pageSize = 25;

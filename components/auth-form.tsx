@@ -119,7 +119,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
     const result = (await response.json()) as {
       ok: boolean;
-      message: string;
+      message?: string;
+      error?: { code?: string; message?: string };
       workspaceUrl?: string;
       tokens?: { accessToken: string; refreshToken: string };
     };
@@ -135,11 +136,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       console.error("[AuthForm] Auth API failed", {
         mode,
         status: response.status,
-        message: result.message,
+        message: result.error?.message ?? result.message,
       });
       setStatus({
         kind: "error",
-        message: result.message ?? "Something went wrong.",
+        message: result.error?.message ?? result.message ?? "Something went wrong.",
       });
       return;
     }

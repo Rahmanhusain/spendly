@@ -100,7 +100,7 @@ export default async function WorkspacePage(props: {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const [user, tenant] = await Promise.all([
@@ -109,7 +109,7 @@ export default async function WorkspacePage(props: {
   ]);
 
   if (!tenant) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const displayName = user
@@ -284,7 +284,7 @@ export default async function WorkspacePage(props: {
   return (
     <>
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
+      <section className="relative overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.14),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.12),transparent_30%)]" />
         <div className="relative grid gap-6 p-6 lg:grid-cols-[1.25fr_0.75fr] lg:p-8">
           <div>
@@ -430,7 +430,7 @@ export default async function WorkspacePage(props: {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr] w-full min-w-0">
-        <Card className="border-slate-200 shadow-sm flex min-w-0 flex-col min-h-[400px] w-full">
+        <Card className="border-slate-200 shadow-sm flex min-w-0 flex-col min-h-100 w-full">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-xl text-slate-950">
               <TrendingUp className="h-5 w-5 text-slate-500" />
@@ -444,14 +444,14 @@ export default async function WorkspacePage(props: {
             {dashboard.trend.length > 0 ? (
               <SpendTimelineChart points={dashboard.trend} />
             ) : (
-              <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+              <div className="flex min-h-55 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
                 No trend data for this period
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm flex min-w-0 flex-col min-h-[400px] w-full">
+        <Card className="border-slate-200 shadow-sm flex min-w-0 flex-col min-h-100 w-full">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-xl text-slate-950">
               <Activity className="h-5 w-5 text-slate-500" />
@@ -528,7 +528,7 @@ export default async function WorkspacePage(props: {
               Latest receipts, reports, and compliance events
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+          <CardContent className="space-y-4 max-h-130 overflow-y-auto pr-1">
             {dashboard.activity.length > 0 ? (
               dashboard.activity.slice(0, 10).map((item) => {
                 const toneClass =

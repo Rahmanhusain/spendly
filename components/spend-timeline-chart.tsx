@@ -323,7 +323,7 @@ export function SpendTimelineChart({ points }: SpendTimelineChartProps) {
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
           role="img"
           aria-label="Spend timeline line graph"
-          className="block h-[18rem] w-full"
+          className="block h-72 w-full"
         >
           {yTicks.map((tick) => (
             <g key={tick.y}>

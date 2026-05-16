@@ -7,7 +7,7 @@ export default async function WorkspacePoliciesPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const policy = await getDefaultPolicyForTenant(authContext.tenantId);

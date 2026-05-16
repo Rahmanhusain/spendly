@@ -24,7 +24,7 @@ export default async function WorkspaceSettingsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const [user, tenant] = await Promise.all([

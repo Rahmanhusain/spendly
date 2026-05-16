@@ -105,9 +105,8 @@ function InvitePageContent() {
         <Card className="p-6">
           <h1 className="text-2xl font-bold mb-6">Accept Team Invite</h1>
           <p className="mb-6 text-sm text-gray-600">
-            If you are creating a new account, enter your name and password. If
-            you are already signed in, the invite will use your existing
-            session.
+            Enter your name and a new password to join the workspace. If you
+            previously had an account here, this will restore your access.
           </p>
 
           {error && (
@@ -124,7 +123,7 @@ function InvitePageContent() {
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Required for new users"
+                placeholder="Your first name"
               />
             </div>
 
@@ -146,7 +145,7 @@ function InvitePageContent() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Required for new users"
+                placeholder="Choose a password"
               />
             </div>
 
@@ -157,7 +156,7 @@ function InvitePageContent() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Required for new users"
+                placeholder="Repeat your password"
               />
             </div>
 

@@ -11,7 +11,7 @@ import {
   getTenantById,
 } from "@/lib/repositories/authRepository";
 import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
-import { query } from "@/lib/db/client";
+import { hasReportAccess } from "@/lib/repositories/reportAccessRepository";
 import { ExpenseReportWorkspace } from "@/components/expense-report-workspace";
 
 export default async function ReportByIdPage({
@@ -21,7 +21,7 @@ export default async function ReportByIdPage({
 }) {
   const authContext = await getServerAuthContext();
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const { id: reportId } = await params;
@@ -48,24 +48,18 @@ export default async function ReportByIdPage({
     notFound();
   }
 
-  if (authContext.role === "employee" && report.userId !== authContext.userId) {
-    const mentionResult = await query<{ exists: boolean }>(
-      `SELECT EXISTS(
-        SELECT 1
-        FROM notifications n
-        WHERE n.tenant_id = $1
-          AND n.user_id = $2
-          AND n.channel = 'in_app'
-          AND n.related_type = 'expense_report'
-          AND n.related_id = $3
-      ) as "exists"`,
-      [authContext.tenantId, authContext.userId, reportId],
-    );
+  // Enforce access control: employees can only view reports they own or
+  // have been explicitly granted access to via report_access_list.
+  // Managers and admins can see all reports (hasReportAccess handles this).
+  const canAccess = await hasReportAccess(
+    authContext.tenantId,
+    reportId,
+    authContext.userId,
+    authContext.role,
+  );
 
-    const exists = mentionResult.rows[0]?.exists ?? false;
-    if (!exists) {
-      notFound();
-    }
+  if (!canAccess) {
+    notFound();
   }
 
   const reportItems = await getReportItemsWithDetails(

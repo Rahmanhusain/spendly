@@ -1,6 +1,7 @@
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import type { JWTPayload } from "jose";
+import { query } from "@/lib/db/client";
 
 export interface AuthPayload extends JWTPayload {
   userId: string;
@@ -34,7 +35,43 @@ export async function verifyToken(token: string): Promise<AuthPayload | null> {
 }
 
 /**
- * Extract auth context from request headers or cookies
+ * Check the database to confirm the session is still valid and the user
+ * is still active. Returns false if the session was revoked or the user
+ * was deactivated (e.g. removed from the workspace).
+ */
+async function isSessionStillValid(
+  sessionId: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const result = await query<{ ok: boolean }>(
+      `SELECT (
+        EXISTS (
+          SELECT 1 FROM user_sessions
+          WHERE id = $1
+            AND user_id = $2
+            AND revoked_at IS NULL
+            AND expires_at > NOW()
+        )
+        AND
+        EXISTS (
+          SELECT 1 FROM users
+          WHERE id = $2
+            AND status = 'active'
+        )
+      ) AS ok`,
+      [sessionId, userId],
+    );
+    return result.rows[0]?.ok === true;
+  } catch {
+    // If the DB is unreachable, fail closed — deny access.
+    return false;
+  }
+}
+
+/**
+ * Extract auth context from request headers or cookies.
+ * Validates the JWT then confirms the session + user are still active in the DB.
  */
 export async function extractAuthContext(
   request: Request,
@@ -70,6 +107,12 @@ export async function extractAuthContext(
     return null;
   }
 
+  // Confirm the session is not revoked and the user is still active.
+  const valid = await isSessionStillValid(payload.sessionId, payload.userId);
+  if (!valid) {
+    return null;
+  }
+
   return {
     requestId,
     userId: payload.userId,
@@ -80,7 +123,8 @@ export async function extractAuthContext(
 }
 
 /**
- * Get auth context from server component (uses cookies)
+ * Get auth context from a server component (uses cookies).
+ * Validates the JWT then confirms the session + user are still active in the DB.
  */
 export async function getServerAuthContext(): Promise<AuthContext | null> {
   try {
@@ -94,6 +138,12 @@ export async function getServerAuthContext(): Promise<AuthContext | null> {
     const payload = await verifyToken(token);
 
     if (!payload) {
+      return null;
+    }
+
+    // Confirm the session is not revoked and the user is still active.
+    const valid = await isSessionStillValid(payload.sessionId, payload.userId);
+    if (!valid) {
       return null;
     }
 

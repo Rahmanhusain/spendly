@@ -218,6 +218,49 @@ export async function getTeamMembers(teamId: string): Promise<
 }
 
 /**
+ * Get all workspace members for a tenant directly from the users table.
+ * This includes every user who has joined the workspace (via invite or signup),
+ * not just those assigned to a named team.
+ */
+export async function getTeamMembersByTenant(tenantId: string): Promise<
+  {
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    role: "employee" | "manager" | "admin";
+    status: string;
+    joined_at: string;
+  }[]
+> {
+  const result = await query<{
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    role: "employee" | "manager" | "admin";
+    status: string;
+    joined_at: string;
+  }>(
+    `SELECT
+       u.id,
+       u.email,
+       u.first_name,
+       u.last_name,
+       u.role,
+       u.status,
+       u.created_at AS joined_at
+     FROM users u
+     WHERE u.tenant_id = $1
+       AND u.status = 'active'
+     ORDER BY u.created_at ASC`,
+    [tenantId],
+  );
+
+  return result.rows;
+}
+
+/**
  * Get team invites for a tenant
  */
 export async function getTeamInvites(
@@ -248,7 +291,14 @@ export async function getInviteById(
 }
 
 /**
- * Create user as part of accepting team invite (in transaction)
+ * Create user as part of accepting team invite (in transaction).
+ *
+ * Handles three cases:
+ * 1. Brand-new user — creates the user row and accepts the invite.
+ * 2. Previously removed user (status = 'inactive') — reactivates them,
+ *    updates their password/name if provided, and accepts the invite.
+ * 3. Already-active user with the same email — accepts the invite so they
+ *    can log in with their existing credentials (no password change needed).
  */
 export async function createUserFromInvite(
   tenantId: string,
@@ -260,19 +310,7 @@ export async function createUserFromInvite(
   role: "employee" | "manager" | "admin",
 ): Promise<{ userId: string; inviteId: string }> {
   return transaction(async (client) => {
-    // Check if user already exists
-    const userCheck = await client.query(
-      "SELECT id FROM users WHERE email = $1 AND tenant_id = $2",
-      [email.toLowerCase(), tenantId],
-    );
-
-    if (userCheck.rows.length > 0) {
-      throw new Error(
-        "A user with this email already exists in this workspace.",
-      );
-    }
-
-    // Check if invite exists
+    // Check if invite exists first
     const inviteCheck = await client.query<TeamInviteRecord>(
       `SELECT * FROM team_invites 
        WHERE tenant_id = $1 AND email = $2 AND accepted_at IS NULL AND expires_at > NOW()`,
@@ -285,32 +323,76 @@ export async function createUserFromInvite(
 
     const invite = inviteCheck.rows[0];
 
-    // Create user
-    const userId = crypto.randomUUID();
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    await client.query(
-      `INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, status, timezone, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
-      [
-        userId,
-        tenantId,
-        email.toLowerCase(),
-        passwordHash,
-        firstName,
-        lastName || null,
-        role,
-        "active",
-        timezone,
-      ],
+    // Check if a user with this email already exists in the tenant
+    const userCheck = await client.query<{
+      id: string;
+      status: string;
+    }>(
+      "SELECT id, status FROM users WHERE email = $1 AND tenant_id = $2",
+      [email.toLowerCase(), tenantId],
     );
 
-    // Accept invite
+    let userId: string;
+
+    if (userCheck.rows.length === 0) {
+      // ── Case 1: Brand-new user ──────────────────────────────────────────
+      userId = crypto.randomUUID();
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      await client.query(
+        `INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, status, timezone, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, NOW(), NOW())`,
+        [
+          userId,
+          tenantId,
+          email.toLowerCase(),
+          passwordHash,
+          firstName,
+          lastName || null,
+          role,
+          timezone,
+        ],
+      );
+    } else {
+      const existing = userCheck.rows[0];
+      userId = existing.id;
+
+      if (existing.status === "inactive") {
+        // ── Case 2: Previously removed — reactivate ─────────────────────
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        await client.query(
+          `UPDATE users
+           SET status      = 'active',
+               password_hash = $1,
+               first_name  = $2,
+               last_name   = $3,
+               role        = $4,
+               updated_at  = NOW()
+           WHERE id = $5`,
+          [
+            passwordHash,
+            firstName || null,
+            lastName || null,
+            role,
+            userId,
+          ],
+        );
+
+        // Revoke any stale sessions from before removal
+        await client.query(
+          `UPDATE user_sessions SET revoked_at = NOW()
+           WHERE user_id = $1 AND revoked_at IS NULL`,
+          [userId],
+        );
+      }
+      // ── Case 3: Already active — just accept the invite below ──────────
+      // No user-row changes needed; they'll log in with their existing password.
+    }
+
+    // Accept invite for all three cases
     await acceptTeamInvite(invite.id, userId, client);
 
-    return {
-      userId,
-      inviteId: invite.id,
-    };
+    return { userId, inviteId: invite.id };
   });
 }

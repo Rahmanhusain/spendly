@@ -12,6 +12,7 @@ import {
   createAuditLog,
   logReportStatusChange,
 } from "@/lib/repositories/auditRepository";
+import { hasReportAccess } from "@/lib/repositories/reportAccessRepository";
 import { sendNotification } from "@/lib/utils/notifications";
 import { randomUUID } from "crypto";
 
@@ -136,7 +137,8 @@ export async function POST(
 
 /**
  * GET /api/reports/[id]/mark-paid
- * Get reimbursement details for a report
+ * Get reimbursement details for a report.
+ * Enforces the same access rules as the report itself.
  */
 export async function GET(
   req: NextRequest,
@@ -153,6 +155,17 @@ export async function GET(
     const report = await getReportById(authContext.tenantId, reportId);
     if (!report) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
+    const canAccess = await hasReportAccess(
+      authContext.tenantId,
+      reportId,
+      authContext.userId,
+      authContext.role,
+    );
+
+    if (!canAccess) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const reimbursement = await getReimbursement(

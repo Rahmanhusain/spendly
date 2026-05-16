@@ -5,11 +5,14 @@ import {
   getReportAuditLog,
   getReportActivitySummary,
 } from "@/lib/repositories/auditRepository";
+import { hasReportAccess } from "@/lib/repositories/reportAccessRepository";
 import { randomUUID } from "crypto";
 
 /**
  * GET /api/reports/[id]/audit-trail
- * Get audit log and activity summary for a report
+ * Get audit log and activity summary for a report.
+ * Enforces the same access rules as the report itself:
+ * managers/admins see all; employees only see reports they own or have been granted access to.
  */
 export async function GET(
   req: NextRequest,
@@ -26,6 +29,17 @@ export async function GET(
     const report = await getReportById(authContext.tenantId, reportId);
     if (!report) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
+    const canAccess = await hasReportAccess(
+      authContext.tenantId,
+      reportId,
+      authContext.userId,
+      authContext.role,
+    );
+
+    if (!canAccess) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const [auditLog, activity] = await Promise.all([

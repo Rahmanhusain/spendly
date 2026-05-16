@@ -14,7 +14,7 @@ export default async function ReceiptByIdPage({
 }) {
   const authContext = await getServerAuthContext();
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const { id: receiptId } = await params;

@@ -12,7 +12,7 @@ export default async function ReportsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/login");
+    redirect("/api/auth/logout?next=/login");
   }
 
   const canApprove =

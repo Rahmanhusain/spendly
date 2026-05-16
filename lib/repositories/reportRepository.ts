@@ -156,18 +156,16 @@ export async function getReportsForTenant(
   const params: (string | number)[] = [tenantId];
 
   if (filters?.userId) {
-    // Employees should see reports they are involved with (owner OR mentioned/updated via in-app notifications).
-    // This keeps the UI aligned with team-collaboration + mentions without requiring strict comment-schema storage.
+    // Employees see only reports they own OR have been explicitly granted
+    // access to via report_access_list — the same check used by hasReportAccess().
     whereClause += ` AND (
       er.user_id = $${params.length + 1}
       OR EXISTS (
         SELECT 1
-        FROM notifications n
-        WHERE n.tenant_id = $1
-          AND n.user_id = $${params.length + 1}
-          AND n.channel = 'in_app'
-          AND n.related_type = 'expense_report'
-          AND n.related_id = er.id
+        FROM report_access_list ral
+        WHERE ral.tenant_id = $1
+          AND ral.report_id = er.id
+          AND ral.user_id = $${params.length + 1}
       )
     )`;
     params.push(filters.userId);
