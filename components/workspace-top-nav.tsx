@@ -43,6 +43,8 @@ type NotificationsResponse = {
 
 const MINI_TOAST_HIDE_AFTER_MS = 5000;
 const MINI_TOAST_EXIT_MS = 300;
+const OPEN_POLL_INTERVAL_MS = 10000;
+const IDLE_POLL_INTERVAL_MS = 60000;
 
 export function WorkspaceTopNav({
   orgName,
@@ -59,6 +61,8 @@ export function WorkspaceTopNav({
   const [showMiniToast, setShowMiniToast] = useState(false);
   const [isToastExiting, setIsToastExiting] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const isNotificationsOpenRef = useRef(false);
+  const isFetchingNotificationsRef = useRef(false);
 
   const dismissMiniToast = () => {
     setIsToastExiting(true);
@@ -101,48 +105,113 @@ export function WorkspaceTopNav({
   }, []);
 
   useEffect(() => {
+    isNotificationsOpenRef.current = isNotificationsOpen;
+  }, [isNotificationsOpen]);
+
+  const loadNotifications = async (options?: { withSpinner?: boolean }) => {
+    if (isFetchingNotificationsRef.current) {
+      return;
+    }
+
+    const withSpinner = options?.withSpinner ?? false;
+
+    if (withSpinner) {
+      setIsLoadingNotifications(true);
+    }
+
+    isFetchingNotificationsRef.current = true;
+
+    try {
+      const response = await fetch("/api/notifications?limit=10&offset=0", {
+        method: "GET",
+        credentials: "include",
+      });
+      const payload = (await response.json()) as NotificationsResponse;
+      if (!response.ok || !payload.ok || !payload.data) {
+        return;
+      }
+
+      setNotifications(payload.data.notifications);
+      setUnreadCount(payload.data.unreadCount);
+
+      const hasRejectedUnread = payload.data.notifications.some(
+        (n) => !n.isRead && /reject/i.test(`${n.title} ${n.message}`),
+      );
+
+      if (hasRejectedUnread && !isNotificationsOpenRef.current) {
+        setShowMiniToast(true);
+        setIsToastExiting(false);
+      }
+    } catch {
+      // Do not block layout for notification load issues.
+    } finally {
+      isFetchingNotificationsRef.current = false;
+      if (withSpinner) {
+        setIsLoadingNotifications(false);
+      }
+    }
+  };
+
+  useEffect(() => {
     let active = true;
+    let timer: number | undefined;
 
-    const loadNotifications = async () => {
-      try {
-        const response = await fetch("/api/notifications?limit=10&offset=0", {
-          method: "GET",
-          credentials: "include",
-        });
-        const payload = (await response.json()) as NotificationsResponse;
-        if (!response.ok || !payload.ok || !payload.data) {
-          return;
-        }
-        if (!active) {
-          return;
-        }
-
-        setNotifications(payload.data.notifications);
-        setUnreadCount(payload.data.unreadCount);
-
-        const hasRejectedUnread = payload.data.notifications.some(
-          (n) => !n.isRead && /reject/i.test(`${n.title} ${n.message}`),
-        );
-
-        if (hasRejectedUnread && !isNotificationsOpen) {
-          setShowMiniToast(true);
-          setIsToastExiting(false);
-        }
-      } catch {
-        // Do not block layout for notification load issues.
+    const clearTimer = () => {
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+        timer = undefined;
       }
     };
 
-    void loadNotifications();
-    // Poll more frequently to ensure notifications appear quickly (every 5 seconds instead of 15)
-    const timer = window.setInterval(() => {
-      void loadNotifications();
-    }, 5000);
+    const schedule = () => {
+      if (!active || document.visibilityState !== "visible") {
+        return;
+      }
+
+      const interval = isNotificationsOpenRef.current
+        ? OPEN_POLL_INTERVAL_MS
+        : IDLE_POLL_INTERVAL_MS;
+
+      timer = window.setTimeout(async () => {
+        await loadNotifications();
+        schedule();
+      }, interval);
+    };
+
+    const refreshNow = async () => {
+      clearTimer();
+      await loadNotifications();
+      schedule();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshNow();
+      } else {
+        clearTimer();
+      }
+    };
+
+    const handleFocus = () => {
+      void refreshNow();
+    };
+
+    void refreshNow();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       active = false;
-      window.clearInterval(timer);
+      clearTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
+  }, []);
+
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      void loadNotifications();
+    }
   }, [isNotificationsOpen]);
 
   useEffect(() => {
@@ -263,25 +332,7 @@ export function WorkspaceTopNav({
                   <button
                     type="button"
                     onClick={() => {
-                      setIsLoadingNotifications(true);
-                      fetch("/api/notifications?limit=10&offset=0", {
-                        method: "GET",
-                        credentials: "include",
-                      })
-                        .then(async (response) => {
-                          const payload =
-                            (await response.json()) as NotificationsResponse;
-                          if (response.ok && payload.ok && payload.data) {
-                            setNotifications(payload.data.notifications);
-                            setUnreadCount(payload.data.unreadCount);
-                          }
-                        })
-                        .catch(() => {
-                          // Silently fail
-                        })
-                        .finally(() => {
-                          setIsLoadingNotifications(false);
-                        });
+                      void loadNotifications({ withSpinner: true });
                     }}
                     disabled={isLoadingNotifications}
                     className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
