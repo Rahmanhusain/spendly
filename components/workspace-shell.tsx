@@ -3,6 +3,7 @@
 import { PolicySetupToast } from "@/components/policy-setup-toast";
 import { WorkspaceSidePanel } from "@/components/workspace-side-panel";
 import { WorkspaceTopNav } from "@/components/workspace-top-nav";
+import { AnimatedPageContent } from "@/components/animated-page-content";
 
 type WorkspaceShellProps = {
   orgName: string;
@@ -44,7 +45,9 @@ export function WorkspaceShell({
           canExportGst={canExportGst}
         />
 
-        <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-w-0 p-4 sm:p-6 lg:p-8">
+          <AnimatedPageContent>{children}</AnimatedPageContent>
+        </main>
       </div>
 
       <PolicySetupToast />
