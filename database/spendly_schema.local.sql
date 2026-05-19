@@ -436,7 +436,6 @@ CREATE TABLE IF NOT EXISTS gst_exports (
 CREATE INDEX IF NOT EXISTS idx_gst_exports_tenant_period ON gst_exports(tenant_id, period_start, period_end);
 
 -- -----------------------------------------------------------------------------
--- Bank reconciliation
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS bank_imports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

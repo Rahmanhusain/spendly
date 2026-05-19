@@ -16,8 +16,6 @@ If you are implementing now, follow this exact order:
 8. `docs/stories/team-collaboration_story.md`
 9. `docs/stories/gst-compliance_story.md`
 10. `docs/stories/dashboard_story.md`
-11. `docs/stories/bank-reconciliation_story.md`
-12. `docs/stories/polish_story.md`
 
 **MVP Timeline:** 6 weeks (Week 1-6)
 
@@ -41,8 +39,6 @@ If you are implementing now, follow this exact order:
 | Team Collaboration               | [docs/stories/team-collaboration_story.md](docs/stories/team-collaboration_story.md)                         |     Planned | Advanced   | Real-time collaboration and presence          |
 | India GST & Compliance Reports   | [docs/stories/gst-compliance_story.md](docs/stories/gst-compliance_story.md)                                 | In Progress | Compliance | Dedicated workspace page and export history   |
 | Dashboards & Analytics           | [docs/stories/dashboard_story.md](docs/stories/dashboard_story.md)                                           |        Done | Analytics  | Metrics, charts, insights, reimbursement view |
-| Bank Reconciliation              | [docs/stories/bank-reconciliation_story.md](docs/stories/bank-reconciliation_story.md)                       |     Planned | Advanced   | CSV import and transaction matching           |
-| Polish & Distribution            | [docs/stories/polish_story.md](docs/stories/polish_story.md)                                                 |     Planned | Polish     | PWA, weekly summaries, dark mode              |
 
 ## Progress Rules
 
@@ -74,11 +70,6 @@ If you are implementing now, follow this exact order:
 ### **Insights and Operations**
 
 10. **Dashboards & Analytics** - Trends, category and team insights
-11. **Bank Reconciliation** - CSV import and transaction matching
-
-### **Polish and Distribution**
-
-12. **Polish & Distribution** - PWA, dark mode, weekly summary email, UX hardening
 
 ## Key Features by Story
 
@@ -121,14 +112,6 @@ If you are implementing now, follow this exact order:
 - Recent receipts + pending approvals
 - Reimbursement tracker (mark: Paid via UPI/Bank)
 - CSV & PDF export
-
-### **Polish & Distribution**
-
-- PWA (installable on phone)
-- Weekly AI summary email
-- Dark mode
-- Mobile-responsive
-- Error handling & edge cases
 
 ## Progress Log
 
@@ -210,13 +193,3 @@ Popup and notification standards:
 
 - Actionable metric cards with drill-down.
 - Chart legends, filters, and no-data states.
-
-11. Bank Reconciliation
-
-- CSV upload and parsing progress UI.
-- Match review table with approve or override modals.
-
-12. Polish and Distribution
-
-- Unified toast, modal, and loading design system.
-- PWA install prompt UX and offline state banner.

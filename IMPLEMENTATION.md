@@ -77,15 +77,12 @@ Implement stories in this exact dependency order:
 8. docs/stories/team-collaboration_story.md
 9. docs/stories/gst-compliance_story.md
 10. docs/stories/dashboard_story.md
-11. docs/stories/bank-reconciliation_story.md
-12. docs/stories/polish_story.md
 
 Recommended milestones:
 
 - Milestone A (Foundation): Stories 1 to 3
 - Milestone B (Core Expense Flow): Stories 4 to 7
-- Milestone C (Compliance and Insight): Stories 8 to 11
-- Milestone D (Polish and UX hardening): Story 12
+- Milestone C (Compliance and Insight): Stories 8 to 10
 
 ## 4) Technical Architecture
 

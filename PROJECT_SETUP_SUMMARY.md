@@ -179,8 +179,7 @@ cat logs/progress.log     # Raw development log
 
 - S-5.1: Categorization Agent
 - S-5.2: Policy Validation Agent
-- S-6.1: Bank Reconciliation Agent
-- S-6.2: Fraud Detection Agent
+- S-6.1: Fraud Detection Agent
 
 **Phase 4: Advanced** (Weeks 13-16)
 
@@ -377,7 +376,6 @@ npm run log:feature "User Auth" "COMPLETED" "2h 45m"
 - Job queue for heavy lifting (non-blocking)
 - Complex approval workflows
 - Policy enforcement engine
-- Bank reconciliation logic
 - Fraud detection algorithms
 
 ✅ **Frontend is Simple**:
@@ -393,7 +391,7 @@ npm run log:feature "User Auth" "COMPLETED" "2h 45m"
 
 **Week 9-12**: AI Agents Phase
 
-- Policy validation, bank reconciliation, fraud detection
+- Policy validation, fraud detection
 
 **Week 13-16**: Advanced Features
 

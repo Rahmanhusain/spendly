@@ -190,7 +190,6 @@ git push origin feature/story-name
 ### Phase 1-2 (Week 12)
 
 - 🔄 Policy validation agent
-- 🔄 Bank reconciliation agent
 - 🔄 Real-time team collaboration through a separate NestJS service
 - 🔄 Analytics & dashboards
 - 🔄 Fraud detection agent
@@ -237,7 +236,6 @@ git push origin feature/story-name
 
 - Receipt OCR jobs
 - Policy validation
-- Bank reconciliation
 - Report generation
 
 ---
