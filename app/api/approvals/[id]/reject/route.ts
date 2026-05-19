@@ -1,3 +1,10 @@
+/**
+ * POST /api/approvals/[id]/reject
+ * Manager/admin rejects a report via the approval workflow.
+ *
+ * Notification: notifyReportRejected → report owner (in_app + email)
+ */
+
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
@@ -9,15 +16,13 @@ import {
   rejectReport,
   getReportById,
 } from "@/lib/repositories/reportRepository";
+import { notifyReportRejected } from "@/lib/utils/notifications";
 import { query } from "@/lib/db/client";
 import { sendEmail } from "@/lib/utils/mailer";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
 
-/**
- * POST /api/approvals/[id]/reject
- */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -25,7 +30,7 @@ export async function POST(
   const requestId = `req_${crypto.randomUUID()}`;
   const approvalId = (await params).id;
 
-  logger.info("Reject report request started", {
+  logger.info("Reject report (approval workflow) request started", {
     requestId,
     approvalId,
   });
@@ -37,11 +42,7 @@ export async function POST(
     const body = await request.json();
     const { comments } = body;
 
-    if (
-      !comments ||
-      typeof comments !== "string" ||
-      comments.trim().length === 0
-    ) {
+    if (!comments || typeof comments !== "string" || comments.trim().length === 0) {
       return NextResponse.json(
         { error: "Rejection reason is required" },
         { status: 400 },
@@ -80,85 +81,39 @@ export async function POST(
       comments,
     );
 
-    logger.info("Report rejected successfully", {
+    logger.info("Report rejected successfully via approval workflow", {
       requestId,
       approvalId,
       reportId: workflow.reportId,
     });
 
-    // Notify report creator (in-app + email) unless the approver is the same user
-    try {
-      const report = await getReportById(
-        authContext!.tenantId,
-        workflow.reportId,
-      );
-      if (report && report.userId && report.userId !== authContext!.userId) {
-        // Insert in-app notification
-        await query(
-          `INSERT INTO notifications (tenant_id, user_id, channel, title, message, related_type, related_id, sent_at, created_at)
-           VALUES ($1,$2,'in_app',$3,$4,'expense_report',$5,NOW(),NOW())`,
-          [
-            authContext!.tenantId,
-            report.userId,
-            "Report rejected",
-            `Your expense report "${report.title}" was rejected: ${comments}`,
-            workflow.reportId,
-          ],
-        );
+    // ── Notify report owner (in_app + email) ─────────────────────────────────
+    // Only notify if the approver is not the report owner (self-rejection guard).
+    const report = await getReportById(authContext!.tenantId, workflow.reportId);
+    if (report && report.userId && report.userId !== authContext!.userId) {
+      // Look up owner email for the email channel
+      const emailRow = await query<{ email: string }>(
+        `SELECT email FROM users WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+        [report.userId, authContext!.tenantId],
+      ).catch(() => ({ rows: [] as { email: string }[] }));
 
-        // Insert email notification record (for audit) and attempt to send an email
-        await query(
-          `INSERT INTO notifications (tenant_id, user_id, channel, title, message, related_type, related_id, sent_at, created_at)
-           VALUES ($1,$2,'email',$3,$4,'expense_report',$5,NOW(),NOW())`,
-          [
-            authContext!.tenantId,
-            report.userId,
-            "Report rejected",
-            `Your expense report "${report.title}" was rejected: ${comments}`,
-            workflow.reportId,
-          ],
-        );
-
-        // Send email asynchronously (best-effort)
-        try {
-          // Look up the user's email
-          const userRow = await query(
-            `SELECT email FROM users WHERE id = $1 AND tenant_id = $2`,
-            [report.userId, authContext!.tenantId],
-          );
-          const userEmail = userRow.rows[0]?.email as string | undefined;
-          if (userEmail) {
-            await sendEmail({
-              to: userEmail,
-              subject: `Expense report rejected: ${report.title}`,
-              text: `Your expense report "${report.title}" was rejected by ${authContext!.userId}. Reason: ${comments}`,
-            });
-          }
-        } catch (emailErr) {
-          logger.warn("Failed to send rejection email", {
-            requestId,
-            error:
-              emailErr instanceof Error ? emailErr.message : String(emailErr),
-          });
-        }
-      }
-    } catch (notifyErr) {
-      logger.warn("Failed to create rejection notification", {
-        requestId,
-        error:
-          notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+      await notifyReportRejected({
+        tenantId: authContext!.tenantId,
+        ownerId: report.userId,
+        ownerEmail: emailRow.rows[0]?.email ?? null,
+        reportId: workflow.reportId,
+        reportTitle: report.title,
+        reason: comments,
       });
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json(
-      {
-        workflow: updatedWorkflow,
-        report: updatedReport,
-      },
+      { workflow: updatedWorkflow, report: updatedReport },
       { status: 200 },
     );
   } catch (error) {
-    logger.error("Failed to reject report", {
+    logger.error("Failed to reject report via approval workflow", {
       requestId,
       approvalId,
       error: error instanceof Error ? error.message : String(error),

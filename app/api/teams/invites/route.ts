@@ -8,6 +8,8 @@ import {
   createTeamInvite,
   getTeamInvites,
 } from "@/lib/repositories/teamRepository";
+import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
+import { notifyInviteSent } from "@/lib/utils/notifications";
 import logger from "@/lib/utils/logger";
 import { z } from "zod";
 import crypto from "crypto";
@@ -42,6 +44,35 @@ export async function POST(request: Request) {
     // In production, you would send the invite link via email
     // For now, return the token so it can be used
     const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/invite?id=${invite.id}&token=${token}`;
+
+    // ── Send invite email to the invited person ───────────────────────────────
+    // Look up inviter name and org name for a personalised email.
+    try {
+      const [inviter, tenant] = await Promise.all([
+        getUserById(authContext!.userId),
+        getTenantById(authContext!.tenantId),
+      ]);
+
+      const inviterName = inviter
+        ? [inviter.first_name, inviter.last_name].filter(Boolean).join(" ").trim() ||
+          inviter.email
+        : "A workspace admin";
+
+      await notifyInviteSent({
+        toEmail: email,
+        inviteLink,
+        orgName: tenant?.name ?? "your workspace",
+        inviterName,
+      });
+    } catch (notifyErr) {
+      // Never fail the invite creation because the email couldn't be sent.
+      logger.warn("Failed to send invite email", {
+        requestId,
+        route: "/api/teams/invites",
+        error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json(
       successResponse(

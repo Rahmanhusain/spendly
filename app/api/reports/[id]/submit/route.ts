@@ -9,8 +9,7 @@ import { createApprovalWorkflow } from "@/lib/repositories/approvalRepository";
 import {
   logReportStatusChange,
 } from "@/lib/repositories/auditRepository";
-import { sendNotification } from "@/lib/utils/notifications";
-import { sendEmail } from "@/lib/utils/mailer";
+import { notifyReportSubmitted, notifyReportResubmitted } from "@/lib/utils/notifications";
 import { query } from "@/lib/db/client";
 import logger from "@/lib/utils/logger";
 
@@ -98,40 +97,39 @@ export async function POST(
       { title: report.title },
     );
 
-    // Notify managers/admins that the report is ready for review.
-    const managers = await query<{ id: string; email: string }>(
-      `SELECT id::text as id, email
-       FROM users
-       WHERE tenant_id = $1 AND role IN ('manager', 'admin') AND status = 'active'`,
-      [authContext!.tenantId],
-    );
+    // ── Notify managers/admins that a report needs review ────────────────────
+    await notifyReportSubmitted({
+      tenantId: authContext!.tenantId,
+      reportId,
+      reportTitle: report.title,
+      submitterId: authContext!.userId,
+    });
 
-    await Promise.all(
-      managers.rows.map(async (manager) => {
-        await sendNotification({
-          tenantId: authContext!.tenantId,
-          userId: manager.id,
-          channel: "in_app",
-          title: `Report submitted: "${report.title}"`,
-          message: "An expense report was submitted and needs review.",
-          relatedType: "expense_report",
-          relatedId: reportId,
-        });
+    // ── If this is a resubmission after info_requested, also notify the
+    //    specific manager who requested the info ────────────────────────────
+    if (report.status === "info_requested" && workflow.approverId) {
+      // Fetch submitter name for the notification message
+      const submitterRow = await query<{ first_name: string | null; last_name: string | null; email: string }>(
+        `SELECT first_name, last_name, email FROM users WHERE id = $1 LIMIT 1`,
+        [authContext!.userId],
+      ).catch(() => ({ rows: [] as { first_name: string | null; last_name: string | null; email: string }[] }));
 
-        if (manager.email) {
-          await sendEmail({
-            to: manager.email,
-            subject: `Expense report submitted: ${report.title}`,
-            text: `Your team has a new expense report awaiting approval: "${report.title}".`,
-          });
-        }
-      }),
-    );
+      const s = submitterRow.rows[0];
+      const submitterName = s
+        ? [s.first_name, s.last_name].filter(Boolean).join(" ").trim() || s.email
+        : "The employee";
 
-    return NextResponse.json(
-      updated,
-      { status: 200 },
-    );
+      await notifyReportResubmitted({
+        tenantId: authContext!.tenantId,
+        requesterId: workflow.approverId,
+        reportId,
+        reportTitle: report.title,
+        submitterName,
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 

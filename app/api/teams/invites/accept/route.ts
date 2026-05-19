@@ -6,6 +6,7 @@ import {
 } from "@/lib/repositories/teamRepository";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { extractAuthContext } from "@/lib/middleware/auth";
+import { notifyInviteAccepted } from "@/lib/utils/notifications";
 import { createAuthTokens } from "@/lib/auth/tokens";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
 import logger from "@/lib/utils/logger";
@@ -183,6 +184,29 @@ export async function POST(request: Request) {
       tenantId: user.tenant_id,
       inviteId,
     });
+
+    // ── Notify the admin/manager who sent the invite ──────────────────────────
+    // invite.invited_by is the UUID of the person who created the invite.
+    // We fire-and-forget so a notification failure never blocks the login.
+    try {
+      const acceptedByName = [user.first_name, user.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      await notifyInviteAccepted({
+        tenantId: user.tenant_id,
+        inviterId: invite.invited_by,
+        acceptedByEmail: user.email,
+        acceptedByName,
+      });
+    } catch (notifyErr) {
+      logger.warn("Failed to send invite-accepted notification", {
+        requestId,
+        error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     return response;
   } catch (error) {

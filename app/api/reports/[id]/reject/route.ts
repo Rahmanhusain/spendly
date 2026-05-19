@@ -10,8 +10,7 @@ import {
   rejectApprovalWorkflow,
 } from "@/lib/repositories/approvalRepository";
 import { logReportStatusChange } from "@/lib/repositories/auditRepository";
-import { sendNotification } from "@/lib/utils/notifications";
-import { sendEmail } from "@/lib/utils/mailer";
+import { notifyReportRejected } from "@/lib/utils/notifications";
 import { query } from "@/lib/db/client";
 import logger from "@/lib/utils/logger";
 
@@ -100,35 +99,21 @@ export async function POST(
       { workflowId: workflow.id, reason },
     );
 
-    // Notify employee in-app (and best-effort email).
-    await sendNotification({
-      tenantId: authContext.tenantId,
-      userId: report.userId,
-      channel: "in_app",
-      title: `Rejected: "${report.title}"`,
-      message: `Your expense report was rejected. Reason: ${reason.slice(0, 120)}`,
-      relatedType: "expense_report",
-      relatedId: reportId,
-    });
+    // ── Notify report owner (in_app + email) ─────────────────────────────────
+    const ownerEmailRow = await query<{ email: string }>(
+      `SELECT email::text as email FROM users WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [report.userId, authContext.tenantId],
+    ).catch(() => ({ rows: [] as { email: string }[] }));
 
-    try {
-      const userEmail = await query<{ email: string }>(
-        `SELECT email::text as email FROM users WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-        [report.userId, authContext.tenantId],
-      );
-      const email = userEmail.rows[0]?.email;
-      if (email) {
-        await sendEmail({
-          to: email,
-          subject: `Expense report rejected: ${report.title}`,
-          text: `Your expense report "${report.title}" was rejected by your manager. Reason: ${reason}`,
-        });
-      }
-    } catch (emailErr) {
-      logger.warn("Reject email lookup/send failed", {
-        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
-      });
-    }
+    await notifyReportRejected({
+      tenantId: authContext.tenantId,
+      ownerId: report.userId,
+      ownerEmail: ownerEmailRow.rows[0]?.email ?? null,
+      reportId,
+      reportTitle: report.title,
+      reason,
+    });
+    // ─────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json(updatedReport, { status: 200 });
   } catch (error) {
