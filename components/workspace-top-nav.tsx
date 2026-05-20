@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Settings,
   User,
-  UserCircle2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
@@ -445,7 +444,7 @@ export function WorkspaceTopNav({
                 <div className="rounded-xl bg-slate-950 px-4 py-4 text-white">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white">
-                      <UserCircle2 className="h-6 w-6" />
+                      <User className="h-6 w-6" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold">{userLabel}</p>
@@ -457,7 +456,7 @@ export function WorkspaceTopNav({
                 <div className="mt-3 grid gap-2 text-sm">
                   <div className="flex flex-wrap gap-2 px-1 pb-1">
                     <Badge className="border-slate-200 bg-slate-50 text-slate-700">
-                      Tenant: {tenantId}
+                      Tenant: {tenantId.slice(0, 8)}...
                     </Badge>
                     <Badge className="border-slate-200 bg-slate-50 text-slate-700">
                       Role: {roleLabel}

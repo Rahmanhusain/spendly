@@ -179,6 +179,7 @@ export async function getUserByEmailAndVerifyPassword(
     role: "employee" | "manager" | "admin";
     status: "active" | "inactive" | "suspended";
     timezone: string;
+    can_export_gst: boolean;
     email_summary_enabled: boolean;
     created_at: string;
     updated_at: string;
@@ -229,6 +230,7 @@ export async function getUserByEmailAndVerifyPassword(
     role: row.role,
     status: row.status,
     timezone: row.timezone,
+    can_export_gst: row.can_export_gst,
     email_summary_enabled: row.email_summary_enabled,
     created_at: row.created_at,
     updated_at: row.updated_at,

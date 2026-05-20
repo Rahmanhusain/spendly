@@ -1,7 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { loginSchema, signupSchema } from "@/lib/validators/auth";
+import Link from "next/link";
+import { useState, useEffect, type FormEvent } from "react";
+import {
+  loginSchema,
+  requestOtpSchema,
+  signupWithOtpSchema,
+} from "@/lib/validators/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +35,7 @@ type FieldState = {
   email: string;
   password: string;
   confirmPassword: string;
+  otp: string;
   timezone: string;
 };
 
@@ -44,6 +50,7 @@ const initialFieldState: FieldState = {
   email: "",
   password: "",
   confirmPassword: "",
+  otp: "",
   timezone: "Asia/Kolkata",
 };
 
@@ -53,21 +60,143 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     kind: "idle" | "loading" | "success" | "error";
     message: string;
   }>({ kind: "idle", message: "" });
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof FieldState, string>>
+  >({});
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSentForEmail, setOtpSentForEmail] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
   const isSignup = mode === "signup";
+
+  const canSendOtp = isSignup
+    ? Boolean(
+        form.companyName.trim() &&
+          form.companySlug.trim() &&
+          form.email.trim() &&
+          form.password.trim() &&
+          form.confirmPassword.trim(),
+      )
+    : true;
 
   const updateField = <K extends keyof FieldState>(
     key: K,
     value: FieldState[K],
   ) => {
     setForm((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => ({ ...current, [key]: undefined }));
+
+    if (key === "email") {
+      setOtpSent(false);
+      setOtpSentForEmail("");
+      setFieldErrors((current) => ({ ...current, otp: undefined }));
+    }
   };
+
+  const mapValidationErrors = (
+    issues: Array<{ path: Array<string | number>; message: string }>,
+  ) => {
+    const nextErrors: Partial<Record<keyof FieldState, string>> = {};
+
+    for (const issue of issues) {
+      const firstPath = issue.path[0];
+      if (typeof firstPath === "string" && firstPath in form) {
+        nextErrors[firstPath as keyof FieldState] = issue.message;
+      }
+    }
+
+    return nextErrors;
+  };
+
+  const sendSignupOtp = async () => {
+    const validation = requestOtpSchema.safeParse({ email: form.email });
+    if (!validation.success) {
+      setFieldErrors((current) => ({
+        ...current,
+        email:
+          validation.error.issues[0]?.message ?? "Enter a valid email first.",
+      }));
+      setStatus({ kind: "idle", message: "" });
+      return;
+    }
+
+    setIsSendingOtp(true);
+    setFieldErrors((current) => ({
+      ...current,
+      email: undefined,
+      otp: undefined,
+    }));
+    setStatus({ kind: "loading", message: "Sending OTP..." });
+
+    try {
+      const response = await fetch("/api/auth/signup/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: validation.data.email }),
+      });
+
+      const result = (await response.json()) as {
+        ok: boolean;
+        message?: string;
+        error?: { message?: string; retryAfter?: number };
+      };
+
+      if (!response.ok || !result.ok) {
+        const retry = result.error?.retryAfter ?? 0;
+        if (response.status === 429 && retry > 0) {
+          setResendCooldown(retry);
+        }
+
+        setStatus({
+          kind: "error",
+          message:
+            result.error?.message ?? result.message ?? "Failed to send OTP.",
+        });
+        return;
+      }
+
+      // success - start local cooldown
+      setResendCooldown(60);
+      setOtpSent(true);
+      setOtpSentForEmail(validation.data.email.toLowerCase());
+      setStatus({
+        kind: "success",
+        message: "OTP sent. Check your email and enter the 6-digit code.",
+      });
+    } catch {
+      setStatus({ kind: "error", message: "Failed to send OTP." });
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  // countdown effect for resend cooldown
+  useEffect(() => {
+    let t: number | undefined;
+    if (resendCooldown > 0) {
+      t = window.setInterval(() => {
+        setResendCooldown((c) => {
+          if (c <= 1) {
+            window.clearInterval(t);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (t) window.clearInterval(t);
+    };
+  }, [resendCooldown]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     console.info("[AuthForm] Submit started", { mode });
+    setFieldErrors({});
     setStatus({
       kind: "loading",
-      message: isSignup ? "Creating workspace..." : "Signing in...",
+      message: isSignup ? "Creating account..." : "Logging in...",
     });
 
     const payload = isSignup
@@ -82,6 +211,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           email: form.email,
           password: form.password,
           confirmPassword: form.confirmPassword,
+          otp: form.otp,
           timezone: form.timezone,
         }
       : {
@@ -90,20 +220,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         };
 
     const validation = isSignup
-      ? signupSchema.safeParse(payload)
+      ? signupWithOtpSchema.safeParse(payload)
       : loginSchema.safeParse(payload);
 
     if (!validation.success) {
+      const nextFieldErrors = mapValidationErrors(validation.error.issues);
       console.warn("[AuthForm] Validation failed", {
         mode,
-        issue: validation.error.issues[0]?.message,
+        issues: validation.error.issues,
       });
-      setStatus({
-        kind: "error",
-        message:
-          validation.error.issues[0]?.message ??
-          "Check the highlighted fields.",
-      });
+      setFieldErrors(nextFieldErrors);
+      setStatus({ kind: "idle", message: "" });
       return;
     }
 
@@ -138,9 +265,20 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         status: response.status,
         message: result.error?.message ?? result.message,
       });
+
+      if (isSignup && result.error?.code === "INVALID_OTP") {
+        setFieldErrors((current) => ({
+          ...current,
+          otp: result.error?.message ?? "Invalid or expired OTP.",
+        }));
+        setStatus({ kind: "idle", message: "" });
+        return;
+      }
+
       setStatus({
         kind: "error",
-        message: result.error?.message ?? result.message ?? "Something went wrong.",
+        message:
+          result.error?.message ?? result.message ?? "Something went wrong.",
       });
       return;
     }
@@ -148,7 +286,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setStatus({
       kind: "success",
       message: isSignup
-        ? "Workspace created. First admin user and starter policies are ready."
+        ? "Account created. First admin user and starter policies are ready."
         : "Signed in. Your tenant-scoped workspace is ready.",
     });
 
@@ -244,7 +382,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="space-y-2">
         <CardTitle className="text-2xl tracking-tight text-slate-950">
-          {isSignup ? "Create workspace" : "Sign in"}
+          {isSignup ? "Create workspace" : "Login"}
         </CardTitle>
         <CardDescription>
           {isSignup
@@ -261,34 +399,40 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                   label="Company name"
                   value={form.companyName}
                   onChange={(value) => updateField("companyName", value)}
+                  error={fieldErrors.companyName}
                 />
                 <Field
                   label="Workspace slug"
                   value={form.companySlug}
                   onChange={(value) => updateField("companySlug", value)}
                   placeholder="bluepeak-studio"
+                  error={fieldErrors.companySlug}
                 />
                 <Field
                   label="Country code"
                   value={form.countryCode}
                   onChange={(value) => updateField("countryCode", value)}
                   placeholder="IN"
+                  error={fieldErrors.countryCode}
                 />
                 <Field
                   label="GSTIN"
                   value={form.gstin}
                   onChange={(value) => updateField("gstin", value)}
                   placeholder="27AAAAA0000A1Z5"
+                  error={fieldErrors.gstin}
                 />
                 <Field
                   label="First name"
                   value={form.firstName}
                   onChange={(value) => updateField("firstName", value)}
+                  error={fieldErrors.firstName}
                 />
                 <Field
                   label="Last name"
                   value={form.lastName}
                   onChange={(value) => updateField("lastName", value)}
+                  error={fieldErrors.lastName}
                 />
               </>
             ) : null}
@@ -298,6 +442,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               value={form.email}
               onChange={(value) => updateField("email", value)}
               className="sm:col-span-2"
+              error={fieldErrors.email}
             />
             <Field
               label="Password"
@@ -305,6 +450,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               value={form.password}
               onChange={(value) => updateField("password", value)}
               className="sm:col-span-2"
+              error={fieldErrors.password}
             />
             {isSignup ? (
               <>
@@ -313,12 +459,14 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                   type="password"
                   value={form.confirmPassword}
                   onChange={(value) => updateField("confirmPassword", value)}
+                  error={fieldErrors.confirmPassword}
                 />
                 <Field
                   label="Timezone"
                   value={form.timezone}
                   onChange={(value) => updateField("timezone", value)}
                   placeholder="Asia/Kolkata"
+                  error={fieldErrors.timezone}
                 />
               </>
             ) : null}
@@ -326,6 +474,59 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
           {isSignup ? (
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label htmlFor="signupOtp">Email OTP</Label>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    id="signupOtp"
+                    value={form.otp}
+                    onChange={(event) => updateField("otp", event.target.value)}
+                    placeholder="6-digit code"
+                    maxLength={6}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={sendSignupOtp}
+                    disabled={
+                      isSendingOtp ||
+                      status.kind === "loading" ||
+                      resendCooldown > 0 ||
+                      !canSendOtp
+                    }
+                    className="shrink-0"
+                  >
+                    {isSendingOtp
+                      ? "Sending..."
+                      : resendCooldown > 0
+                        ? `Resend OTP (${resendCooldown}s)`
+                        : otpSent
+                          ? "Resend OTP"
+                          : "Send OTP"}
+                  </Button>
+                </div>
+                {fieldErrors.otp ? (
+                  <p className="mt-1 text-sm text-rose-600">
+                    {fieldErrors.otp}
+                  </p>
+                ) : otpSent ? (
+                  <p className="mt-1 text-sm text-emerald-600">
+                    OTP sent to {otpSentForEmail || form.email}. Enter the
+                    6-digit code to continue.
+                  </p>
+                ) : !canSendOtp ? (
+                  <p className="mt-1 text-sm text-slate-500">
+                    Fill required fields (company name, workspace slug,
+                    email, password) before sending OTP.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500">
+                    Send an OTP to unlock account creation.
+                  </p>
+                )}
+              </div>
               <label className="space-y-2 sm:col-span-2">
                 <Label htmlFor="companyAddress">Company address</Label>
                 <Textarea
@@ -337,6 +538,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                   rows={4}
                   placeholder="Street, city, state, office floor"
                 />
+                {fieldErrors.companyAddress ? (
+                  <p className="text-sm text-rose-600">
+                    {fieldErrors.companyAddress}
+                  </p>
+                ) : null}
               </label>
               <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:col-span-2">
                 All accounts start with a 15-day free trial and full feature
@@ -363,16 +569,40 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           <Button
             type="submit"
             className="w-full"
-            disabled={status.kind === "loading"}
+            disabled={
+              status.kind === "loading" ||
+              (isSignup &&
+                (!otpSent ||
+                  otpSentForEmail !== form.email.trim().toLowerCase() ||
+                  form.otp.trim().length !== 6))
+            }
           >
             {status.kind === "loading"
               ? isSignup
-                ? "Creating workspace..."
-                : "Signing in..."
+                ? "Creating account..."
+                : "Logging in..."
               : isSignup
-                ? "Create workspace"
-                : "Sign in"}
+                ? "Create account"
+                : "Login"}
           </Button>
+
+          {isSignup ? (
+            <p className="text-center text-xs text-slate-500">
+              Send the OTP first, then enter the 6-digit code to enable account
+              creation.
+            </p>
+          ) : null}
+
+          {!isSignup ? (
+            <div className="text-right text-sm">
+              <Link
+                href="/forgot-password"
+                className="text-blue-600 hover:text-blue-700"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          ) : null}
         </form>
       </CardContent>
       <CardFooter>
@@ -393,6 +623,7 @@ function Field({
   type = "text",
   placeholder,
   className = "",
+  error,
 }: {
   label: string;
   value: string;
@@ -400,6 +631,7 @@ function Field({
   type?: string;
   placeholder?: string;
   className?: string;
+  error?: string;
 }) {
   return (
     <label className={`space-y-2 ${className}`}>
@@ -409,7 +641,12 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         type={type}
         placeholder={placeholder}
+        aria-invalid={Boolean(error)}
+        className={
+          error ? "border-rose-500 focus-visible:ring-rose-500" : undefined
+        }
       />
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
     </label>
   );
 }

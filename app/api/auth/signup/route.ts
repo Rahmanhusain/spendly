@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createTenantAccount } from "@/lib/repositories/authRepository";
-import { signupSchema } from "@/lib/validators/auth";
+import { signupWithOtpSchema } from "@/lib/validators/auth";
 import { createAuthTokens, hashToken } from "@/lib/auth/tokens";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
 import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
+import { verifyAndConsumeEmailOtp } from "@/lib/repositories/authChallengeRepository";
 import logger from "@/lib/utils/logger";
 import crypto from "crypto";
 
@@ -16,7 +17,27 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const payload = signupSchema.parse(body);
+    const payload = signupWithOtpSchema.parse(body);
+
+    const otpOk = await verifyAndConsumeEmailOtp({
+      email: payload.email,
+      purpose: "signup",
+      otp: payload.otp,
+    });
+
+    if (!otpOk) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "INVALID_OTP",
+            message: "Invalid or expired signup OTP.",
+            requestId,
+          },
+        },
+        { status: 400 },
+      );
+    }
 
     // Create tenant and first admin user
     const tokenData = {

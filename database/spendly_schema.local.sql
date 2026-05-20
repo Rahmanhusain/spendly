@@ -125,6 +125,21 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id, expires_at);
 
+CREATE TABLE IF NOT EXISTS auth_email_otps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email CITEXT NOT NULL,
+  purpose VARCHAR(32) NOT NULL,
+  otp_hash TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_email_otps_lookup
+ON auth_email_otps (email, purpose, created_at DESC)
+WHERE consumed_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS team_invites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

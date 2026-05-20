@@ -1,0 +1,7 @@
+Verify your email for {{appName}}
+
+Use the code below to complete your action. This code expires in {{expiryMinutes}} minutes.
+
+{{otp}}
+
+If you didn't request this, you can ignore this message or contact support at {{supportEmail}}.

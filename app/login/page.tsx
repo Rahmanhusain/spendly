@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   Card,
@@ -47,16 +48,18 @@ export default async function LoginPage() {
             </Card>
 
             <Card className="animate-in fade-in slide-in-from-right-4 duration-500 delay-100">
-              <CardHeader>
-                <CardTitle className="text-2xl text-slate-950">
-                  Sign in
-                </CardTitle>
-                <CardDescription>
-                  Enter your credentials to access your workspace.
-                </CardDescription>
-              </CardHeader>
+              <CardHeader></CardHeader>
               <CardContent>
                 <AuthForm mode="login" />
+                <p className="mt-4 text-sm text-slate-600">
+                  New to Spendly?{" "}
+                  <Link
+                    href="/sign-up"
+                    className="font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Create account
+                  </Link>
+                </p>
               </CardContent>
             </Card>
           </div>
