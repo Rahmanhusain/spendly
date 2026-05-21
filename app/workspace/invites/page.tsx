@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RemoveTeamMemberButton } from "@/components/remove-team-member-button";
+import { RemoveInviteButton } from "@/components/remove-invite-button";
 import { GstPermissionToggle } from "@/components/gst-permission-toggle";
 
 export default async function InvitesPage() {
@@ -151,9 +152,15 @@ export default async function InvitesPage() {
                         {new Date(invite.expires_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <Badge className="border-slate-200 bg-yellow-50 text-yellow-700">
-                      Pending
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="border-slate-200 bg-yellow-50 text-yellow-700">
+                        Pending
+                      </Badge>
+                      {canManageMembers && (
+                        // Client component to delete invite
+                        <RemoveInviteButton inviteId={invite.id} />
+                      )}
+                    </div>
                   </article>
                 ))
               ) : (

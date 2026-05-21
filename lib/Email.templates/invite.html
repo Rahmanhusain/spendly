@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>You're invited to {{orgName}}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color: #0f172a; }
+      .card { max-width: 600px; margin: 24px auto; padding: 24px; border-radius: 8px; border: 1px solid #e6edf3; background: #fff; }
+      .btn { display: inline-block; padding: 12px 18px; background:#0f172a; color:#fff; border-radius:6px; text-decoration:none; }
+      .muted { color:#64748b }
+      .link { word-break: break-all; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>You're invited to join {{orgName}}</h2>
+      <p class="muted">{{inviterName}} has invited you to join {{orgName}} on Spendly.</p>
+      <p>
+        <a class="btn" href="{{inviteLink}}">Accept invitation</a>
+      </p>
+      <p class="muted">Or copy/paste this link into your browser:</p>
+      <p class="link"><a href="{{inviteLink}}">{{inviteLink}}</a></p>
+      <p class="muted">This link expires in {{expiryDays}} days.</p>
+      <p class="muted">— The Spendly team</p>
+    </div>
+  </body>
+</html>

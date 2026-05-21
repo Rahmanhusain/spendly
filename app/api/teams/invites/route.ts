@@ -43,7 +43,13 @@ export async function POST(request: Request) {
 
     // In production, you would send the invite link via email
     // For now, return the token so it can be used
-    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/invite?id=${invite.id}&token=${token}`;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "https://spendly.software"
+        : "http://localhost:3000");
+
+    const inviteLink = `${baseUrl.replace(/\/$/, "")}/invite?id=${invite.id}&token=${token}`;
 
     // ── Send invite email to the invited person ───────────────────────────────
     // Look up inviter name and org name for a personalised email.

@@ -167,9 +167,7 @@ export default function TeamSetupPage() {
                   Back to app
                 </Link>
               </div>
-              <p className="mt-2 text-slate-600">
-                Share this link through email if you are testing locally.
-              </p>
+              
             </div>
           ) : null}
 

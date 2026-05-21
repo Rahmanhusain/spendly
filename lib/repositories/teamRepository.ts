@@ -311,6 +311,21 @@ export async function getInviteById(
 }
 
 /**
+ * Delete a pending team invite (tenant-scoped)
+ */
+export async function deleteTeamInvite(
+  inviteId: string,
+  tenantId: string,
+): Promise<TeamInviteRecord | null> {
+  const result = await query<TeamInviteRecord>(
+    `DELETE FROM team_invites WHERE id = $1 AND tenant_id = $2 RETURNING *`,
+    [inviteId, tenantId],
+  );
+
+  return result.rows.length > 0 ? result.rows[0] : null;
+}
+
+/**
  * Create user as part of accepting team invite (in transaction).
  *
  * Handles three cases:

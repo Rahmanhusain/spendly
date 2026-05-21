@@ -1,0 +1,11 @@
+Hi,
+
+{{inviterName}} has invited you to join {{orgName}} on Spendly.
+
+Open the link below to accept your invitation:
+
+{{inviteLink}}
+
+This link expires in {{expiryDays}} days.
+
+— The Spendly team

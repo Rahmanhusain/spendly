@@ -631,6 +631,14 @@ export async function notifyInviteSent(input: {
     await sendEmail({
       to: input.toEmail,
       subject: `You've been invited to join ${input.orgName} on Spendly`,
+      templateName: "invite",
+      templateData: {
+        inviteLink: input.inviteLink,
+        orgName: input.orgName,
+        inviterName: input.inviterName || "A workspace admin",
+        expiryDays: 7,
+      },
+      // plaintext fallback for simple clients
       text: [
         `Hi,`,
         ``,
