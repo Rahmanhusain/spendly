@@ -167,7 +167,6 @@ export default function TeamSetupPage() {
                   Back to app
                 </Link>
               </div>
-              
             </div>
           ) : null}
 

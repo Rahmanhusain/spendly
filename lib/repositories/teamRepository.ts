@@ -362,10 +362,10 @@ export async function createUserFromInvite(
     const userCheck = await client.query<{
       id: string;
       status: string;
-    }>(
-      "SELECT id, status FROM users WHERE email = $1 AND tenant_id = $2",
-      [email.toLowerCase(), tenantId],
-    );
+    }>("SELECT id, status FROM users WHERE email = $1 AND tenant_id = $2", [
+      email.toLowerCase(),
+      tenantId,
+    ]);
 
     let userId: string;
 
@@ -405,13 +405,7 @@ export async function createUserFromInvite(
                role        = $4,
                updated_at  = NOW()
            WHERE id = $5`,
-          [
-            passwordHash,
-            firstName || null,
-            lastName || null,
-            role,
-            userId,
-          ],
+          [passwordHash, firstName || null, lastName || null, role, userId],
         );
 
         // Revoke any stale sessions from before removal

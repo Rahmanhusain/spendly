@@ -109,11 +109,14 @@ export async function sendNotificationSafe(
   try {
     await sendNotification(input);
   } catch (err) {
-    logger.error(`[notifications] sendNotificationSafe failed${context ? ` (${context})` : ""}`, {
-      error: err instanceof Error ? err.message : String(err),
-      userId: input.userId,
-      title: input.title,
-    });
+    logger.error(
+      `[notifications] sendNotificationSafe failed${context ? ` (${context})` : ""}`,
+      {
+        error: err instanceof Error ? err.message : String(err),
+        userId: input.userId,
+        title: input.title,
+      },
+    );
   }
 }
 
@@ -581,7 +584,8 @@ export async function notifyReportAccessGranted(input: {
       userId: input.userId,
       channel: "in_app",
       title: `You were added to "${input.reportTitle}"`,
-      message: "You can now view comments and be mentioned in this expense report.",
+      message:
+        "You can now view comments and be mentioned in this expense report.",
       relatedType: "expense_report",
       relatedId: input.reportId,
     },
@@ -604,7 +608,8 @@ export async function notifyReportAccessRevoked(input: {
       userId: input.userId,
       channel: "in_app",
       title: `Your access to "${input.reportTitle}" was removed`,
-      message: "You no longer have access to view or be mentioned in this expense report.",
+      message:
+        "You no longer have access to view or be mentioned in this expense report.",
       relatedType: "expense_report",
       relatedId: input.reportId,
     },

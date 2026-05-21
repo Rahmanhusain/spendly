@@ -96,9 +96,10 @@ export default async function InvitesPage() {
                         <Badge className="border-slate-200 bg-emerald-50 text-emerald-700">
                           Active
                         </Badge>
-                        {canDeleteMembers && member.id !== authContext.userId && (
-                          <RemoveTeamMemberButton memberId={member.id} />
-                        )}
+                        {canDeleteMembers &&
+                          member.id !== authContext.userId && (
+                            <RemoveTeamMemberButton memberId={member.id} />
+                          )}
                       </div>
                     </div>
                     {canManageMembers && member.id !== authContext.userId && (

@@ -60,8 +60,10 @@ export async function POST(request: Request) {
       ]);
 
       const inviterName = inviter
-        ? [inviter.first_name, inviter.last_name].filter(Boolean).join(" ").trim() ||
-          inviter.email
+        ? [inviter.first_name, inviter.last_name]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || inviter.email
         : "A workspace admin";
 
       await notifyInviteSent({
@@ -75,7 +77,8 @@ export async function POST(request: Request) {
       logger.warn("Failed to send invite email", {
         requestId,
         route: "/api/teams/invites",
-        error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+        error:
+          notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
       });
     }
     // ─────────────────────────────────────────────────────────────────────────
