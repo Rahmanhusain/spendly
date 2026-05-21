@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import {
   extractAuthContext,
   requireAuth,
   successResponse,
 } from "@/lib/middleware/auth";
-import { setMemberGstExportPermission } from "@/lib/repositories/teamRepository";
-import logger from "@/lib/utils/logger";
-import crypto from "crypto";
+import { setTeamMemberRole } from "@/lib/repositories/teamRepository";
 import { query } from "@/lib/db/client";
+import logger from "@/lib/utils/logger";
 
 /**
- * PATCH /api/teams/members/[memberId]/permissions
- * Update per-user permission flags for a workspace member.
+ * PATCH /api/teams/members/[memberId]/role
+ * Body: { role: 'employee'|'manager'|'admin' }
  * Only admins may call this endpoint.
- *
- * Body: { can_export_gst: boolean }
  */
 export async function PATCH(
   request: Request,
@@ -23,9 +21,9 @@ export async function PATCH(
   const requestId = `req_${crypto.randomUUID()}`;
   const { memberId } = await params;
 
-  logger.info("Update member permissions request started", {
+  logger.info("Update member role request started", {
     requestId,
-    route: "/api/teams/members/:memberId/permissions",
+    route: "/api/teams/members/:memberId/role",
     memberId,
   });
 
@@ -33,17 +31,15 @@ export async function PATCH(
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext, "admin");
 
-    const body = (await request.json().catch(() => ({}))) as {
-      can_export_gst?: boolean;
-    };
+    const body = (await request.json().catch(() => ({}))) as { role?: string };
 
-    if (typeof body.can_export_gst !== "boolean") {
+    if (!body.role || !["employee", "manager"].includes(body.role)) {
       return NextResponse.json(
         {
           ok: false,
           error: {
             code: "BAD_REQUEST",
-            message: "can_export_gst must be a boolean.",
+            message: "Role must be employee or manager.",
             requestId,
           },
         },
@@ -51,13 +47,9 @@ export async function PATCH(
       );
     }
 
-    // Verify the target user exists and belongs to the same tenant
-    const userResult = await query<{
-      id: string;
-      tenant_id: string;
-      role: string;
-    }>(
-      `SELECT id, tenant_id, role FROM users WHERE id = $1 AND status = 'active'`,
+    // Verify target exists and belongs to same tenant
+    const userResult = await query<{ id: string; tenant_id: string }>(
+      `SELECT id, tenant_id FROM users WHERE id = $1 AND status = 'active'`,
       [memberId],
     );
 
@@ -87,59 +79,37 @@ export async function PATCH(
       );
     }
 
-    // Managers cannot modify permissions of other managers or admins
-    if (
-      authContext!.role === "manager" &&
-      (target.role === "manager" || target.role === "admin")
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "FORBIDDEN",
-            message: "Managers can only update permissions for employees.",
-            requestId,
-          },
-        },
-        { status: 403 },
-      );
-    }
-
-    await setMemberGstExportPermission(
+    await setTeamMemberRole(
       authContext!.tenantId,
       memberId,
-      body.can_export_gst,
+      body.role as "employee" | "manager",
     );
 
-    logger.info("Member permissions updated", {
+    logger.info("Member role updated", {
       requestId,
       targetUserId: memberId,
       updatedBy: authContext!.userId,
-      changes: { can_export_gst: body.can_export_gst },
+      newRole: body.role,
     });
 
     return NextResponse.json(
-      successResponse(
-        {
-          message: "Permissions updated.",
-          can_export_gst: body.can_export_gst,
-        },
-        requestId,
-      ),
+      successResponse({ message: "Role updated.", role: body.role }, requestId),
       { status: 200 },
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to update permissions.";
+      error instanceof Error ? error.message : "Failed to update role.";
     const status = message.includes("Unauthorized")
       ? 401
       : message.includes("Forbidden")
         ? 403
-        : 400;
+        : message.includes("Cannot remove the last admin")
+          ? 400
+          : 400;
 
-    logger.error("Update member permissions failed", {
+    logger.error("Update member role failed", {
       requestId,
-      route: "/api/teams/members/:memberId/permissions",
+      route: "/api/teams/members/:memberId/role",
       status,
       message,
       error: error instanceof Error ? error.stack : String(error),

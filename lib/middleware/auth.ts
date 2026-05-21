@@ -69,6 +69,28 @@ async function isSessionStillValid(
   }
 }
 
+async function getCurrentUserRole(
+  userId: string,
+  tenantId: string,
+): Promise<AuthContext["role"] | null> {
+  try {
+    const result = await query<{
+      role: AuthContext["role"];
+    }>(
+      `SELECT role
+       FROM users
+       WHERE id = $1
+         AND tenant_id = $2
+         AND status = 'active'`,
+      [userId, tenantId],
+    );
+
+    return result.rows[0]?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Extract auth context from request headers or cookies.
  * Validates the JWT then confirms the session + user are still active in the DB.
@@ -113,11 +135,16 @@ export async function extractAuthContext(
     return null;
   }
 
+  const role = await getCurrentUserRole(payload.userId, payload.tenantId);
+  if (!role) {
+    return null;
+  }
+
   return {
     requestId,
     userId: payload.userId,
     tenantId: payload.tenantId,
-    role: payload.role,
+    role,
     sessionId: payload.sessionId,
   };
 }
@@ -147,11 +174,16 @@ export async function getServerAuthContext(): Promise<AuthContext | null> {
       return null;
     }
 
+    const role = await getCurrentUserRole(payload.userId, payload.tenantId);
+    if (!role) {
+      return null;
+    }
+
     return {
       requestId: "",
       userId: payload.userId,
       tenantId: payload.tenantId,
-      role: payload.role,
+      role,
       sessionId: payload.sessionId,
     };
   } catch {

@@ -63,7 +63,7 @@ export async function createTeamInvite(
   tenantId: string,
   invitedBy: string,
   email: string,
-  role: "employee",
+  role: "employee" | "manager" = "employee",
   expiryMs: number = 604800000, // 7 days default
 ): Promise<{
   invite: TeamInviteRecord;
@@ -323,6 +323,56 @@ export async function deleteTeamInvite(
   );
 
   return result.rows.length > 0 ? result.rows[0] : null;
+}
+
+/**
+ * Update a workspace member's role (employee|manager|admin).
+ * Ensures the tenant will always have at least one admin — demotion
+ * of the last admin will be rejected.
+ */
+export async function setTeamMemberRole(
+  tenantId: string,
+  memberId: string,
+  newRole: "employee" | "manager" | "admin",
+): Promise<void> {
+  // Verify target exists and belongs to tenant
+  const userResult = await query<{
+    id: string;
+    role: string;
+    tenant_id: string;
+  }>(
+    `SELECT id, role, tenant_id FROM users WHERE id = $1 AND status = 'active'`,
+    [memberId],
+  );
+
+  if (userResult.rows.length === 0) {
+    throw new Error("Member not found.");
+  }
+
+  const target = userResult.rows[0];
+
+  if (target.tenant_id !== tenantId) {
+    throw new Error("Forbidden: different workspace");
+  }
+
+  // If demoting an admin, ensure there is at least one other admin remaining
+  if (target.role === "admin" && newRole !== "admin") {
+    const countRes = await query<{ count: string }>(
+      `SELECT COUNT(*)::int AS count FROM users WHERE tenant_id = $1 AND role = 'admin' AND status = 'active' AND id <> $2`,
+      [tenantId, memberId],
+    );
+
+    const remainingAdmins = parseInt((countRes.rows[0] as any).count, 10);
+
+    if (remainingAdmins <= 0) {
+      throw new Error("Cannot remove the last admin from the workspace.");
+    }
+  }
+
+  await query(
+    `UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+    [newRole, memberId, tenantId],
+  );
 }
 
 /**

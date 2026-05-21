@@ -18,6 +18,9 @@ type InviteRecord = {
 export default function TeamSetupPage() {
   const [loading, setLoading] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"employee" | "manager">(
+    "employee",
+  );
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [inviteLink, setInviteLink] = useState("");
@@ -59,6 +62,7 @@ export default function TeamSetupPage() {
         },
         body: JSON.stringify({
           email: inviteEmail,
+          role: inviteRole,
         }),
       });
 
@@ -71,10 +75,11 @@ export default function TeamSetupPage() {
       const createdInvite = data.data?.invite as InviteRecord | undefined;
 
       setSuccess(
-        `Invite ready for ${inviteEmail}. The teammate can join from the emailed link as an employee.`,
+        `Invite ready for ${inviteEmail}. The teammate can join from the emailed link as a ${inviteRole}.`,
       );
       setInviteLink(data.data?.inviteLink ?? "");
       setInviteEmail("");
+      setInviteRole("employee");
 
       if (createdInvite) {
         setRecentInvites((current) => [createdInvite, ...current]);
@@ -138,6 +143,21 @@ export default function TeamSetupPage() {
                 placeholder="member@company.com"
                 required
               />
+            </div>
+
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <select
+                id="role"
+                value={inviteRole}
+                onChange={(e) =>
+                  setInviteRole(e.target.value as "employee" | "manager")
+                }
+                className="mt-2 flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-offset-white transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="employee">Employee</option>
+                <option value="manager">Manager</option>
+              </select>
             </div>
 
             <Button type="submit" disabled={loading} className="w-full">

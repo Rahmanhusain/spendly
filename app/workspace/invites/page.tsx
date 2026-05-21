@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { RemoveTeamMemberButton } from "@/components/remove-team-member-button";
 import { RemoveInviteButton } from "@/components/remove-invite-button";
 import { GstPermissionToggle } from "@/components/gst-permission-toggle";
+import { RoleSelector } from "@/components/role-selector";
 
 export default async function InvitesPage() {
   const authContext = await getServerAuthContext();
@@ -102,14 +103,22 @@ export default async function InvitesPage() {
                           )}
                       </div>
                     </div>
-                    {canManageMembers && member.id !== authContext.userId && (
-                      <div className="mt-3 border-t border-slate-100 pt-3">
-                        <GstPermissionToggle
-                          memberId={member.id}
-                          initialValue={member.can_export_gst}
-                        />
-                      </div>
-                    )}
+                    {authContext.role === "admin" &&
+                      member.id !== authContext.userId &&
+                      member.role !== "admin" && (
+                        <>
+                          <div className="mt-3 border-t border-slate-100 pt-3">
+                            <GstPermissionToggle
+                              memberId={member.id}
+                              initialValue={member.can_export_gst}
+                            />
+                          </div>
+                          <RoleSelector
+                            memberId={member.id}
+                            initialRole={member.role}
+                          />
+                        </>
+                      )}
                   </article>
                 ))
               ) : (
