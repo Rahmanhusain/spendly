@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS tenants (
   country_code VARCHAR(2) NOT NULL DEFAULT 'IN',
   gstin VARCHAR(20),
   company_address TEXT,
-  receipt_quota_monthly INTEGER NOT NULL DEFAULT 999999,
+  receipt_quota_monthly INTEGER NOT NULL DEFAULT 1000,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

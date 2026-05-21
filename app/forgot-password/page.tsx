@@ -66,7 +66,8 @@ export default function ForgotPasswordPage() {
       setOtpSent(true);
       setStatus({
         kind: "success",
-        message: "OTP has been sent to your email. You can now set a new password.",
+        message:
+          "OTP has been sent to your email. You can now set a new password.",
       });
     } catch {
       setStatus({ kind: "error", message: "Failed to send OTP." });

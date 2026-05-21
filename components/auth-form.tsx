@@ -72,10 +72,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const canSendOtp = isSignup
     ? Boolean(
         form.companyName.trim() &&
-          form.companySlug.trim() &&
-          form.email.trim() &&
-          form.password.trim() &&
-          form.confirmPassword.trim(),
+        form.companySlug.trim() &&
+        form.email.trim() &&
+        form.password.trim() &&
+        form.confirmPassword.trim(),
       )
     : true;
 
@@ -474,6 +474,24 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
           {isSignup ? (
             <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 sm:col-span-2">
+                <Label htmlFor="companyAddress">Company address</Label>
+                <Textarea
+                  id="companyAddress"
+                  value={form.companyAddress}
+                  onChange={(event) =>
+                    updateField("companyAddress", event.target.value)
+                  }
+                  rows={4}
+                  placeholder="Street, city, state, office floor"
+                />
+                {fieldErrors.companyAddress ? (
+                  <p className="text-sm text-rose-600">
+                    {fieldErrors.companyAddress}
+                  </p>
+                ) : null}
+              </label>
+
               <div className="sm:col-span-2">
                 <Label htmlFor="signupOtp">Email OTP</Label>
                 <div className="mt-2 flex gap-2">
@@ -518,8 +536,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                   </p>
                 ) : !canSendOtp ? (
                   <p className="mt-1 text-sm text-slate-500">
-                    Fill required fields (company name, workspace slug,
-                    email, password) before sending OTP.
+                    Fill required fields (company name, workspace slug, email,
+                    password) before sending OTP.
                   </p>
                 ) : (
                   <p className="mt-1 text-sm text-slate-500">
@@ -527,23 +545,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                   </p>
                 )}
               </div>
-              <label className="space-y-2 sm:col-span-2">
-                <Label htmlFor="companyAddress">Company address</Label>
-                <Textarea
-                  id="companyAddress"
-                  value={form.companyAddress}
-                  onChange={(event) =>
-                    updateField("companyAddress", event.target.value)
-                  }
-                  rows={4}
-                  placeholder="Street, city, state, office floor"
-                />
-                {fieldErrors.companyAddress ? (
-                  <p className="text-sm text-rose-600">
-                    {fieldErrors.companyAddress}
-                  </p>
-                ) : null}
-              </label>
+
               <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:col-span-2">
                 All accounts start with a 15-day free trial and full feature
                 access.
