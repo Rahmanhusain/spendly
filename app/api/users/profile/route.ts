@@ -12,7 +12,8 @@ export async function PATCH(request: Request) {
 
   try {
     const authContext = await extractAuthContext(request, requestId);
-    requireAuth(authContext, "employee");
+    // Any authenticated workspace user can update their own profile.
+    requireAuth(authContext);
 
     const body = (await request.json().catch(() => ({}))) as {
       name?: string;
@@ -54,14 +55,23 @@ export async function PATCH(request: Request) {
       { status: 200 },
     );
   } catch (error) {
+    const status =
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      typeof (error as { status?: unknown }).status === "number"
+        ? ((error as { status: number }).status ?? 400)
+        : 400;
+
     logger.error("Failed to update user profile", {
       requestId,
       error: error instanceof Error ? error.message : String(error),
+      status,
     });
 
     return NextResponse.json(
       { ok: false, error: { message: "Failed to update profile." } },
-      { status: 400 },
+      { status },
     );
   }
 }
