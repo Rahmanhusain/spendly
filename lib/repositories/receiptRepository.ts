@@ -1,4 +1,5 @@
 import { query } from "@/lib/db/client";
+import { getStoredReceiptFileUrl } from "@/lib/storage/receipt-storage";
 
 type ReceiptStatus =
   | "processing"
@@ -395,24 +396,6 @@ type ReceiptQueryRow = {
   comments: unknown;
 };
 
-function toPublicReceiptUrl(filePath: string | null): string | null {
-  if (!filePath) {
-    return null;
-  }
-
-  const normalized = filePath.replace(/\\/g, "/");
-
-  if (normalized.startsWith("./public/")) {
-    return normalized.slice("./public".length);
-  }
-
-  if (normalized.startsWith("public/")) {
-    return `/${normalized.slice("public/".length)}`;
-  }
-
-  return normalized.startsWith("/") ? normalized : `/${normalized}`;
-}
-
 function toNumber(value: string | number | null): number | null {
   if (value === null || value === undefined) {
     return null;
@@ -536,39 +519,41 @@ export async function getReceiptsForTenant(
     [...filter.params, limit, offset],
   );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    receiptId: row.receipt_id,
-    vendor: row.vendor_name ?? "Unknown vendor",
-    amount: Number(row.amount),
-    currency: row.currency,
-    category: row.category ?? "Uncategorized",
-    status: row.status,
-    receiptDate: row.receipt_date,
-    uploadedAt: row.uploaded_at,
-    uploadedBy: row.uploaded_by,
-    uploadedByUserId: row.uploaded_by_user_id,
-    uploadedByRole: row.uploaded_by_role,
-    fileUrl: toPublicReceiptUrl(row.file_path),
-    fileName: row.file_name ?? "receipt-file",
-    mimeType: row.mime_type ?? "application/octet-stream",
-    fileSizeBytes: toNumber(row.file_size_bytes),
-    description: row.description ?? "No description provided.",
-    gstRate: toNumber(row.gst_rate),
-    cgstRate: toNumber(row.cgst_rate),
-    igstRate: toNumber(row.igst_rate),
-    sgstRate: toNumber(row.sgst_rate),
-    cgstAmount: toNumber(row.cgst_amount),
-    igstAmount: toNumber(row.igst_amount),
-    sgstAmount: toNumber(row.sgst_amount),
-    taxAmount: toNumber(row.tax_amount),
-    vendorGstin: row.vendor_gstin,
-    confidenceScore: toNumber(row.confidence_score),
-    isDuplicate: row.is_duplicate,
-    duplicateOf: row.duplicate_of,
-    submittedInReportId: row.submitted_in_report_id,
-    comments: parseComments(row.comments),
-  }));
+  return Promise.all(
+    result.rows.map(async (row) => ({
+      id: row.id,
+      receiptId: row.receipt_id,
+      vendor: row.vendor_name ?? "Unknown vendor",
+      amount: Number(row.amount),
+      currency: row.currency,
+      category: row.category ?? "Uncategorized",
+      status: row.status,
+      receiptDate: row.receipt_date,
+      uploadedAt: row.uploaded_at,
+      uploadedBy: row.uploaded_by,
+      uploadedByUserId: row.uploaded_by_user_id,
+      uploadedByRole: row.uploaded_by_role,
+      fileUrl: await getStoredReceiptFileUrl(row.file_path),
+      fileName: row.file_name ?? "receipt-file",
+      mimeType: row.mime_type ?? "application/octet-stream",
+      fileSizeBytes: toNumber(row.file_size_bytes),
+      description: row.description ?? "No description provided.",
+      gstRate: toNumber(row.gst_rate),
+      cgstRate: toNumber(row.cgst_rate),
+      igstRate: toNumber(row.igst_rate),
+      sgstRate: toNumber(row.sgst_rate),
+      cgstAmount: toNumber(row.cgst_amount),
+      igstAmount: toNumber(row.igst_amount),
+      sgstAmount: toNumber(row.sgst_amount),
+      taxAmount: toNumber(row.tax_amount),
+      vendorGstin: row.vendor_gstin,
+      confidenceScore: toNumber(row.confidence_score),
+      isDuplicate: row.is_duplicate,
+      duplicateOf: row.duplicate_of,
+      submittedInReportId: row.submitted_in_report_id,
+      comments: parseComments(row.comments),
+    })),
+  );
 }
 
 export async function getReceiptById(
@@ -660,7 +645,7 @@ export async function getReceiptById(
     uploadedBy: row.uploaded_by,
     uploadedByUserId: row.uploaded_by_user_id,
     uploadedByRole: row.uploaded_by_role,
-    fileUrl: toPublicReceiptUrl(row.file_path),
+    fileUrl: await getStoredReceiptFileUrl(row.file_path),
     fileName: row.file_name ?? "receipt-file",
     mimeType: row.mime_type ?? "application/octet-stream",
     fileSizeBytes: toNumber(row.file_size_bytes),

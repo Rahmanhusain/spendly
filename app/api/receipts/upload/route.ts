@@ -1,5 +1,4 @@
 import path from "path";
-import { promises as fs } from "fs";
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
@@ -12,6 +11,10 @@ import { getDefaultPolicyForTenant } from "@/lib/repositories/policyRepository";
 import { getUsersByTenant } from "@/lib/repositories/authRepository";
 import { sendNotification } from "@/lib/utils/notifications";
 import logger from "@/lib/utils/logger";
+import {
+  getStoredReceiptFileUrl,
+  storeReceiptFile,
+} from "@/lib/storage/receipt-storage";
 
 export const runtime = "nodejs";
 
@@ -20,28 +23,6 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/png",
   "application/pdf",
 ]);
-
-function getUploadDirectory(tenantId: string, userId: string): string {
-  const configuredBaseDir = process.env.FILE_UPLOAD_DIR || "./public/uploads";
-  return path.join(process.cwd(), configuredBaseDir, tenantId, userId);
-}
-
-function toPublicReceiptUrl(filePath: string | null): string | null {
-  if (!filePath) {
-    return null;
-  }
-
-  const normalized = filePath.replace(/\\/g, "/");
-  if (normalized.startsWith("./public/")) {
-    return normalized.slice("./public".length);
-  }
-
-  if (normalized.startsWith("public/")) {
-    return `/${normalized.slice("public/".length)}`;
-  }
-
-  return normalized.startsWith("/") ? normalized : `/${normalized}`;
-}
 
 function buildOcrFingerprint(input: string): string {
   const normalized = input.replace(/\s+/g, " ").trim().toLowerCase();
@@ -428,12 +409,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const uploadDir = getUploadDirectory(
-      authContext!.tenantId,
-      authContext!.userId,
-    );
-    await fs.mkdir(uploadDir, { recursive: true });
-
     const extensionFromName = path.extname(receiptFile.name).toLowerCase();
     const extension =
       extensionFromName.length > 0
@@ -441,17 +416,6 @@ export async function POST(request: Request) {
         : receiptFile.type === "application/pdf"
           ? ".pdf"
           : ".jpg";
-
-    const fileId = crypto.randomUUID();
-    const fileName = `${fileId}${extension}`;
-    const relativePath = path
-      .join(
-        process.env.FILE_UPLOAD_DIR || "./public/uploads",
-        authContext!.tenantId,
-        authContext!.userId,
-        fileName,
-      )
-      .replace(/\\/g, "/");
 
     const confidenceScore = parsed.confidenceScore;
     let status: "needs_review" | "draft" =
@@ -532,7 +496,9 @@ export async function POST(request: Request) {
             "A similar receipt already exists with matching GSTIN, amount, and date.",
           duplicateOf: {
             ...duplicateCandidate,
-            file_url: toPublicReceiptUrl(duplicateCandidate!.file_path),
+            file_url: await getStoredReceiptFileUrl(
+              duplicateCandidate!.file_path,
+            ),
           },
         };
         errorCodes.push("DUPLICATE_RECEIPT");
@@ -586,7 +552,9 @@ export async function POST(request: Request) {
             duplicateOf: hasDuplicateWarning
               ? {
                   ...duplicateCandidate,
-                  file_url: toPublicReceiptUrl(duplicateCandidate!.file_path),
+                  file_url: await getStoredReceiptFileUrl(
+                    duplicateCandidate!.file_path,
+                  ),
                 }
               : undefined,
             extracted: {
@@ -645,8 +613,14 @@ export async function POST(request: Request) {
       },
     };
 
-    const fullPath = path.join(uploadDir, fileName);
-    await fs.writeFile(fullPath, fileBuffer);
+    const storedFile = await storeReceiptFile({
+      tenantId: authContext!.tenantId,
+      userId: authContext!.userId,
+      fileBuffer,
+      fileName: receiptFile.name,
+      contentType: receiptFile.type,
+      extension,
+    });
 
     const createdReceipt = await createUploadedReceipt({
       tenantId: authContext!.tenantId,
@@ -666,7 +640,7 @@ export async function POST(request: Request) {
       taxAmount: parsed.taxAmount,
       vendorGstin: parsed.vendorGstin,
       note,
-      filePath: relativePath,
+      filePath: storedFile.storagePath,
       fileName: receiptFile.name,
       mimeType: receiptFile.type,
       fileSizeBytes: receiptFile.size,

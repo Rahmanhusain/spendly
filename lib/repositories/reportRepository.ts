@@ -1,22 +1,5 @@
 import { query, transaction } from "@/lib/db/client";
-
-function toPublicReceiptUrl(filePath: string | null): string | null {
-  if (!filePath) {
-    return null;
-  }
-
-  const normalized = filePath.replace(/\\/g, "/");
-
-  if (normalized.startsWith("./public/")) {
-    return normalized.slice("./public".length);
-  }
-
-  if (normalized.startsWith("public/")) {
-    return `/${normalized.slice("public/".length)}`;
-  }
-
-  return normalized.startsWith("/") ? normalized : `/${normalized}`;
-}
+import { getStoredReceiptFileUrl } from "@/lib/storage/receipt-storage";
 
 export type ReportStatus =
   | "draft"
@@ -467,10 +450,12 @@ export async function getReportItemsWithDetails(
     [reportId, tenantId],
   );
 
-  return result.rows.map((row) => ({
-    ...row,
-    fileUrl: toPublicReceiptUrl(row.filePath),
-  }));
+  return Promise.all(
+    result.rows.map(async (row) => ({
+      ...row,
+      fileUrl: await getStoredReceiptFileUrl(row.filePath),
+    })),
+  );
 }
 
 /**
