@@ -1,10 +1,10 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getReportById,
   getReportItemsWithDetails,
   getReportsForTenant,
-  type ExpenseReport,
 } from "@/lib/repositories/reportRepository";
 import {
   getUsersByTenant,
@@ -13,19 +13,18 @@ import {
 import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
 import { hasReportAccess } from "@/lib/repositories/reportAccessRepository";
 import { ExpenseReportWorkspace } from "@/components/expense-report-workspace";
+import ReportDetailLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
-export default async function ReportByIdPage({
-  params,
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function ReportDetailData({
+  authContext,
+  reportId,
 }: {
-  params: Promise<{ id: string }>;
+  authContext: AuthContext;
+  reportId: string;
 }) {
-  const authContext = await getServerAuthContext();
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
-  const { id: reportId } = await params;
-
+  // Fetch everything that doesn't depend on access check in parallel
   const [tenant, tenantUsers, report, reportsResult, receipts] =
     await Promise.all([
       getTenantById(authContext.tenantId),
@@ -38,34 +37,27 @@ export default async function ReportByIdPage({
         limit: 25,
         offset: 0,
       }),
-      getReceiptsForTenant(authContext.tenantId, {
-        limit: 999,
-        offset: 0,
-      }),
+      getReceiptsForTenant(authContext.tenantId, { limit: 999, offset: 0 }),
     ]);
 
   if (!report) {
     notFound();
   }
 
-  // Enforce access control: employees can only view reports they own or
-  // have been explicitly granted access to via report_access_list.
-  // Managers and admins can see all reports (hasReportAccess handles this).
-  const canAccess = await hasReportAccess(
-    authContext.tenantId,
-    reportId,
-    authContext.userId,
-    authContext.role,
-  );
+  // Access check + report items in parallel — both need report to exist
+  const [canAccess, reportItems] = await Promise.all([
+    hasReportAccess(
+      authContext.tenantId,
+      reportId,
+      authContext.userId,
+      authContext.role,
+    ),
+    getReportItemsWithDetails(authContext.tenantId, reportId),
+  ]);
 
   if (!canAccess) {
     notFound();
   }
-
-  const reportItems = await getReportItemsWithDetails(
-    authContext.tenantId,
-    reportId,
-  );
 
   const initialReports = reportsResult.reports.some((r) => r.id === report.id)
     ? reportsResult.reports
@@ -83,5 +75,25 @@ export default async function ReportByIdPage({
       tenantUsers={tenantUsers}
       showReportBrowser={false}
     />
+  );
+}
+
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function ReportByIdPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const authContext = await getServerAuthContext();
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  const { id: reportId } = await params;
+
+  return (
+    <Suspense fallback={<ReportDetailLoading />}>
+      <ReportDetailData authContext={authContext} reportId={reportId} />
+    </Suspense>
   );
 }

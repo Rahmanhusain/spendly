@@ -1,11 +1,23 @@
-You're invited to join {{orgName}} on Spendly.
+{{appName}} — Workspace Invitation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-{{inviterName}} sent you this invitation.
+Hello,
 
-Open the link below to accept:
+{{inviterName}} has invited you to join {{orgName}} on {{appName}}.
 
-{{inviteLink}}
+To accept this invitation, open the link below:
 
-This link expires in {{expiryDays}} days.
+  {{inviteLink}}
 
-If this invite was unexpected, you can ignore this email or contact {{supportEmail}}.
+This invitation expires in {{expiryDays}} days.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NOTICE
+
+If you don't recognize {{inviterName}} or {{orgName}}, you can safely
+ignore this email. No account will be created without your action.
+
+For assistance, contact: {{supportEmail}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated message from {{appName}}. Please do not reply.

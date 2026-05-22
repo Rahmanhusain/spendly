@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
@@ -31,6 +32,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import WorkspaceLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
 type SummaryCard = {
   label: string;
@@ -83,51 +86,47 @@ function formatCompactPercent(value: number | null) {
   return `${prefix}${value.toFixed(1)}% vs last month`;
 }
 
-export default async function WorkspacePage(props: {
-  searchParams?: Promise<{
-    dateRange?: string;
-    startDate?: string;
-    endDate?: string;
-  }>;
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function DashboardData({
+  authContext,
+  dateRangeMode,
+  customStartDate,
+  customEndDate,
+}: {
+  authContext: AuthContext;
+  dateRangeMode: "monthly" | "all-time" | "custom";
+  customStartDate?: string;
+  customEndDate?: string;
 }) {
-  const searchParams = await props.searchParams;
-  const dateRangeMode =
-    (searchParams?.dateRange as "monthly" | "all-time" | "custom") || "monthly";
-  const customStartDate = searchParams?.startDate;
-  const customEndDate = searchParams?.endDate;
+  const role = authContext.role as DashboardRole;
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+  const canReview = role === "manager" || role === "admin";
 
-  const authContext = await getServerAuthContext();
-
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
-  const [user, tenant] = await Promise.all([
-    getUserById(authContext.userId),
-    getTenantById(authContext.tenantId),
-  ]);
+  const tenantPromise = getTenantById(authContext.tenantId);
+  const userPromise = getUserById(authContext.userId);
+  const tenant = await tenantPromise;
 
   if (!tenant) {
     redirect("/api/auth/logout?next=/login");
   }
 
+  const [user, dashboard] = await Promise.all([
+    userPromise,
+    loadDashboardData({
+      tenantId: authContext.tenantId,
+      userId: authContext.userId,
+      role,
+      receiptQuotaMonthly: tenant.receipt_quota_monthly,
+      trialEndsAt: tenant.trial_ends_at ?? null,
+      dateRangeMode,
+      customStartDate,
+      customEndDate,
+    }),
+  ]);
+
   const displayName = user
     ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
     : "Workspace user";
-
-  const role = authContext.role as DashboardRole;
-  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-  const canReview = role === "manager" || role === "admin";
-  const dashboard = await loadDashboardData({
-    tenantId: authContext.tenantId,
-    userId: authContext.userId,
-    role,
-    receiptQuotaMonthly: tenant.receipt_quota_monthly,
-    trialEndsAt: tenant.trial_ends_at ?? null,
-    dateRangeMode,
-    customStartDate,
-    customEndDate,
-  });
 
   // Dynamic labels based on date range mode
   const dateRangeLabel =
@@ -772,5 +771,37 @@ export default async function WorkspacePage(props: {
       </div>
       {/* <ScrollIndicator /> */}
     </>
+  );
+}
+
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function WorkspacePage(props: {
+  searchParams?: Promise<{
+    dateRange?: string;
+    startDate?: string;
+    endDate?: string;
+  }>;
+}) {
+  const searchParams = await props.searchParams;
+  const dateRangeMode =
+    (searchParams?.dateRange as "monthly" | "all-time" | "custom") || "monthly";
+  const customStartDate = searchParams?.startDate;
+  const customEndDate = searchParams?.endDate;
+
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  return (
+    <Suspense fallback={<WorkspaceLoading />}>
+      <DashboardData
+        authContext={authContext}
+        dateRangeMode={dateRangeMode}
+        customStartDate={customStartDate}
+        customEndDate={customEndDate}
+      />
+    </Suspense>
   );
 }

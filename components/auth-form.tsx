@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, type FormEvent } from "react";
+import { Loader2, LogIn, ArrowRight } from "lucide-react";
 import {
   loginSchema,
   requestOtpSchema,
@@ -67,6 +68,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [otpSentForEmail, setOtpSentForEmail] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const isSignup = mode === "signup";
 
   const canSendOtp = isSignup
@@ -287,7 +289,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       kind: "success",
       message: isSignup
         ? "Account created. First admin user and starter policies are ready."
-        : "Signed in. Your tenant-scoped workspace is ready.",
+        : "Signed in. Taking you to your workspace...",
     });
 
     const targetUrl = result.workspaceUrl ?? "/workspace";
@@ -343,13 +345,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             return;
           }
 
-          // Same-origin login/signup already sets cookies. Continue redirect as fallback.
           console.warn(
             "[AuthForm] Continuing with same-origin redirect despite bootstrap failure",
-            {
-              mode,
-              targetOrigin: absoluteTargetUrl.origin,
-            },
+            { mode, targetOrigin: absoluteTargetUrl.origin },
           );
         }
 
@@ -364,22 +362,48 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         targetUrl: absoluteTargetUrl.toString(),
       });
 
-      // Small delay to ensure browser processes Set-Cookie headers before redirect
+      // Show the redirect overlay, then navigate after a short frame so the
+      // overlay has time to paint before the browser starts loading the new page.
+      setIsRedirecting(true);
       setTimeout(() => {
         window.location.assign(absoluteTargetUrl.toString());
-      }, 100);
+      }, 120);
     } catch (error) {
       console.error("[AuthForm] Redirect failed", {
         mode,
         targetUrl,
         error: error instanceof Error ? error.message : String(error),
       });
-      window.location.assign("/workspace");
+      setIsRedirecting(true);
+      setTimeout(() => {
+        window.location.assign("/workspace");
+      }, 120);
     }
   };
 
   return (
     <Card className="border-slate-200 shadow-sm">
+      {/* ── Full-screen redirect overlay ── */}
+      {isRedirecting && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-white/90 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative flex h-16 w-16 items-center justify-center">
+            {/* Outer ring */}
+            <span className="absolute inset-0 rounded-full border-2 border-slate-200" />
+            {/* Spinning arc */}
+            <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-slate-900" />
+            {/* Inner dot */}
+            <span className="h-3 w-3 rounded-full bg-slate-900" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-semibold text-slate-900">
+              Opening your workspace
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Hang tight, this takes a moment…
+            </p>
+          </div>
+        </div>
+      )}
       <CardHeader className="space-y-2">
         <CardTitle className="text-2xl tracking-tight text-slate-950">
           {isSignup ? "Create workspace" : "Login"}
@@ -570,22 +594,32 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full gap-2 transition-all"
             disabled={
               status.kind === "loading" ||
+              isRedirecting ||
               (isSignup &&
                 (!otpSent ||
                   otpSentForEmail !== form.email.trim().toLowerCase() ||
                   form.otp.trim().length !== 6))
             }
           >
-            {status.kind === "loading"
-              ? isSignup
-                ? "Creating account..."
-                : "Logging in..."
-              : isSignup
-                ? "Create account"
-                : "Login"}
+            {isRedirecting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Opening workspace…
+              </>
+            ) : status.kind === "loading" ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {isSignup ? "Creating account…" : "Signing in…"}
+              </>
+            ) : (
+              <>
+                {isSignup ? "Create account" : "Sign in"}
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </Button>
 
           {isSignup ? (

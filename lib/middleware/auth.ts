@@ -1,5 +1,6 @@
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import type { JWTPayload } from "jose";
 import { query } from "@/lib/db/client";
 
@@ -35,59 +36,31 @@ export async function verifyToken(token: string): Promise<AuthPayload | null> {
 }
 
 /**
- * Check the database to confirm the session is still valid and the user
- * is still active. Returns false if the session was revoked or the user
- * was deactivated (e.g. removed from the workspace).
+ * Single-query auth check: confirms the session is not revoked, the user is
+ * still active, and returns the user's current role — all in one round-trip.
  */
-async function isSessionStillValid(
+async function validateSessionAndGetRole(
   sessionId: string,
-  userId: string,
-): Promise<boolean> {
-  try {
-    const result = await query<{ ok: boolean }>(
-      `SELECT (
-        EXISTS (
-          SELECT 1 FROM user_sessions
-          WHERE id = $1
-            AND user_id = $2
-            AND revoked_at IS NULL
-            AND expires_at > NOW()
-        )
-        AND
-        EXISTS (
-          SELECT 1 FROM users
-          WHERE id = $2
-            AND status = 'active'
-        )
-      ) AS ok`,
-      [sessionId, userId],
-    );
-
-    return result.rows[0]?.ok === true;
-  } catch {
-    // If the DB is unreachable, fail closed — deny access.
-    return false;
-  }
-}
-
-async function getCurrentUserRole(
   userId: string,
   tenantId: string,
 ): Promise<AuthContext["role"] | null> {
   try {
-    const result = await query<{
-      role: AuthContext["role"];
-    }>(
-      `SELECT role
-       FROM users
-       WHERE id = $1
-         AND tenant_id = $2
-         AND status = 'active'`,
-      [userId, tenantId],
+    const result = await query<{ role: AuthContext["role"] }>(
+      `SELECT u.role
+       FROM user_sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.id = $1
+         AND s.user_id = $2
+         AND s.revoked_at IS NULL
+         AND s.expires_at > NOW()
+         AND u.tenant_id = $3
+         AND u.status = 'active'`,
+      [sessionId, userId, tenantId],
     );
 
     return result.rows[0]?.role ?? null;
   } catch {
+    // If the DB is unreachable, fail closed — deny access.
     return null;
   }
 }
@@ -130,13 +103,11 @@ export async function extractAuthContext(
     return null;
   }
 
-  // Confirm the session is not revoked and the user is still active.
-  const valid = await isSessionStillValid(payload.sessionId, payload.userId);
-  if (!valid) {
-    return null;
-  }
-
-  const role = await getCurrentUserRole(payload.userId, payload.tenantId);
+  const role = await validateSessionAndGetRole(
+    payload.sessionId,
+    payload.userId,
+    payload.tenantId,
+  );
   if (!role) {
     return null;
   }
@@ -152,45 +123,47 @@ export async function extractAuthContext(
 
 /**
  * Get auth context from a server component (uses cookies).
- * Validates the JWT then confirms the session + user are still active in the DB.
+ * Wrapped with React cache() so multiple Server Components in the same
+ * render pass share a single DB round-trip — the layout and page both call
+ * this but the DB query only runs once per request.
  */
-export async function getServerAuthContext(): Promise<AuthContext | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("accessToken")?.value;
+export const getServerAuthContext = cache(
+  async (): Promise<AuthContext | null> => {
+    try {
+      const cookieStore = await cookies();
+      const token = cookieStore.get("accessToken")?.value;
 
-    if (!token) {
+      if (!token) {
+        return null;
+      }
+
+      const payload = await verifyToken(token);
+
+      if (!payload) {
+        return null;
+      }
+
+      const role = await validateSessionAndGetRole(
+        payload.sessionId,
+        payload.userId,
+        payload.tenantId,
+      );
+      if (!role) {
+        return null;
+      }
+
+      return {
+        requestId: "",
+        userId: payload.userId,
+        tenantId: payload.tenantId,
+        role,
+        sessionId: payload.sessionId,
+      };
+    } catch {
       return null;
     }
-
-    const payload = await verifyToken(token);
-
-    if (!payload) {
-      return null;
-    }
-
-    // Confirm the session is not revoked and the user is still active.
-    const valid = await isSessionStillValid(payload.sessionId, payload.userId);
-    if (!valid) {
-      return null;
-    }
-
-    const role = await getCurrentUserRole(payload.userId, payload.tenantId);
-    if (!role) {
-      return null;
-    }
-
-    return {
-      requestId: "",
-      userId: payload.userId,
-      tenantId: payload.tenantId,
-      role,
-      sessionId: payload.sessionId,
-    };
-  } catch {
-    return null;
-  }
-}
+  },
+);
 
 /**
  * Type guard for role check

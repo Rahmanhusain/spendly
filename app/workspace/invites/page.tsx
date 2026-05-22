@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getServerAuthContext } from "@/lib/middleware/auth";
@@ -17,17 +18,13 @@ import { RemoveTeamMemberButton } from "@/components/remove-team-member-button";
 import { RemoveInviteButton } from "@/components/remove-invite-button";
 import { GstPermissionToggle } from "@/components/gst-permission-toggle";
 import { RoleSelector } from "@/components/role-selector";
+import InvitesLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
-export default async function InvitesPage() {
-  const authContext = await getServerAuthContext();
-
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function InvitesData({ authContext }: { authContext: AuthContext }) {
   const canManageMembers =
     authContext.role === "admin" || authContext.role === "manager";
-  // Only admins can delete members
   const canDeleteMembers = authContext.role === "admin";
 
   const [teamMembers, invitedMembers] = await Promise.all([
@@ -97,10 +94,9 @@ export default async function InvitesPage() {
                         <Badge className="border-slate-200 bg-emerald-50 text-emerald-700">
                           Active
                         </Badge>
-                        {canDeleteMembers &&
-                          member.id !== authContext.userId && (
-                            <RemoveTeamMemberButton memberId={member.id} />
-                          )}
+                        {canDeleteMembers && member.id !== authContext.userId && (
+                          <RemoveTeamMemberButton memberId={member.id} />
+                        )}
                       </div>
                     </div>
                     {authContext.role === "admin" &&
@@ -167,7 +163,6 @@ export default async function InvitesPage() {
                         Pending
                       </Badge>
                       {canManageMembers && (
-                        // Client component to delete invite
                         <RemoveInviteButton inviteId={invite.id} />
                       )}
                     </div>
@@ -183,5 +178,20 @@ export default async function InvitesPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function InvitesPage() {
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  return (
+    <Suspense fallback={<InvitesLoading />}>
+      <InvitesData authContext={authContext} />
+    </Suspense>
   );
 }

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
@@ -6,6 +7,8 @@ import {
   getGstExportHistoryForTenant,
 } from "@/lib/repositories/gstRepository";
 import { GstComplianceWorkspace } from "@/components/gst-compliance-workspace";
+import GstLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
 function getDefaultRange() {
   const now = new Date();
@@ -17,28 +20,18 @@ function getDefaultRange() {
   };
 }
 
-export default async function GstWorkspacePage() {
-  const authContext = await getServerAuthContext();
-
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
-  const isManagerOrAdmin =
-    authContext.role === "manager" || authContext.role === "admin";
-
-  // Employees need the can_export_gst flag — check the DB
-  if (!isManagerOrAdmin) {
-    const user = await getUserById(authContext.userId);
-    if (!user?.can_export_gst) {
-      redirect("/workspace");
-    }
-  }
-
-  const tenant = await getTenantById(authContext.tenantId);
-
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function GstData({
+  authContext,
+  isManagerOrAdmin,
+}: {
+  authContext: AuthContext;
+  isManagerOrAdmin: boolean;
+}) {
   const { start, end } = getDefaultRange();
-  const [initialSummary, initialHistory] = await Promise.all([
+
+  const [tenant, initialSummary, initialHistory] = await Promise.all([
+    getTenantById(authContext.tenantId),
     aggregateGstForPeriod(authContext.tenantId, start, end),
     getGstExportHistoryForTenant(authContext.tenantId, 5),
   ]);
@@ -57,5 +50,31 @@ export default async function GstWorkspacePage() {
       initialSummary={initialSummary}
       initialHistory={initialHistory}
     />
+  );
+}
+
+// ─── Page — auth + permission check only, renders instantly ──────────────────
+export default async function GstWorkspacePage() {
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  const isManagerOrAdmin =
+    authContext.role === "manager" || authContext.role === "admin";
+
+  // Employees need the can_export_gst flag — check the DB before showing page
+  if (!isManagerOrAdmin) {
+    const user = await getUserById(authContext.userId);
+    if (!user?.can_export_gst) {
+      redirect("/workspace");
+    }
+  }
+
+  return (
+    <Suspense fallback={<GstLoading />}>
+      <GstData authContext={authContext} isManagerOrAdmin={isManagerOrAdmin} />
+    </Suspense>
   );
 }

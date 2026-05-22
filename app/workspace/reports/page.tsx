@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
@@ -7,17 +8,11 @@ import {
 import { getReportsForTenant } from "@/lib/repositories/reportRepository";
 import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
 import { ReportsWorkspaceTabs } from "./reports-workspace-tabs";
+import ReportsLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
-export default async function ReportsPage() {
-  const authContext = await getServerAuthContext();
-
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
-  const canApprove =
-    authContext.role === "manager" || authContext.role === "admin";
-
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function ReportsData({ authContext }: { authContext: AuthContext }) {
   const pageSize = 25;
 
   const [tenant, users, reportsResult, receipts] = await Promise.all([
@@ -29,10 +24,7 @@ export default async function ReportsPage() {
       limit: pageSize,
       offset: 0,
     }),
-    getReceiptsForTenant(authContext.tenantId, {
-      limit: 999,
-      offset: 0,
-    }),
+    getReceiptsForTenant(authContext.tenantId, { limit: 999, offset: 0 }),
   ]);
 
   return (
@@ -47,3 +39,17 @@ export default async function ReportsPage() {
   );
 }
 
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function ReportsPage() {
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  return (
+    <Suspense fallback={<ReportsLoading />}>
+      <ReportsData authContext={authContext} />
+    </Suspense>
+  );
+}

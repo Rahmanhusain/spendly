@@ -1,9 +1,24 @@
-{{appName}} verification code
+{{appName}} — Email Verification
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Use the code below to complete your action.
+Hello,
 
-Code: {{otp}}
+To complete your account setup, please use the verification code below.
 
-This code expires in {{expiryMinutes}} minutes.
+  VERIFICATION CODE
+  ─────────────────
+  {{otp}}
 
-If you didn't request this, you can ignore this message or contact {{supportEmail}}.
+This code expires in {{expiryMinutes}} minutes and is valid for a single use only.
+Do not share this code with anyone.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECURITY NOTICE
+
+If you did not create an account with {{appName}}, you can safely ignore
+this email. Your account will not be created without verification.
+
+For assistance, contact: {{supportEmail}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated message from {{appName}}. Please do not reply.

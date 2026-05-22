@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -20,14 +21,11 @@ import ProfileEditor from "@/components/profile-editor";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { LogoutButton } from "@/components/logout-button";
+import SettingsLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
-export default async function WorkspaceSettingsPage() {
-  const authContext = await getServerAuthContext();
-
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function SettingsData({ authContext }: { authContext: AuthContext }) {
   const [user, tenant] = await Promise.all([
     getUserById(authContext.userId),
     getTenantById(authContext.tenantId),
@@ -38,21 +36,9 @@ export default async function WorkspaceSettingsPage() {
     detail: string;
     icon: LucideIcon;
   }> = [
-    {
-      title: "Account ready",
-      detail: "Signed in and active",
-      icon: UserCircle2,
-    },
-    {
-      title: "Security",
-      detail: "Session protected",
-      icon: LockKeyhole,
-    },
-    {
-      title: "Workspace",
-      detail: "15-day full-feature trial",
-      icon: Settings2,
-    },
+    { title: "Account ready", detail: "Signed in and active", icon: UserCircle2 },
+    { title: "Security", detail: "Session protected", icon: LockKeyhole },
+    { title: "Workspace", detail: "15-day full-feature trial", icon: Settings2 },
     {
       title: "Notifications",
       detail: user?.email_summary_enabled ? "On" : "Off",
@@ -72,8 +58,7 @@ export default async function WorkspaceSettingsPage() {
               Workspace settings
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Review your account, workspace, and security settings in one
-              place.
+              Review your account, workspace, and security settings in one place.
             </p>
           </div>
           <LogoutButton />
@@ -132,17 +117,14 @@ export default async function WorkspaceSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-700">
-              <p>
-                Email summary status:{" "}
-                {user?.email_summary_enabled ? "On" : "Off"}
-              </p>
+              <p>Email summary status: {user?.email_summary_enabled ? "On" : "Off"}</p>
               <p>Weekly spend digest can be configured in upcoming releases.</p>
               <p>
-                Compliance and GST exports remain available from workspace
-                tools.
+                Compliance and GST exports remain available from workspace tools.
               </p>
             </CardContent>
           </Card>
+
           <Card className="border-slate-200 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
@@ -167,5 +149,20 @@ export default async function WorkspaceSettingsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function WorkspaceSettingsPage() {
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  return (
+    <Suspense fallback={<SettingsLoading />}>
+      <SettingsData authContext={authContext} />
+    </Suspense>
   );
 }

@@ -1,17 +1,14 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getDefaultPolicyForTenant } from "@/lib/repositories/policyRepository";
 import { PolicySettingsPanel } from "@/components/policy-settings-panel";
+import PoliciesLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
-export default async function WorkspacePoliciesPage() {
-  const authContext = await getServerAuthContext();
-
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function PoliciesData({ authContext }: { authContext: AuthContext }) {
   const policy = await getDefaultPolicyForTenant(authContext.tenantId);
-
   const canEdit =
     authContext.role === "admin" || authContext.role === "manager";
 
@@ -46,5 +43,20 @@ export default async function WorkspacePoliciesPage() {
         canEdit={canEdit}
       />
     </div>
+  );
+}
+
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function WorkspacePoliciesPage() {
+  const authContext = await getServerAuthContext();
+
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  return (
+    <Suspense fallback={<PoliciesLoading />}>
+      <PoliciesData authContext={authContext} />
+    </Suspense>
   );
 }

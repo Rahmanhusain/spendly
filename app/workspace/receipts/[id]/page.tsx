@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
@@ -6,19 +7,17 @@ import {
 } from "@/lib/repositories/receiptRepository";
 import { query } from "@/lib/db/client";
 import { ReceiptsWorkspace } from "@/app/workspace/receipts/receipts-workspace";
+import ReceiptDetailLoading from "./loading";
+import type { AuthContext } from "@/lib/middleware/auth";
 
-export default async function ReceiptByIdPage({
-  params,
+// ─── Data component — suspends while fetching ────────────────────────────────
+async function ReceiptDetailData({
+  authContext,
+  receiptId,
 }: {
-  params: Promise<{ id: string }>;
+  authContext: AuthContext;
+  receiptId: string;
 }) {
-  const authContext = await getServerAuthContext();
-  if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
-  }
-
-  const { id: receiptId } = await params;
-
   const [receipt, receipts] = await Promise.all([
     getReceiptById(authContext.tenantId, receiptId),
     getReceiptsForTenant(authContext.tenantId, { limit: 999, offset: 0 }),
@@ -28,6 +27,7 @@ export default async function ReceiptByIdPage({
     notFound();
   }
 
+  // Employees can only view receipts they own or were notified about
   if (
     authContext.role === "employee" &&
     receipt.uploadedByUserId !== authContext.userId
@@ -67,5 +67,25 @@ export default async function ReceiptByIdPage({
       initialSelectedReceiptId={receipt.receiptId}
       initialSelectedDetails={receipt}
     />
+  );
+}
+
+// ─── Page — auth only, renders instantly ─────────────────────────────────────
+export default async function ReceiptByIdPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const authContext = await getServerAuthContext();
+  if (!authContext) {
+    redirect("/api/auth/logout?next=/login");
+  }
+
+  const { id: receiptId } = await params;
+
+  return (
+    <Suspense fallback={<ReceiptDetailLoading />}>
+      <ReceiptDetailData authContext={authContext} receiptId={receiptId} />
+    </Suspense>
   );
 }
