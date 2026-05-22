@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ export function DateRangeSelector() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   const monthStart = useMemo(
     () =>
@@ -24,10 +25,12 @@ export function DateRangeSelector() {
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const modeFromUrl = searchParams.get("dateRange") as DateMode | null;
-  const mode: DateMode =
+  const modeFromRoute: DateMode =
     modeFromUrl === "all-time" || modeFromUrl === "custom"
       ? modeFromUrl
       : "monthly";
+
+  const [selectedMode, setSelectedMode] = useState<DateMode>(modeFromRoute);
 
   const [startDate, setStartDate] = useState<string>(
     searchParams.get("startDate") ?? monthStart,
@@ -35,11 +38,11 @@ export function DateRangeSelector() {
   const [endDate, setEndDate] = useState<string>(
     searchParams.get("endDate") ?? today,
   );
-  const [loading, setLoading] = useState(false);
+  const mode = isPending ? selectedMode : modeFromRoute;
 
   const handleModeChange = useCallback(
     (newMode: DateMode) => {
-      setLoading(true);
+      setSelectedMode(newMode);
 
       const params = new URLSearchParams(searchParams.toString());
       params.set("dateRange", newMode);
@@ -48,29 +51,27 @@ export function DateRangeSelector() {
         params.delete("endDate");
       }
 
-      setTimeout(() => {
-        router.push(`${pathname}?${params.toString()}`);
-        setLoading(false);
-      }, 200);
+      startTransition(() => {
+        router.replace(`${pathname}?${params.toString()}`);
+      });
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, startTransition],
   );
 
   const handleCustomApply = useCallback(() => {
     if (startDate && endDate) {
-      setLoading(true);
+      setSelectedMode("custom");
 
       const params = new URLSearchParams(searchParams.toString());
       params.set("dateRange", "custom");
       params.set("startDate", startDate);
       params.set("endDate", endDate);
 
-      setTimeout(() => {
-        router.push(`${pathname}?${params.toString()}`);
-        setLoading(false);
-      }, 200);
+      startTransition(() => {
+        router.replace(`${pathname}?${params.toString()}`);
+      });
     }
-  }, [endDate, pathname, router, searchParams, startDate]);
+  }, [endDate, pathname, router, searchParams, startDate, startTransition]);
 
   return (
     <div className="space-y-3">
@@ -79,9 +80,9 @@ export function DateRangeSelector() {
           variant={mode === "monthly" ? "default" : "outline"}
           size="sm"
           onClick={() => handleModeChange("monthly")}
-          disabled={loading}
+          disabled={isPending}
         >
-          {loading && mode === "monthly" && (
+          {isPending && mode === "monthly" && (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           )}
           This Month
@@ -91,9 +92,9 @@ export function DateRangeSelector() {
           variant={mode === "all-time" ? "default" : "outline"}
           size="sm"
           onClick={() => handleModeChange("all-time")}
-          disabled={loading}
+          disabled={isPending}
         >
-          {loading && mode === "all-time" && (
+          {isPending && mode === "all-time" && (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           )}
           All-time
@@ -103,7 +104,7 @@ export function DateRangeSelector() {
           variant={mode === "custom" ? "default" : "outline"}
           size="sm"
           onClick={() => handleModeChange("custom")}
-          disabled={loading}
+          disabled={isPending}
         >
           <CalendarIcon className="h-4 w-4 mr-2" />
           Custom
@@ -139,11 +140,11 @@ export function DateRangeSelector() {
             </div>
             <Button
               onClick={handleCustomApply}
-              disabled={loading || !startDate || !endDate}
+              disabled={isPending || !startDate || !endDate}
               size="sm"
               className="w-full sm:w-auto"
             >
-              {loading ? (
+              {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Loading
