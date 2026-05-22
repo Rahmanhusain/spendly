@@ -655,8 +655,10 @@ export async function deleteReport(
 export async function requestInfoReport(
   tenantId: string,
   reportId: string,
-  infoRequestReason: string,
+  _infoRequestReason: string,
 ): Promise<ExpenseReport> {
+  void _infoRequestReason;
+
   const result = await query<ExpenseReport>(
     `UPDATE expense_reports 
     SET status = $1, updated_at = NOW()

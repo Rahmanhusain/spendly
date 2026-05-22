@@ -1,11 +1,11 @@
-Hi,
+You're invited to join {{orgName}} on Spendly.
 
-{{inviterName}} has invited you to join {{orgName}} on Spendly.
+{{inviterName}} sent you this invitation.
 
-Open the link below to accept your invitation:
+Open the link below to accept:
 
 {{inviteLink}}
 
 This link expires in {{expiryDays}} days.
 
-— The Spendly team
+If this invite was unexpected, you can ignore this email or contact {{supportEmail}}.

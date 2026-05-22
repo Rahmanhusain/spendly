@@ -5,7 +5,6 @@ import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { DateRangeSelector } from "@/components/date-range-selector";
 import { SpendTimelineChart } from "@/components/spend-timeline-chart";
 import { DashboardExportButton } from "@/components/dashboard-export-button";
-import { ScrollIndicator } from "@/components/scroll-indicator";
 import {
   loadDashboardData,
   type DashboardRole,

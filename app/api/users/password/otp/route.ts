@@ -1,43 +1,41 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { requestOtpSchema } from "@/lib/validators/auth";
+import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import { query } from "@/lib/db/client";
 import { createEmailOtpChallenge } from "@/lib/repositories/authChallengeRepository";
 import { sendEmail } from "@/lib/utils/mailer";
 import { getEmailBranding } from "@/lib/utils/email-branding";
 import logger from "@/lib/utils/logger";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const requestId = `req_${crypto.randomUUID()}`;
 
   try {
-    const body = await request.json();
-    const payload = requestOtpSchema.parse(body);
+    const authContext = await extractAuthContext(request, requestId);
+    requireAuth(authContext);
 
-    const existingUser = await query<{ id: string }>(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
-      [payload.email.toLowerCase()],
+    const userResult = await query<{ email: string }>(
+      `SELECT email FROM users WHERE id = $1 AND status = 'active' LIMIT 1`,
+      [authContext!.userId],
     );
 
-    if (existingUser.rows.length > 0) {
+    if (userResult.rows.length === 0) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "EMAIL_IN_USE",
-            message: "An account with this email already exists.",
-            requestId,
-          },
-        },
-        { status: 409 },
+        { ok: false, error: { message: "User not found." } },
+        { status: 404 },
       );
     }
+
+    const branding = getEmailBranding(request.url);
+    const email = userResult.rows[0].email.toLowerCase();
 
     let otp: string;
     try {
       const result = await createEmailOtpChallenge({
-        email: payload.email,
-        purpose: "signup",
+        email,
+        purpose: "password_change",
         ttlMinutes: 10,
         minIntervalSeconds: 60,
       });
@@ -64,12 +62,10 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    const branding = getEmailBranding(request.url);
-
     await sendEmail({
-      to: payload.email,
-      subject: "Your Spendly signup verification code",
-      templateName: "signup-otp",
+      to: email,
+      subject: "Your Spendly password change code",
+      templateName: "password-change-otp",
       templateData: {
         otp,
         expiryMinutes: 10,
@@ -91,9 +87,9 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error ? error.message : "Failed to send OTP.";
 
-    logger.error("Signup OTP request failed", {
+    logger.error("Password change OTP request failed", {
       requestId,
-      route: "/api/auth/signup/otp",
+      route: "/api/users/password/otp",
       message,
       error: error instanceof Error ? error.stack : String(error),
     });

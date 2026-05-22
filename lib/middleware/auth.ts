@@ -62,6 +62,7 @@ async function isSessionStillValid(
       ) AS ok`,
       [sessionId, userId],
     );
+
     return result.rows[0]?.ok === true;
   } catch {
     // If the DB is unreachable, fail closed — deny access.

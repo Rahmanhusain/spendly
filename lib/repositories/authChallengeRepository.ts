@@ -1,9 +1,8 @@
 import crypto from "crypto";
 import { query } from "@/lib/db/client";
 
-type AuthChallengePurpose = "signup" | "password_reset";
+type AuthChallengePurpose = "signup" | "password_reset" | "password_change";
 
-const OTP_LENGTH = 6;
 const MAX_ATTEMPTS = 5;
 
 let ensureTablePromise: Promise<void> | null = null;

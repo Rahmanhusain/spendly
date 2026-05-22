@@ -33,13 +33,6 @@ export default async function WorkspaceSettingsPage() {
     getTenantById(authContext.tenantId),
   ]);
 
-  const displayName = user
-    ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
-    : "Workspace user";
-
-  const roleLabel =
-    authContext.role.charAt(0).toUpperCase() + authContext.role.slice(1);
-
   const summaryCards: Array<{
     title: string;
     detail: string;
@@ -124,7 +117,7 @@ export default async function WorkspaceSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-700">
               <p>Session authentication is enabled for this workspace.</p>
-              <p>Role-based access is currently active for protected routes.</p>
+              <p>Password changes require OTP verification by email.</p>
               <p>Invite teammates from the team setup page as needed.</p>
             </CardContent>
           </Card>

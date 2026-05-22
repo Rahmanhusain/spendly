@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Lock, Mail, ShieldCheck } from "lucide-react";
 
 type User = {
   id: string;
@@ -43,8 +43,30 @@ export default function ProfileEditor({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordOtp, setPasswordOtp] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+
+  useEffect(() => {
+    if (otpCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setOtpCooldown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [otpCooldown]);
 
   const saveOrgProfile = async () => {
     setIsSavingOrg(true);
@@ -107,6 +129,10 @@ export default function ProfileEditor({
       setPasswordMessage("Password must be at least 8 characters");
       return;
     }
+    if (passwordOtp.trim().length !== 6) {
+      setPasswordMessage("Enter the 6-digit verification code");
+      return;
+    }
 
     setIsSavingPassword(true);
     try {
@@ -114,13 +140,19 @@ export default function ProfileEditor({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+          otp: passwordOtp,
+        }),
       });
       if (res.ok) {
         setPasswordMessage("Password changed successfully");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
+        setPasswordOtp("");
         setTimeout(() => {
           setShowPasswordForm(false);
           setPasswordMessage("");
@@ -134,6 +166,47 @@ export default function ProfileEditor({
     } finally {
       setIsSavingPassword(false);
     }
+  };
+
+  const sendPasswordOtp = async () => {
+    setPasswordMessage("");
+    setIsSendingPasswordOtp(true);
+
+    try {
+      const res = await fetch("/api/users/password/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      const result = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setPasswordMessage("Verification code sent to your email.");
+        setOtpCooldown(60);
+        return;
+      }
+
+      if (res.status === 429 && result?.error?.retryAfter) {
+        setOtpCooldown(result.error.retryAfter);
+      }
+
+      setPasswordMessage(result?.error?.message || "Failed to send code");
+    } catch {
+      setPasswordMessage("Error sending verification code");
+    } finally {
+      setIsSendingPasswordOtp(false);
+    }
+  };
+
+  const resetPasswordForm = () => {
+    setShowPasswordForm(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordOtp("");
+    setPasswordMessage("");
+    setOtpCooldown(0);
   };
 
   return (
@@ -274,6 +347,36 @@ export default function ProfileEditor({
           </button>
         ) : (
           <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-white">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-950">
+                    Verify with a one-time code
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    We’ll send a 6-digit code to {user.email} before the
+                    password update is applied.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={sendPasswordOtp}
+                    disabled={isSendingPasswordOtp || otpCooldown > 0}
+                    className="mt-3 inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    <Mail className="h-4 w-4" />
+                    {isSendingPasswordOtp
+                      ? "Sending code..."
+                      : otpCooldown > 0
+                        ? `Resend code (${otpCooldown}s)`
+                        : "Send verification code"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium text-slate-700">
                 Current Password
@@ -313,6 +416,22 @@ export default function ProfileEditor({
               />
             </div>
 
+            <div>
+              <label className="text-sm font-medium text-slate-700">
+                Verification Code
+              </label>
+              <input
+                inputMode="numeric"
+                maxLength={6}
+                value={passwordOtp}
+                onChange={(e) =>
+                  setPasswordOtp(e.target.value.replace(/\D/g, ""))
+                }
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm tracking-[0.35em]"
+                placeholder="Enter 6-digit code"
+              />
+            </div>
+
             {passwordMessage && (
               <div
                 className={`rounded-md p-3 text-sm border ${
@@ -334,13 +453,7 @@ export default function ProfileEditor({
                 {isSavingPassword ? "Updating..." : "Update Password"}
               </button>
               <button
-                onClick={() => {
-                  setShowPasswordForm(false);
-                  setCurrentPassword("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                  setPasswordMessage("");
-                }}
+                onClick={resetPasswordForm}
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
               >
                 Cancel

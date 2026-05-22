@@ -78,10 +78,31 @@ export const forgotPasswordResetSchema = z
     path: ["confirmPassword"],
   });
 
+export const passwordChangeWithOtpSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    otp: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, "Enter the 6-digit OTP sent to your email"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .max(128),
+    confirmPassword: z.string().min(8, "Confirm your password"),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupWithOtpInput = z.infer<typeof signupWithOtpSchema>;
 export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
 export type ForgotPasswordResetInput = z.infer<
   typeof forgotPasswordResetSchema
+>;
+export type PasswordChangeWithOtpInput = z.infer<
+  typeof passwordChangeWithOtpSchema
 >;

@@ -1,7 +1,9 @@
-Verify your email for {{appName}}
+{{appName}} verification code
 
-Use the code below to complete your action. This code expires in {{expiryMinutes}} minutes.
+Use the code below to complete your action.
 
-{{otp}}
+Code: {{otp}}
 
-If you didn't request this, you can ignore this message or contact support at {{supportEmail}}.
+This code expires in {{expiryMinutes}} minutes.
+
+If you didn't request this, you can ignore this message or contact {{supportEmail}}.

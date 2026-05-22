@@ -4,6 +4,7 @@ import { requestOtpSchema } from "@/lib/validators/auth";
 import { query } from "@/lib/db/client";
 import { createEmailOtpChallenge } from "@/lib/repositories/authChallengeRepository";
 import { sendEmail } from "@/lib/utils/mailer";
+import { getEmailBranding } from "@/lib/utils/email-branding";
 import logger from "@/lib/utils/logger";
 
 export async function POST(request: Request) {
@@ -63,6 +64,8 @@ export async function POST(request: Request) {
       throw err;
     }
 
+    const branding = getEmailBranding(request.url);
+
     await sendEmail({
       to: payload.email,
       subject: "Your Spendly password reset code",
@@ -70,11 +73,9 @@ export async function POST(request: Request) {
       templateData: {
         otp,
         expiryMinutes: 10,
-        appName: process.env.APP_NAME ?? "Spendly",
-        supportEmail:
-          process.env.SUPPORT_EMAIL ??
-          process.env.RESEND_FROM_EMAIL ??
-          "support@example.com",
+        appName: branding.appName,
+        supportEmail: branding.supportEmail,
+        logoUrl: branding.logoUrl,
       },
     });
 

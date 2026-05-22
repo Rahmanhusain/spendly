@@ -50,6 +50,7 @@
 
 import { query } from "@/lib/db/client";
 import { sendEmail } from "@/lib/utils/mailer";
+import { getEmailBranding } from "@/lib/utils/email-branding";
 import logger from "@/lib/utils/logger";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -633,6 +634,8 @@ export async function notifyInviteSent(input: {
   inviterName: string;
 }): Promise<void> {
   try {
+    const branding = getEmailBranding();
+
     await sendEmail({
       to: input.toEmail,
       subject: `You've been invited to join ${input.orgName} on Spendly`,
@@ -642,6 +645,9 @@ export async function notifyInviteSent(input: {
         orgName: input.orgName,
         inviterName: input.inviterName || "A workspace admin",
         expiryDays: 7,
+        appName: branding.appName,
+        supportEmail: branding.supportEmail,
+        logoUrl: branding.logoUrl,
       },
       // plaintext fallback for simple clients
       text: [
