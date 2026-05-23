@@ -164,6 +164,7 @@ export function ReceiptsWorkspace({
   const activeFilterControllerRef = useRef<AbortController | null>(null);
   const searchDebounceRef = useRef<number | null>(null);
   const hasMountedRef = useRef(false);
+  const lastFilterKeyRef = useRef<string | null>(null);
   const todayIso = new Date().toISOString().slice(0, 10);
   const dialogRangeError = useMemo(() => {
     if (!isDateDialogOpen) {
@@ -525,6 +526,16 @@ export function ReceiptsWorkspace({
   useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
+      // Snapshot the initial filter values so we can detect real changes later.
+      lastFilterKeyRef.current = JSON.stringify({
+        categoryFilter,
+        dateFrom,
+        dateTo,
+        pageSize,
+        query,
+        showAll,
+        statusFilter,
+      });
       return;
     }
 
@@ -539,6 +550,24 @@ export function ReceiptsWorkspace({
     if (!showAll && dateFrom > dateTo) {
       return;
     }
+
+    // Only re-fetch when the actual filter values changed, not when
+    // fetchReceiptPage gets a new reference after React stabilises callbacks.
+    const currentFilterKey = JSON.stringify({
+      categoryFilter,
+      dateFrom,
+      dateTo,
+      pageSize,
+      query,
+      showAll,
+      statusFilter,
+    });
+
+    if (currentFilterKey === lastFilterKeyRef.current) {
+      return;
+    }
+
+    lastFilterKeyRef.current = currentFilterKey;
 
     searchDebounceRef.current = window.setTimeout(() => {
       void fetchReceiptPage({ offset: 0, replace: true });
