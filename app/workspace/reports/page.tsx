@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import {
   getTenantById,
   getUsersByTenant,
@@ -51,7 +52,7 @@ export default async function ReportsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   return (

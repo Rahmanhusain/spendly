@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/lib/auth/redirect";
 
 type LogoutButtonProps = {
   className?: string;
@@ -25,7 +26,7 @@ export function LogoutButton({ className }: LogoutButtonProps) {
         },
       });
     } finally {
-      router.replace("/login");
+      router.replace(ROUTES.home);
       router.refresh();
     }
   };

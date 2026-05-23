@@ -1,10 +1,10 @@
 import { AuthForm } from "@/components/auth-form";
-import { redirect } from "next/navigation";
 import { AnimatedPageContent } from "@/components/animated-page-content";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { buildPageMetadata } from "@/lib/seo";
+import { redirectToWorkspace } from "@/lib/auth/redirect";
 import {
   Card,
   CardContent,
@@ -24,7 +24,7 @@ export default async function SignUpPage() {
   const authContext = await getServerAuthContext();
 
   if (authContext) {
-    redirect("/workspace");
+    redirectToWorkspace();
   }
 
   return (

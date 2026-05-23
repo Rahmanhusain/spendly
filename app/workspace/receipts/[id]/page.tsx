@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import {
   getReceiptById,
   getReceiptsForTenant,
@@ -85,7 +86,7 @@ export default async function ReceiptByIdPage({
 }) {
   const authContext = await getServerAuthContext();
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   const { id: receiptId } = await params;

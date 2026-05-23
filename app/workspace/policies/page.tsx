@@ -4,6 +4,7 @@ import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getDefaultPolicyForTenant } from "@/lib/repositories/policyRepository";
 import { PolicySettingsPanel } from "@/components/policy-settings-panel";
 import PoliciesLoading from "./loading";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import type { AuthContext } from "@/lib/middleware/auth";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -58,7 +59,7 @@ export default async function WorkspacePoliciesPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   return (

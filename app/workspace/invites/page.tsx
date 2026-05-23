@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import {
   getTeamMembersByTenant,
   getTeamInvites,
@@ -194,7 +195,7 @@ export default async function InvitesPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   return (

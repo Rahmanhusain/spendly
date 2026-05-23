@@ -1,9 +1,9 @@
 import { AuthForm } from "@/components/auth-form";
-import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/seo";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { redirectToWorkspace } from "@/lib/auth/redirect";
 import {
   Card,
   CardContent,
@@ -24,7 +24,7 @@ export default async function LoginPage() {
   const authContext = await getServerAuthContext();
 
   if (authContext) {
-    redirect("/workspace");
+    redirectToWorkspace();
   }
 
   return (

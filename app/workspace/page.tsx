@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { DateRangeSelector } from "@/components/date-range-selector";
 import { SpendTimelineChart } from "@/components/spend-timeline-chart";
@@ -114,7 +114,7 @@ async function DashboardData({
   const tenant = await tenantPromise;
 
   if (!tenant) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   const [user, dashboard] = await Promise.all([
@@ -798,7 +798,7 @@ export default async function WorkspacePage(props: {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   return (

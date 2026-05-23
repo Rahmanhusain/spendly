@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import {
   getReceiptCountForTenant,
   getReceiptsForTenant,
@@ -66,7 +67,7 @@ export default async function AllReceiptsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   const canReview =

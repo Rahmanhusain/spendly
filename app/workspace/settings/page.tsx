@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import {
   BadgeHelp,
   BellRing,
@@ -177,7 +178,7 @@ export default async function WorkspaceSettingsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   return (

@@ -4,6 +4,7 @@ import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getUsersByTenant } from "@/lib/repositories/authRepository";
 import { ApprovalsWorkspace } from "./approvals-workspace";
 import ApprovalsLoading from "./loading";
+import { redirectToLogin } from "@/lib/auth/redirect";
 import type { AuthContext } from "@/lib/middleware/auth";
 
 // ─── Data component — suspends while fetching ────────────────────────────────
@@ -32,7 +33,7 @@ export default async function ApprovalsPage() {
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirect("/api/auth/logout?next=/login");
+    redirectToLogin();
   }
 
   return (
