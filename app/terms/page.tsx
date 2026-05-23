@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AnimatedPageContent } from "@/components/animated-page-content";
 
 export const metadata = buildPageMetadata({
   title: "Terms of Service",
@@ -16,6 +17,7 @@ export const metadata = buildPageMetadata({
 export default function TermsPage() {
   return (
     <main className="min-h-[calc(100vh-18.625rem)] bg-slate-50 flex flex-col">
+      <AnimatedPageContent>
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6 lg:px-8">
         <Card>
           <CardHeader>
@@ -48,6 +50,7 @@ export default function TermsPage() {
           </CardContent>
         </Card>
       </div>
+      </AnimatedPageContent>
     </main>
   );
 }
