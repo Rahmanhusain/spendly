@@ -451,57 +451,6 @@ CREATE TABLE IF NOT EXISTS gst_exports (
 CREATE INDEX IF NOT EXISTS idx_gst_exports_tenant_period ON gst_exports(tenant_id, period_start, period_end);
 
 -- -----------------------------------------------------------------------------
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS bank_imports (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  imported_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-  file_name TEXT NOT NULL,
-  file_path TEXT,
-  rows_count INTEGER NOT NULL DEFAULT 0,
-  imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS bank_transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  import_id UUID REFERENCES bank_imports(id) ON DELETE SET NULL,
-  transaction_date DATE NOT NULL,
-  description TEXT,
-  reference_number VARCHAR(120),
-  amount NUMERIC(14,2) NOT NULL,
-  currency CHAR(3) NOT NULL DEFAULT 'INR',
-  direction VARCHAR(10) NOT NULL DEFAULT 'debit',
-  matched BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_bank_transactions_tenant_date ON bank_transactions(tenant_id, transaction_date);
-CREATE INDEX IF NOT EXISTS idx_bank_transactions_tenant_matched ON bank_transactions(tenant_id, matched);
-
-CREATE TRIGGER trg_bank_transactions_updated_at
-BEFORE UPDATE ON bank_transactions
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TABLE IF NOT EXISTS reconciliation_matches (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  bank_transaction_id UUID NOT NULL REFERENCES bank_transactions(id) ON DELETE CASCADE,
-  receipt_id UUID REFERENCES receipts(id) ON DELETE SET NULL,
-  report_id UUID REFERENCES expense_reports(id) ON DELETE SET NULL,
-  match_score NUMERIC(5,2) NOT NULL DEFAULT 0,
-  match_type VARCHAR(20) NOT NULL DEFAULT 'auto',
-  accepted_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  accepted_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (bank_transaction_id, receipt_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_reconciliation_matches_tenant_tx ON reconciliation_matches(tenant_id, bank_transaction_id);
-
--- -----------------------------------------------------------------------------
 -- Notifications and activity tracking
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notifications (
@@ -587,13 +536,11 @@ ALTER TABLE parsing_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_report_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_access_list ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE receipt_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reimbursements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gst_exports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bank_imports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bank_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reconciliation_matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
@@ -605,9 +552,8 @@ BEGIN
     SELECT unnest(ARRAY[
       'users','user_sessions','team_invites','teams','team_members',
       'expense_policies','policy_violations','receipts','parsing_jobs',
-      'expense_reports','expense_report_items','approval_workflows','report_comments','receipt_comments',
-      'reimbursements','gst_exports','bank_imports','bank_transactions',
-      'reconciliation_matches','notifications','audit_logs'
+      'expense_reports','expense_report_items','approval_workflows','report_access_list','report_comments','receipt_comments',
+      'reimbursements','gst_exports','notifications','audit_logs'
     ])
   LOOP
     EXECUTE format(
