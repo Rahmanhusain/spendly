@@ -11,8 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 
 const metrics = [
   { label: "Receipts processed", value: "12k+" },
@@ -76,7 +74,7 @@ const pricingPlans = [
 export default function HomePageClient() {
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col">
-      <SiteHeader ctaLabel="Start 15-day trial" ctaHref="/sign-up" />
+      
       <div className="relative flex-1 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_34%),linear-gradient(to_bottom,rgba(255,255,255,1),rgba(248,250,252,1))]" />
 
@@ -363,7 +361,7 @@ export default function HomePageClient() {
           </Card>
         </section>
       </div>
-      <SiteFooter />
+      
     </main>
   );
 }

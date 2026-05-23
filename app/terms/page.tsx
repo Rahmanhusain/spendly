@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { buildPageMetadata } from "@/lib/seo";
 import {
   Card,
@@ -17,8 +15,7 @@ export const metadata = buildPageMetadata({
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col">
-      <SiteHeader ctaLabel="Start 15-day trial" ctaHref="/sign-up" />
+    <main className="min-h-[calc(100vh-18.625rem)] bg-slate-50 flex flex-col">
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6 lg:px-8">
         <Card>
           <CardHeader>
@@ -51,7 +48,6 @@ export default function TermsPage() {
           </CardContent>
         </Card>
       </div>
-      <SiteFooter />
     </main>
   );
 }
