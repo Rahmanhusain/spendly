@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
+import { buildPageMetadata } from "@/lib/seo";
 import {
   BadgeHelp,
   BellRing,
@@ -24,6 +25,12 @@ import { LogoutButton } from "@/components/logout-button";
 import SettingsLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
 
+export const metadata = buildPageMetadata({
+  title: "Workspace settings",
+  description:
+    "Manage your profile, notification preferences, and security settings.",
+});
+
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function SettingsData({ authContext }: { authContext: AuthContext }) {
   const [user, tenant] = await Promise.all([
@@ -36,9 +43,17 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
     detail: string;
     icon: LucideIcon;
   }> = [
-    { title: "Account ready", detail: "Signed in and active", icon: UserCircle2 },
+    {
+      title: "Account ready",
+      detail: "Signed in and active",
+      icon: UserCircle2,
+    },
     { title: "Security", detail: "Session protected", icon: LockKeyhole },
-    { title: "Workspace", detail: "15-day full-feature trial", icon: Settings2 },
+    {
+      title: "Workspace",
+      detail: "15-day full-feature trial",
+      icon: Settings2,
+    },
     {
       title: "Notifications",
       detail: user?.email_summary_enabled ? "On" : "Off",
@@ -58,7 +73,8 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
               Workspace settings
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Review your account, workspace, and security settings in one place.
+              Review your account, workspace, and security settings in one
+              place.
             </p>
           </div>
           <LogoutButton />
@@ -117,10 +133,14 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-slate-700">
-              <p>Email summary status: {user?.email_summary_enabled ? "On" : "Off"}</p>
+              <p>
+                Email summary status:{" "}
+                {user?.email_summary_enabled ? "On" : "Off"}
+              </p>
               <p>Weekly spend digest can be configured in upcoming releases.</p>
               <p>
-                Compliance and GST exports remain available from workspace tools.
+                Compliance and GST exports remain available from workspace
+                tools.
               </p>
             </CardContent>
           </Card>

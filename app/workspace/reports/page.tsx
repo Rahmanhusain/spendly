@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getTenantById,
@@ -10,6 +11,12 @@ import { getReceiptsForTenant } from "@/lib/repositories/receiptRepository";
 import { ReportsWorkspaceTabs } from "./reports-workspace-tabs";
 import ReportsLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+
+export const metadata = buildPageMetadata({
+  title: "Expense reports",
+  description:
+    "Track drafts, submissions, and approvals across workspace expense reports.",
+});
 
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function ReportsData({ authContext }: { authContext: AuthContext }) {

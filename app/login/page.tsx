@@ -1,5 +1,6 @@
 import { AuthForm } from "@/components/auth-form";
 import { redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata = buildPageMetadata({
+  title: "Sign in",
+  description:
+    "Sign in to your Spendly workspace to review expenses, approvals, and team activity.",
+  noIndex: true,
+});
 
 export default async function LoginPage() {
   const authContext = await getServerAuthContext();

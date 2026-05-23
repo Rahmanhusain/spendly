@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getReceiptById,
@@ -9,6 +10,12 @@ import { query } from "@/lib/db/client";
 import { ReceiptsWorkspace } from "@/app/workspace/receipts/receipts-workspace";
 import ReceiptDetailLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+
+export const metadata = buildPageMetadata({
+  title: "Receipt details",
+  description:
+    "Inspect a single receipt, its extracted fields, and review status.",
+});
 
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function ReceiptDetailData({

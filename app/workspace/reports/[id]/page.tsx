@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getReportById,
@@ -15,6 +16,12 @@ import { hasReportAccess } from "@/lib/repositories/reportAccessRepository";
 import { ExpenseReportWorkspace } from "@/components/expense-report-workspace";
 import ReportDetailLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+
+export const metadata = buildPageMetadata({
+  title: "Expense report details",
+  description:
+    "Review items, comments, approvals, and reimbursement status for a report.",
+});
 
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function ReportDetailData({

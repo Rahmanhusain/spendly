@@ -5,6 +5,13 @@ import { getDefaultPolicyForTenant } from "@/lib/repositories/policyRepository";
 import { PolicySettingsPanel } from "@/components/policy-settings-panel";
 import PoliciesLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Expense policies",
+  description:
+    "Define category limits and warning behavior for receipt validation. This page allows policy setup and updates for your workspace.",
+});
 
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function PoliciesData({ authContext }: { authContext: AuthContext }) {

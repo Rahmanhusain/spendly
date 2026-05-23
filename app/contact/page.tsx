@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
+import { buildPageMetadata } from "@/lib/seo";
 import {
   Card,
   CardContent,
@@ -9,6 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata = buildPageMetadata({
+  title: "Contact Spendly",
+  description:
+    "Get in touch with Spendly for onboarding help, product questions, or partnership requests.",
+});
 
 const contactPoints = [
   ["Product support", "Questions about setup, onboarding, or navigation."],

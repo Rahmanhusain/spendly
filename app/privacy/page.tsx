@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { buildPageMetadata } from "@/lib/seo";
 import {
   Card,
   CardContent,
@@ -8,6 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata = buildPageMetadata({
+  title: "Privacy Policy",
+  description: "Read how Spendly handles workspace, account, and audit data.",
+});
 
 export default function PrivacyPage() {
   return (

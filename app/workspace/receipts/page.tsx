@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getReceiptCountForTenant,
@@ -7,6 +8,12 @@ import {
 } from "@/lib/repositories/receiptRepository";
 import { ReceiptsWorkspace } from "./receipts-workspace";
 import ReceiptsLoading from "./loading";
+
+export const metadata = buildPageMetadata({
+  title: "Receipts",
+  description:
+    "Browse uploaded receipts, review parsing results, and inspect expense details.",
+});
 
 function getCurrentMonthRange(referenceDate = new Date()): {
   dateFrom: string;
@@ -29,7 +36,7 @@ function getCurrentMonthRange(referenceDate = new Date()): {
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function ReceiptsData({
   tenantId,
-  canReview,
+  canReview,    
 }: {
   tenantId: string;
   canReview: boolean;

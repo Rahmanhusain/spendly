@@ -2,6 +2,14 @@ import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Workspace",
+  description:
+    "Secure Spendly workspace for receipts, approvals, policies, reports, and compliance tools.",
+  noIndex: true,
+});
 
 export default async function WorkspaceLayout({
   children,

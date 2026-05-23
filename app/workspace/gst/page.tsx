@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import {
@@ -9,6 +10,12 @@ import {
 import { GstComplianceWorkspace } from "@/components/gst-compliance-workspace";
 import GstLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+
+export const metadata = buildPageMetadata({
+  title: "GST reports",
+  description:
+    "Review GST-ready exports, compliance summaries, and tax totals for your workspace.",
+});
 
 function getDefaultRange() {
   const now = new Date();

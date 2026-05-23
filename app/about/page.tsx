@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
+import { buildPageMetadata } from "@/lib/seo";
 import {
   Card,
   CardContent,
@@ -9,6 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata = buildPageMetadata({
+  title: "About Spendly",
+  description:
+    "Spendly is an India-first expense management platform for receipt capture, approvals, and GST-ready reporting.",
+});
 
 const pillars = [
   [

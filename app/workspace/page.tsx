@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { DateRangeSelector } from "@/components/date-range-selector";
@@ -34,6 +35,12 @@ import {
 } from "@/components/ui/card";
 import WorkspaceLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+
+export const metadata = buildPageMetadata({
+  title: "Dashboard",
+  description:
+    "View workspace spend, receipt activity, approvals, and policy issues in one dashboard.",
+});
 
 type SummaryCard = {
   label: string;

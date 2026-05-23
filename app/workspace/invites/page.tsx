@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { buildPageMetadata } from "@/lib/seo";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import {
   getTeamMembersByTenant,
@@ -20,6 +21,12 @@ import { GstPermissionToggle } from "@/components/gst-permission-toggle";
 import { RoleSelector } from "@/components/role-selector";
 import InvitesLoading from "./loading";
 import type { AuthContext } from "@/lib/middleware/auth";
+
+export const metadata = buildPageMetadata({
+  title: "Team members & invites",
+  description:
+    "Manage workspace members, pending invites, and access controls.",
+});
 
 // ─── Data component — suspends while fetching ────────────────────────────────
 async function InvitesData({ authContext }: { authContext: AuthContext }) {
@@ -94,9 +101,10 @@ async function InvitesData({ authContext }: { authContext: AuthContext }) {
                         <Badge className="border-slate-200 bg-emerald-50 text-emerald-700">
                           Active
                         </Badge>
-                        {canDeleteMembers && member.id !== authContext.userId && (
-                          <RemoveTeamMemberButton memberId={member.id} />
-                        )}
+                        {canDeleteMembers &&
+                          member.id !== authContext.userId && (
+                            <RemoveTeamMemberButton memberId={member.id} />
+                          )}
                       </div>
                     </div>
                     {authContext.role === "admin" &&

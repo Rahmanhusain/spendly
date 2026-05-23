@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { getServerAuthContext } from "@/lib/middleware/auth";
+import { buildPageMetadata } from "@/lib/seo";
 import {
   Card,
   CardContent,
@@ -12,6 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+export const metadata = buildPageMetadata({
+  title: "Create your workspace",
+  description:
+    "Start a Spendly workspace and set up your admin account for expense tracking and approvals.",
+  noIndex: true,
+});
 
 export default async function SignUpPage() {
   const authContext = await getServerAuthContext();
