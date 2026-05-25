@@ -74,7 +74,6 @@ const pricingPlans = [
 export default function HomePageClient() {
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col">
-      
       <div className="relative flex-1 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_34%),linear-gradient(to_bottom,rgba(255,255,255,1),rgba(248,250,252,1))]" />
 
@@ -352,16 +351,15 @@ export default function HomePageClient() {
                 Start 15-day trial
               </Link>
               <Link
-                href="/privacy"
+                href="/how-it-works"
                 className="inline-flex h-11 items-center justify-center rounded-md border border-white/15 bg-transparent px-5 text-sm font-medium text-white transition-all duration-200 hover:bg-white/10"
               >
-                Privacy
+                How it works
               </Link>
             </CardContent>
           </Card>
         </section>
       </div>
-      
     </main>
   );
 }

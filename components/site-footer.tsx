@@ -5,8 +5,8 @@ const footerLinks = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
-  { label: "Terms", href: "/terms" },
-  { label: "Privacy", href: "/privacy" },
+  { label: "How it works", href: "/how-it-works" },
+  { label: "Legal", href: "/legal" },
 ];
 
 export function SiteFooter() {
