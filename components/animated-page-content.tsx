@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 
 type AnimatedPageContentProps = {
   children: ReactNode;
@@ -13,6 +13,10 @@ type AnimatedPageContentProps = {
  */
 export function AnimatedPageContent({ children }: AnimatedPageContentProps) {
   const pathname = usePathname();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
 
   return (
     <motion.div

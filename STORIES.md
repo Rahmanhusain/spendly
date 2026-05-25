@@ -27,18 +27,18 @@ If you are implementing now, follow this exact order:
 
 ## Current Status
 
-| Story                            | File                                                                                                         |      Status | Phase      | Notes                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------: | ---------- | --------------------------------------------- |
-| Create Account                   | [docs/stories/create-account_story.md](docs/stories/create-account_story.md)                                 |        Done | Foundation | Tenant onboarding and first admin user        |
-| Authentication and Authorization | [docs/stories/authenticationand_authorizaton_story.md](docs/stories/authenticationand_authorizaton_story.md) |        Done | Foundation | JWT login, roles, protected routes            |
-| Team & Org Setup                 | [docs/stories/team-setup_story.md](docs/stories/team-setup_story.md)                                         |        Done | Foundation | Invites, role assignment, trial onboarding    |
-| Receipt Upload & Smart Parsing   | [docs/stories/receipt-upload_story.md](docs/stories/receipt-upload_story.md)                                 |        Done | Core       | Drag/button upload, parse note required       |
-| Policy Validation                | [docs/stories/policy-validation_story.md](docs/stories/policy-validation_story.md)                           |        Done | Core       | Real-time rule checks, warnings, exceptions   |
-| Expense Report                   | [docs/stories/expense-report_story.md](docs/stories/expense-report_story.md)                                 |        Done | Core       | Group receipts into reports; workspace UI + APIs implemented |
-| Reports & Approval Workflow      | [docs/stories/approval-workflow_story.md](docs/stories/approval-workflow_story.md)                           |        Done | Core       | Submit, approve/reject, threaded comments, audit trail, request-info, mark-as-paid implemented |
-| Team Collaboration               | [docs/stories/team-collaboration_story.md](docs/stories/team-collaboration_story.md)                         |        Done (partial) | Advanced   | Threaded comments, mentions, and audit trail present; real-time presence planned |
-| India GST & Compliance Reports   | [docs/stories/gst-compliance_story.md](docs/stories/gst-compliance_story.md)                                 | In Progress | Compliance | Dedicated workspace page and export history   |
-| Dashboards & Analytics           | [docs/stories/dashboard_story.md](docs/stories/dashboard_story.md)                                           |        Done | Analytics  | Metrics, charts, insights, reimbursement view |
+| Story                            | File                                                                                                         |         Status | Phase      | Notes                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------: | ---------- | ---------------------------------------------------------------------------------------------- |
+| Create Account                   | [docs/stories/create-account_story.md](docs/stories/create-account_story.md)                                 |           Done | Foundation | Tenant onboarding and first admin user                                                         |
+| Authentication and Authorization | [docs/stories/authenticationand_authorizaton_story.md](docs/stories/authenticationand_authorizaton_story.md) |           Done | Foundation | JWT login, roles, protected routes                                                             |
+| Team & Org Setup                 | [docs/stories/team-setup_story.md](docs/stories/team-setup_story.md)                                         |           Done | Foundation | Invites, role assignment, trial onboarding                                                     |
+| Receipt Upload & Smart Parsing   | [docs/stories/receipt-upload_story.md](docs/stories/receipt-upload_story.md)                                 |           Done | Core       | Drag/button upload, parse note required                                                        |
+| Policy Validation                | [docs/stories/policy-validation_story.md](docs/stories/policy-validation_story.md)                           |           Done | Core       | Real-time rule checks, warnings, exceptions                                                    |
+| Expense Report                   | [docs/stories/expense-report_story.md](docs/stories/expense-report_story.md)                                 |           Done | Core       | Group receipts into reports; workspace UI + APIs implemented                                   |
+| Reports & Approval Workflow      | [docs/stories/approval-workflow_story.md](docs/stories/approval-workflow_story.md)                           |           Done | Core       | Submit, approve/reject, threaded comments, audit trail, request-info, mark-as-paid implemented |
+| Team Collaboration               | [docs/stories/team-collaboration_story.md](docs/stories/team-collaboration_story.md)                         | Done (partial) | Advanced   | Threaded comments, mentions, and audit trail present; real-time presence planned               |
+| India GST & Compliance Reports   | [docs/stories/gst-compliance_story.md](docs/stories/gst-compliance_story.md)                                 |    In Progress | Compliance | Dedicated workspace page and export history                                                    |
+| Dashboards & Analytics           | [docs/stories/dashboard_story.md](docs/stories/dashboard_story.md)                                           |           Done | Analytics  | Metrics, charts, insights, reimbursement view                                                  |
 
 ## Progress Rules
 
@@ -121,8 +121,8 @@ If you are implementing now, follow this exact order:
 - 2026-04-14: Added initial multi-tier pricing model (later replaced by trial-only model).
 - 2026-04-21: Switched to single 15-day trial model with full feature access.
 - 2026-04-18: Implemented the landing page and the first two foundation stories.
--- 2026-05-12: Moved GST exports into a dedicated workspace page with sidebar navigation and history.
--- 2026-05-25: Implemented report collaboration backend + frontend: comments, audit trail, request-info, mark-paid, notifications.
+  -- 2026-05-12: Moved GST exports into a dedicated workspace page with sidebar navigation and history.
+  -- 2026-05-25: Implemented report collaboration backend + frontend: comments, audit trail, request-info, mark-paid, notifications.
 
 ## Enhanced UI Instruction (Apply to Every Story)
 
