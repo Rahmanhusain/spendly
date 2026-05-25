@@ -3,6 +3,7 @@ import { buildPageMetadata } from "@/lib/seo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { AnimatedPageContent } from "@/components/animated-page-content";
 
 export const metadata = buildPageMetadata({
   title: "How Spendly works",
@@ -73,8 +74,8 @@ const outcomeCards = [
 export default function HowItWorksPage() {
   return (
     <main className="min-h-[calc(100vh-18.625rem)] bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_28%),linear-gradient(to_bottom,rgba(255,255,255,1),rgba(248,250,252,1))]">
-      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-start">
+      <AnimatedPageContent><section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-[1.25fr_0.92fr] lg:items-start">
           <div className="space-y-6">
             <Badge className="w-fit border-slate-200 bg-white text-slate-700">
               Product walkthrough
@@ -175,11 +176,11 @@ export default function HowItWorksPage() {
                 <CardTitle className="text-2xl text-white">
                   New user quick start
                 </CardTitle>
-                <CardDescription className="text-slate-300">
+                <CardDescription className="text-slate-900">
                   If you are evaluating Spendly for the first time, begin here.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm leading-7 text-slate-300">
+              <CardContent className="space-y-3 text-sm leading-7 text-slate-500">
                 <p>1. Start a workspace and invite the first admin.</p>
                 <p>2. Upload one receipt to see the extraction and policy flow.</p>
                 <p>3. Create a report and submit it for approval.</p>
@@ -189,6 +190,7 @@ export default function HowItWorksPage() {
           </div>
         </section>
       </section>
+      </AnimatedPageContent>
     </main>
   );
 }

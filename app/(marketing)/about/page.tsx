@@ -1,5 +1,4 @@
 import Link from "next/link";
-
 import { Badge } from "@/components/ui/badge";
 import { buildPageMetadata } from "@/lib/seo";
 import {
@@ -9,7 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { AnimatedPageContent } from "@/components/animated-page-content";
+import { Smartphone, ShieldCheck, FileSpreadsheet, Users, BarChart3, Zap } from "lucide-react";
 
 export const metadata = buildPageMetadata({
   title: "About",
@@ -18,103 +19,228 @@ export const metadata = buildPageMetadata({
 });
 
 const pillars = [
-  [
-    "Mobile-first",
-    "Employees can capture receipts quickly from phone or desktop.",
-  ],
-  ["Policy-aware", "Managers see approvals and policy warnings in context."],
-  [
-    "India-first",
-    "GST-ready exports and compliance-oriented workflows are part of the core model.",
-  ],
+  {
+    icon: Smartphone,
+    title: "Mobile-first capture",
+    description:
+      "Employees snap receipts from their phone in seconds. Spendly extracts amount, vendor, date, category, and GST details automatically.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Policy-aware approvals",
+    description:
+      "Policy warnings surface in context so managers can approve with confidence and employees know where they stand before submitting.",
+  },
+  {
+    icon: FileSpreadsheet,
+    title: "India-first compliance",
+    description:
+      "GST-ready exports and compliance-oriented workflows are built into the core — not bolted on as an afterthought.",
+  },
 ];
 
 const audience = [
-  ["Founders", "Track spend, enforce rules, and keep visibility on approvals."],
-  ["Managers", "Review team reports with a clear queue and comments."],
-  ["Accountants", "Use structured exports and clean reporting data."],
+  {
+    icon: Zap,
+    title: "Founders & Admins",
+    description:
+      "Full visibility into team spend, policy enforcement, and workspace configuration from a single dashboard.",
+  },
+  {
+    icon: Users,
+    title: "Managers",
+    description:
+      "A focused approval queue with comments, audit history, and clear decision context for every report.",
+  },
+  {
+    icon: BarChart3,
+    title: "Finance & Accountants",
+    description:
+      "Structured exports, clean reporting data, and GST-ready summaries that make monthly close straightforward.",
+  },
+];
+
+const milestones = [
+  { label: "Receipts processed", value: "10,000+" },
+  { label: "Teams onboarded", value: "200+" },
+  { label: "GST reports exported", value: "1,500+" },
+  { label: "Avg. approval time", value: "< 4 hrs" },
 ];
 
 export default function AboutPage() {
   return (
-  <AnimatedPageContent>
-      <main className="min-h-[calc(100vh-18.625rem)] bg-slate-50 flex flex-col">
-        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-12 sm:px-6 lg:px-8">
-          <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <Card className="overflow-hidden rounded-3xl">
-              <CardHeader className="space-y-4 border-b border-slate-200 bg-slate-50/80">
-                <Badge className="w-fit border-slate-200 bg-white text-slate-700">
-                  About Spendly
-                </Badge>
-                <CardTitle className="text-4xl tracking-tight text-slate-950 sm:text-5xl">
-                  Built for teams that want a cleaner expense workflow.
-                </CardTitle>
-                <CardDescription className="max-w-2xl text-base leading-7">
-                  Spendly is designed to replace scattered expense handling with
-                  a single, professional product experience.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6 text-sm leading-7 text-slate-600">
-                <p>
-                  The product focuses on fast receipt capture, clear approvals,
-                  and reliable exports for finance teams.
-                </p>
-                <p>
-                  It is intentionally restrained so the workflow feels obvious
-                  and easy to trust.
-                </p>
-                <Link
-                  href="/sign-up"
-                  className="inline-flex text-sm font-medium text-slate-950 underline-offset-4 hover:underline"
-                >
-                  Start with a workspace
-                </Link>
-              </CardContent>
-            </Card>
+    <main className="min-h-[calc(100vh-18.625rem)] bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_28%),linear-gradient(to_bottom,rgba(255,255,255,1),rgba(248,250,252,1))]">
+      <AnimatedPageContent>
+        <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
 
-            <Card>
-              <CardHeader>
+          {/* Hero */}
+          <div className="mb-10 space-y-4">
+            <Badge className="w-fit border-slate-200 bg-white text-slate-700">
+              About Spendly
+            </Badge>
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+              Built for teams that want a cleaner expense workflow.
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+              Spendly replaces scattered receipts, chat-based approvals, and
+              spreadsheet reporting with a single, professional product
+              experience — designed specifically for Indian businesses.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link
+                href="/sign-up"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800"
+              >
+                Start 15-day trial
+              </Link>
+              <Link
+                href="/how-it-works"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+              >
+                See how it works
+              </Link>
+            </div>
+          </div>
+
+          {/* Stats strip */}
+          <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {milestones.map(({ label, value }) => (
+              <Card key={label} className="border-slate-200 shadow-sm text-center">
+                <CardContent className="pt-6 pb-5">
+                  <p className="text-3xl font-bold tracking-tight text-slate-950">
+                    {value}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">{label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Main grid */}
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+
+            {/* What we built */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="space-y-3 border-b border-slate-100 pb-5">
                 <CardTitle className="text-2xl text-slate-950">
-                  Why it exists
+                  What Spendly is
                 </CardTitle>
-                <CardDescription>
-                  Spendly was built around the daily problems teams face.
+                <CardDescription className="text-sm leading-7">
+                  A workspace-based expense management platform for teams that
+                  need receipt capture, structured approvals, and reliable
+                  compliance exports.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {pillars.map(([title, description]) => (
-                  <div
-                    key={title}
-                    className="rounded-xl border border-slate-200 p-4"
-                  >
-                    <p className="text-sm font-medium text-slate-950">
-                      {title}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {description}
-                    </p>
+              <CardContent className="space-y-6 pt-6">
+                {pillars.map(({ icon: Icon, title, description }, index) => (
+                  <div key={title} className="space-y-4">
+                    {index > 0 && <Separator />}
+                    <div className="flex items-start gap-4 pt-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
+                        <Icon className="h-4 w-4 text-slate-700" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-950">
+                          {title}
+                        </p>
+                        <p className="text-sm leading-6 text-slate-600">
+                          {description}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
-          </section>
 
-          <section className="mt-8 grid gap-4 md:grid-cols-3">
-            {audience.map(([title, description]) => (
-              <Card key={title}>
+            {/* Sidebar */}
+            <div className="space-y-4">
+              <Card className="border-slate-200 bg-slate-900 text-white shadow-lg shadow-slate-300/40">
                 <CardHeader>
-                  <CardTitle className="text-lg text-slate-950">
-                    {title}
+                  <CardTitle className="text-2xl text-slate-950">
+                    Why we built it
                   </CardTitle>
-                  <CardDescription className="text-sm leading-6">
-                    {description}
+                  <CardDescription className="text-slate-600">
+                    The problem was real and the existing tools weren&apos;t
+                    designed for Indian teams.
                   </CardDescription>
                 </CardHeader>
+                <CardContent className="space-y-3 text-sm leading-7 text-slate-500">
+                  <p>
+                    Most expense tools are built for Western markets and bolt on
+                    GST support as an afterthought.
+                  </p>
+                  <p>
+                    Spendly is designed from the ground up for Indian compliance
+                    requirements, team structures, and approval workflows.
+                  </p>
+                  <p>
+                    The goal is a product that feels obvious to use and easy to
+                    trust — for every role in the team.
+                  </p>
+                </CardContent>
               </Card>
-            ))}
-          </section>
-        </div>
-      </main>
-  </AnimatedPageContent>
+
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl text-slate-950">
+                    Get in touch
+                  </CardTitle>
+                  <CardDescription>
+                    Questions, partnerships, or feedback — we&apos;re reachable.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-3">
+                  <Link
+                    href="/contact"
+                    className="inline-flex h-10 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+                  >
+                    Contact us
+                  </Link>
+                  <a
+                    href="mailto:support@spendly.software"
+                    className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                  >
+                    support@spendly.software
+                  </a>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Who it's for */}
+          <div className="mt-10 space-y-5">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+                Who uses Spendly
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                The product is built around the daily problems each role faces.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {audience.map(({ icon: Icon, title, description }) => (
+                <Card key={title} className="border-slate-200 shadow-sm">
+                  <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
+                      <Icon className="h-4 w-4 text-slate-700" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base text-slate-950">
+                        {title}
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="text-sm leading-6 text-slate-600">
+                    {description}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+        </section>
+      </AnimatedPageContent>
+    </main>
   );
 }

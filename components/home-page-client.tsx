@@ -346,7 +346,7 @@ export default function HomePageClient() {
             <CardContent className="flex flex-wrap gap-3 pt-6">
               <Link
                 href="/sign-up"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-slate-950 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg border"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-slate-950 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg border border-slate-300"
               >
                 Start 15-day trial
               </Link>
