@@ -8,6 +8,7 @@ type TemplateData = Record<string, string | number | boolean | undefined>;
 type SendEmailOpts = {
   to: string;
   subject: string;
+  from?: string; // optional override; falls back to RESEND_FROM_EMAIL env var
   text?: string;
   html?: string;
   templateName?: string; // name without extension, e.g. 'signup-otp'
@@ -53,7 +54,9 @@ export async function sendEmail(opts: SendEmailOpts): Promise<void> {
 
     const resend = new Resend(resendApiKey);
     const from =
-      process.env.RESEND_FROM_EMAIL || "Spendly <onboarding@resend.dev>";
+      opts.from ||
+      process.env.RESEND_FROM_EMAIL ||
+      "Spendly <onboarding@resend.dev>";
 
     let html = opts.html;
     let text = opts.text;

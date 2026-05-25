@@ -1,0 +1,21 @@
+{{appName}} — We received your message
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Hi {{senderName}},
+
+Thanks for reaching out. We've received your message and will respond
+within one business day (Mon – Fri, 10 AM – 6 PM IST).
+
+Your submission:
+
+  Reason:  {{reasonLabel}}
+  Subject: {{subject}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If you have anything to add, reply to this email or write to:
+{{supportEmail}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated message from {{appName}}. Please do not reply.

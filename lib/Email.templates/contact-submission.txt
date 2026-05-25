@@ -1,0 +1,18 @@
+{{appName}} — New Contact Form Submission
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Someone reached out via the contact form on spendly.software.
+
+  Reason:  {{reasonLabel}}
+  Name:    {{senderName}}
+  Email:   {{senderEmail}}
+  Subject: {{subject}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MESSAGE
+
+{{message}}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Reply directly to this email to respond to {{senderName}} at {{senderEmail}}.
