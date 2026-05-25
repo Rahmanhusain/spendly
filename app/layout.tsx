@@ -19,6 +19,19 @@ export const metadata: Metadata = {
   },
   description:
     "India-first expense management for tenant onboarding, receipt capture, approvals, and GST-ready reporting.",
+  icons: {
+    icon: [
+      { url: "/logo/app_favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/logo/app_favicon/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo/app_favicon/favicon.ico", sizes: "any" },
+    ],
+    apple: { url: "/logo/app_favicon/apple-touch-icon.png" },
+    other: [
+      { rel: "android-chrome-192x192", url: "/logo/app_favicon/android-chrome-192x192.png" },
+      { rel: "android-chrome-512x512", url: "/logo/app_favicon/android-chrome-512x512.png" },
+    ],
+  },
+  manifest: "/logo/app_favicon/site.webmanifest",
 };
 
 export default function RootLayout({
