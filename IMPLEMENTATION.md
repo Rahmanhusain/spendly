@@ -49,14 +49,13 @@ Implemented now:
   - scripts/story-status.js
 - Logger utility exists at lib/utils/logger.ts
 - Environment template exists at .env.example
+- Report collaboration features implemented: threaded comments, `mentioned_user_ids` on comments, audit trail APIs, `request-info` workflow, `mark-paid` endpoint, and `lib/utils/notifications.ts` plus the frontend `expense-report-workspace` panel.
 
 Not implemented yet (major product features still pending):
 
-- API routes under app/api for auth, receipts, reports, approvals, GST exports
-- Database migrations and schema execution scripts referenced in package.json
-- Full UI flows for auth, upload, report workflow, dashboard
-- Queue workers for async parsing and weekly summaries
-- Real-time collaboration layer
+- Full real-time presence layer for collaboration (NestJS socket service integration planned)
+- Some automated worker orchestration for large-scale parsing and reconciliation
+- Additional end-to-end tests and expanded API coverage for every story
 
 Conclusion:
 

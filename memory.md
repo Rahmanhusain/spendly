@@ -1,7 +1,7 @@
 # Spendly Memory
 
 Purpose: compact project memory for faster agent context loading with fewer tokens.
-Last updated: 2026-04-25
+Last updated: 2026-05-25
 
 ## What This Project Is
 
@@ -33,6 +33,7 @@ Last updated: 2026-04-25
 - proxy.ts: request interception (Next.js proxy replacement for middleware.ts).
 - database/spendly_schema.local.sql: local schema reference.
 - logs/: development/progress/error logs written by custom logger.
+- Report collaboration: comment APIs, audit trail, request-info, mark-paid, and notifications utilities are implemented; frontend report workspace panel present.
 
 ## Auth + Routing Model (Critical)
 

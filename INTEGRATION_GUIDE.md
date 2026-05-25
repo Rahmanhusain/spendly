@@ -1,5 +1,7 @@
 # Approval Workflow Features - Integration Guide
 
+Last Updated: 2026-05-25
+
 ## ✅ What's Implemented
 
 ### Backend Components (Complete)

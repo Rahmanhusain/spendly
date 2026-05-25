@@ -1,12 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
 # 🧾 Spendly - AI-Powered Expense Manager SaaS
 
 **India-first**, mobile-first receipts & expenses platform. Instant AI parsing, real-time policy checks, team approvals, and GST compliance—all without e-invoice APIs.
-
 **Subscription**: 15-day free trial with full feature access  
 **Tech**: Next.js 16 + PostgreSQL + Redis + Groq LLM  
 **MVP Timeline**: 6 weeks | **Status**: In Development (Week 1)
+**Status**: In Development — Core report collaboration implemented
 
 ---
 
