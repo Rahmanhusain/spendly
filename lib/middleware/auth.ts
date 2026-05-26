@@ -37,7 +37,8 @@ export async function verifyToken(token: string): Promise<AuthPayload | null> {
 
 /**
  * Single-query auth check: confirms the session is not revoked, the user is
- * still active, and returns the user's current role — all in one round-trip.
+ * still active, the tenant is active, and returns the user's current role —
+ * all in one round-trip.
  */
 async function validateSessionAndGetRole(
   sessionId: string,
@@ -49,12 +50,14 @@ async function validateSessionAndGetRole(
       `SELECT u.role
        FROM user_sessions s
        JOIN users u ON u.id = s.user_id
+       JOIN tenants t ON t.id = u.tenant_id
        WHERE s.id = $1
          AND s.user_id = $2
          AND s.revoked_at IS NULL
          AND s.expires_at > NOW()
          AND u.tenant_id = $3
-         AND u.status = 'active'`,
+         AND u.status = 'active'
+         AND t.status = 'active'`,
       [sessionId, userId, tenantId],
     );
 

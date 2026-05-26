@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { contactSchema } from "@/lib/validators/contact";
+import { createContactInquiry } from "@/lib/repositories/adminRepository";
 import { sendEmail } from "@/lib/utils/mailer";
 import logger from "@/lib/utils/logger";
 import crypto from "crypto";
 
-const SUPPORT_EMAIL = "support@spendly.software";
 const APP_NAME = "Spendly";
+const SUPPORT_EMAIL = "support@spendly.software";
 
 const reasonLabels: Record<string, string> = {
   complaint: "Complaint",
@@ -27,56 +28,47 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const payload = contactSchema.parse(body);
-
     const reasonLabel = reasonLabels[payload.reason] ?? payload.reason;
-    const feedbackFrom =
-      process.env.RESEND_FEEDBACK_FROM_EMAIL ||
-      `${APP_NAME} Feedback <feedback@spendly.software>`;
 
-    const templateData = {
-      appName: APP_NAME,
-      reasonLabel,
-      senderName: payload.name,
-      senderEmail: payload.email,
+    // Save inquiry to database
+    const inquiry = await createContactInquiry({
+      sender_name: payload.name,
+      sender_email: payload.email,
+      reason: payload.reason,
       subject: payload.subject,
       message: payload.message,
-      supportEmail: SUPPORT_EMAIL,
-    };
-
-    // 1. Notify support inbox
-    await sendEmail({
-      to: SUPPORT_EMAIL,
-      from: feedbackFrom,
-      subject: `[${reasonLabel}] ${payload.subject}`,
-      templateName: "contact-submission",
-      templateData,
     });
 
-    // 2. Confirm receipt to the sender
+    // Send confirmation email to the user only
     await sendEmail({
       to: payload.email,
-      from: SUPPORT_EMAIL,
+      from : `Spendly <${SUPPORT_EMAIL}>`,
       subject: `We received your message — ${APP_NAME}`,
       templateName: "contact-confirmation",
-      templateData,
+      templateData: {
+        appName: APP_NAME,
+        reasonLabel,
+        senderName: payload.name,
+        senderEmail: payload.email,
+        subject: payload.subject,
+        message: payload.message,
+        supportEmail: SUPPORT_EMAIL,
+      },
     });
 
-    logger.info("Contact form emails sent", {
+    logger.info("Contact inquiry saved and confirmation sent", {
       requestId,
       route: "/api/contact",
+      inquiryId: inquiry.id,
       reason: payload.reason,
       senderEmail: payload.email,
     });
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true, inquiryId: inquiry.id }, { status: 200 });
   } catch (error) {
     if (error instanceof ZodError) {
       const message = error.errors.map((e) => e.message).join(", ");
-      logger.warn("Contact form validation failed", {
-        requestId,
-        route: "/api/contact",
-        message,
-      });
+      logger.warn("Contact form validation failed", { requestId, message });
       return NextResponse.json(
         { ok: false, error: { code: "VALIDATION_ERROR", message } },
         { status: 422 }
@@ -84,16 +76,15 @@ export async function POST(request: Request) {
     }
 
     const message =
-      error instanceof Error ? error.message : "Failed to send message.";
+      error instanceof Error ? error.message : "Failed to submit inquiry.";
     logger.error("Contact form submission failed", {
       requestId,
-      route: "/api/contact",
       message,
       error: error instanceof Error ? error.stack : String(error),
     });
 
     return NextResponse.json(
-      { ok: false, error: { code: "SEND_ERROR", message } },
+      { ok: false, error: { code: "SUBMIT_ERROR", message } },
       { status: 500 }
     );
   }

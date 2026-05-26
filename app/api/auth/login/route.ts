@@ -40,6 +40,21 @@ export async function POST(request: Request) {
 
     const { user, tenant } = result;
 
+    // Block login if the workspace has been deactivated
+    if (tenant.status !== "active") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "WORKSPACE_INACTIVE",
+            message: "This workspace has been deactivated. Please contact support.",
+            requestId,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
     // Create session
     const refreshTokenValue = crypto.randomUUID();
     const refreshTokenHash = await hashToken(refreshTokenValue);
