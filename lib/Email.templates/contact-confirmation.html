@@ -1,154 +1,308 @@
+```html id="m8q2zt"
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta charset="UTF-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
     <title>We received your message — {{appName}}</title>
+
     <style>
       body {
         margin: 0;
         padding: 0;
-        background-color: #f5f5f5;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        color: #111111;
+        background: #f4f4f5;
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        color: #18181b;
+        -webkit-font-smoothing: antialiased;
         -webkit-text-size-adjust: 100%;
       }
-      .wrapper { padding: 48px 16px; }
-      .card {
-        max-width: 560px;
+
+      .wrapper {
+        width: 100%;
+        padding: 40px 16px;
+        box-sizing: border-box;
+      }
+
+      .container {
+        max-width: 600px;
         margin: 0 auto;
         background: #ffffff;
-        border: 1px solid #e4e4e4;
-        border-radius: 8px;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid #e4e4e7;
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.04),
+          0 10px 30px rgba(0, 0, 0, 0.06);
       }
-      .header {
-        padding: 32px 40px 24px;
-        border-bottom: 1px solid #e4e4e4;
+
+      .hero {
+        padding: 40px 40px 32px;
+        background:
+          radial-gradient(circle at top left, #fafafa 0%, #ffffff 65%);
+        border-bottom: 1px solid #ececec;
       }
+
       .brand {
-        font-size: 15px;
+        display: inline-block;
+        margin-bottom: 28px;
+        padding: 8px 14px;
+        background: #111111;
+        color: #ffffff;
+        border-radius: 999px;
+        font-size: 12px;
         font-weight: 700;
-        color: #111111;
-        letter-spacing: -0.2px;
-        margin: 0 0 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
-      .header h1 {
+
+      .hero h1 {
         margin: 0;
-        font-size: 22px;
-        font-weight: 600;
-        color: #111111;
-        letter-spacing: -0.4px;
-        line-height: 1.3;
+        font-size: 30px;
+        line-height: 1.15;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        color: #09090b;
       }
-      .header p {
-        margin: 8px 0 0;
-        font-size: 14px;
-        color: #666666;
-        line-height: 1.6;
+
+      .hero p {
+        margin: 14px 0 0;
+        font-size: 16px;
+        line-height: 1.7;
+        color: #52525b;
       }
-      .body { padding: 32px 40px; }
-      .body p {
-        margin: 0 0 16px;
+
+      .content {
+        padding: 38px 40px 42px;
+      }
+
+      .content p {
+        margin: 0 0 22px;
         font-size: 15px;
-        color: #444444;
-        line-height: 1.65;
+        line-height: 1.75;
+        color: #3f3f46;
       }
-      .body p:last-child { margin-bottom: 0; }
-      .meta {
-        margin: 0 0 24px;
-        padding: 20px 24px;
-        background: #f9f9f9;
-        border: 1px solid #e4e4e4;
-        border-radius: 6px;
+
+      .meta-card {
+        margin: 34px 0;
+        padding: 24px;
+        background: linear-gradient(
+          to bottom,
+          #fafafa,
+          #f7f7f7
+        );
+        border: 1px solid #e4e4e7;
+        border-radius: 18px;
       }
+
       .meta-row {
         display: flex;
-        gap: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-        color: #444444;
-        margin: 0 0 10px;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 12px 0;
       }
-      .meta-row:last-child { margin-bottom: 0; }
+
+      .meta-row:not(:last-child) {
+        border-bottom: 1px solid #ececec;
+      }
+
       .meta-label {
-        color: #999999;
         font-size: 13px;
-        min-width: 72px;
-        flex-shrink: 0;
+        color: #71717a;
       }
+
       .meta-value {
-        font-weight: 500;
+        font-size: 14px;
+        font-weight: 600;
+        color: #111111;
+        text-align: right;
+      }
+
+      .notice-box {
+        margin-top: 34px;
+        padding: 18px 20px;
+        background: #fafafa;
+        border: 1px solid #ececec;
+        border-radius: 14px;
+      }
+
+      .notice-title {
+        margin: 0 0 10px;
+        font-size: 13px;
+        font-weight: 700;
         color: #111111;
       }
-      .notice {
+
+      .notice-text {
         margin: 0;
-        padding: 16px 20px;
-        background: #fafafa;
-        border: 1px solid #e4e4e4;
-        border-radius: 6px;
         font-size: 13px;
-        color: #666666;
-        line-height: 1.6;
+        line-height: 1.7;
+        color: #71717a;
       }
-      .notice a { color: #111111; text-decoration: underline; }
+
+      .notice-text a {
+        color: #111111;
+        text-decoration: underline;
+      }
+
       .footer {
-        padding: 20px 40px;
-        border-top: 1px solid #e4e4e4;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
+        padding: 24px 40px;
+        border-top: 1px solid #ececec;
+        background: #fafafa;
       }
-      .footer-left { font-size: 12px; font-weight: 600; color: #111111; }
-      .footer-right { font-size: 12px; color: #aaaaaa; text-align: right; }
+
+      .footer-brand {
+        font-size: 14px;
+        font-weight: 700;
+        color: #111111;
+        margin-bottom: 8px;
+      }
+
+      .footer-text {
+        font-size: 12px;
+        line-height: 1.6;
+        color: #71717a;
+      }
+
       @media only screen and (max-width: 600px) {
-        .wrapper { padding: 24px 12px; }
-        .header, .body { padding-left: 24px; padding-right: 24px; }
-        .footer { padding: 16px 24px; flex-direction: column; align-items: flex-start; }
-        .footer-right { text-align: left; }
+        .wrapper {
+          padding: 20px 10px;
+        }
+
+        .hero,
+        .content,
+        .footer {
+          padding-left: 22px;
+          padding-right: 22px;
+        }
+
+        .hero {
+          padding-top: 32px;
+        }
+
+        .hero h1 {
+          font-size: 26px;
+        }
+
+        .meta-row {
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .meta-value {
+          text-align: left;
+        }
       }
     </style>
   </head>
-  <body>
-    <div class="wrapper">
-      <div class="card">
 
-        <div class="header">
-          <p class="brand">{{appName}}</p>
-          <h1>We received your message</h1>
-          <p>Thanks for reaching out. We'll get back to you shortly.</p>
+  <body>
+
+    <div class="wrapper">
+
+      <div class="container">
+
+        <div class="hero">
+
+          <div class="brand">
+            {{appName}}
+          </div>
+
+          <h1>
+            We received your message
+          </h1>
+
+          <p>
+            Thanks for reaching out.
+            Our team will review your message
+            and get back to you shortly.
+          </p>
+
         </div>
 
-        <div class="body">
-          <p>Hi {{senderName}},</p>
+        <div class="content">
+
           <p>
-            We've received your message and will respond within one business day
+            Hi {{senderName}},
+          </p>
+
+          <p>
+            We've successfully received your message
+            and our support team will respond within
+            one business day
             (Mon – Fri, 10 AM – 6 PM IST).
           </p>
 
-          <div class="meta">
+          <div class="meta-card">
+
             <div class="meta-row">
-              <span class="meta-label">Reason</span>
-              <span class="meta-value">{{reasonLabel}}</span>
+              <div class="meta-label">
+                Reason
+              </div>
+
+              <div class="meta-value">
+                {{reasonLabel}}
+              </div>
             </div>
+
             <div class="meta-row">
-              <span class="meta-label">Subject</span>
-              <span class="meta-value">{{subject}}</span>
+              <div class="meta-label">
+                Subject
+              </div>
+
+              <div class="meta-value">
+                {{subject}}
+              </div>
             </div>
+
           </div>
 
-          <p class="notice">
-            If you have anything to add, reply to this email or write to
-            <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
-          </p>
+          <div class="notice-box">
+
+            <p class="notice-title">
+              Need to add more details?
+            </p>
+
+            <p class="notice-text">
+              Reply to this email or contact us directly at
+              <a href="mailto:{{supportEmail}}">
+                {{supportEmail}}
+              </a>
+              and we'll continue the conversation there.
+            </p>
+
+          </div>
+
         </div>
 
         <div class="footer">
-          <span class="footer-left">{{appName}}</span>
-          <span class="footer-right">Automated message — do not reply</span>
+
+          <div class="footer-brand">
+            {{appName}}
+          </div>
+
+          <div class="footer-text">
+            This is an automated confirmation email.
+            Please do not reply directly to this message.
+          </div>
+
         </div>
 
       </div>
+
     </div>
+
   </body>
 </html>
+```

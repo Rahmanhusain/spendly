@@ -1,215 +1,328 @@
+```html
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>You're invited to {{orgName}} — {{appName}}</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're invited to {{orgName}}</title>
+
     <style>
       body {
         margin: 0;
         padding: 0;
-        background-color: #f5f5f5;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        color: #111111;
+        background: #f4f4f5;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        color: #18181b;
+        -webkit-font-smoothing: antialiased;
         -webkit-text-size-adjust: 100%;
       }
-      .wrapper {
-        padding: 48px 16px;
+
+      table {
+        border-spacing: 0;
       }
-      .card {
-        max-width: 560px;
+
+      .wrapper {
+        width: 100%;
+        padding: 40px 16px;
+        box-sizing: border-box;
+      }
+
+      .container {
+        max-width: 600px;
         margin: 0 auto;
         background: #ffffff;
-        border: 1px solid #e4e4e4;
-        border-radius: 8px;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid #e4e4e7;
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.04),
+          0 8px 24px rgba(0, 0, 0, 0.06);
       }
-      .header {
-        padding: 32px 40px 24px;
-        border-bottom: 1px solid #e4e4e4;
+
+      .hero {
+        padding: 40px 40px 32px;
+        background:
+          radial-gradient(circle at top left, #fafafa 0%, #ffffff 60%);
+        border-bottom: 1px solid #ececec;
       }
+
       .brand {
-        font-size: 15px;
-        font-weight: 700;
-        color: #111111;
-        letter-spacing: -0.2px;
-        margin: 0 0 20px;
-      }
-      .header h1 {
-        margin: 0;
-        font-size: 22px;
-        font-weight: 600;
-        color: #111111;
-        letter-spacing: -0.4px;
-        line-height: 1.3;
-      }
-      .header p {
-        margin: 8px 0 0;
-        font-size: 14px;
-        color: #666666;
-        line-height: 1.6;
-      }
-      .body {
-        padding: 32px 40px;
-      }
-      .body p {
-        margin: 0 0 20px;
-        font-size: 15px;
-        color: #444444;
-        line-height: 1.65;
-      }
-      .body p:last-child {
-        margin-bottom: 0;
-      }
-      .invite-meta {
-        margin: 0 0 24px;
-        padding: 20px 24px;
-        background: #f9f9f9;
-        border: 1px solid #e4e4e4;
-        border-radius: 6px;
-      }
-      .invite-meta-row {
-        display: flex;
-        gap: 8px;
-        font-size: 14px;
-        line-height: 1.5;
-        color: #444444;
-        margin: 0 0 8px;
-      }
-      .invite-meta-row:last-child {
-        margin-bottom: 0;
-      }
-      .invite-meta-label {
-        color: #999999;
-        font-size: 13px;
-        min-width: 60px;
-        flex-shrink: 0;
-      }
-      .invite-meta-value {
-        font-weight: 500;
-        color: #111111;
-      }
-      .cta-wrap {
-        margin: 0 0 24px;
-      }
-      .cta-btn {
         display: inline-block;
-        padding: 12px 24px;
+        margin-bottom: 28px;
+        padding: 8px 14px;
         background: #111111;
         color: #ffffff;
-        text-decoration: none;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 30px;
+        line-height: 1.15;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        color: #09090b;
+      }
+
+      .hero p {
+        margin: 16px 0 0;
+        font-size: 16px;
+        line-height: 1.7;
+        color: #52525b;
+      }
+
+      .content {
+        padding: 36px 40px 40px;
+      }
+
+      .content p {
+        margin: 0 0 22px;
+        font-size: 15px;
+        line-height: 1.75;
+        color: #3f3f46;
+      }
+
+      .meta-card {
+        margin: 30px 0;
+        padding: 24px;
+        border-radius: 14px;
+        background: #fafafa;
+        border: 1px solid #ececec;
+      }
+
+      .meta-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 10px 0;
+      }
+
+      .meta-row:not(:last-child) {
+        border-bottom: 1px solid #ececec;
+      }
+
+      .meta-label {
+        font-size: 13px;
+        color: #71717a;
+      }
+
+      .meta-value {
         font-size: 14px;
         font-weight: 600;
-        border-radius: 6px;
-        letter-spacing: 0.01em;
-      }
-      .link-fallback {
-        margin: 0 0 24px;
-      }
-      .link-fallback p {
-        margin: 0 0 8px;
-        font-size: 13px;
-        color: #888888;
-      }
-      .link-box {
-        display: block;
-        padding: 12px 16px;
-        background: #f9f9f9;
-        border: 1px solid #e4e4e4;
-        border-radius: 6px;
-        font-size: 12px;
-        color: #444444;
-        word-break: break-all;
-        text-decoration: none;
-      }
-      .notice {
-        margin: 0;
-        padding: 16px 20px;
-        background: #fafafa;
-        border: 1px solid #e4e4e4;
-        border-radius: 6px;
-        font-size: 13px;
-        color: #666666;
-        line-height: 1.6;
-      }
-      .notice a {
         color: #111111;
-        text-decoration: underline;
-      }
-      .footer {
-        padding: 20px 40px;
-        border-top: 1px solid #e4e4e4;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      .footer-left {
-        font-size: 12px;
-        font-weight: 600;
-        color: #111111;
-      }
-      .footer-right {
-        font-size: 12px;
-        color: #aaaaaa;
         text-align: right;
       }
+
+      .cta-section {
+        margin: 36px 0 28px;
+        text-align: center;
+      }
+
+      .cta-button {
+        display: inline-block;
+        background: #111111;
+        color: #ffffff !important;
+        text-decoration: none;
+        padding: 15px 28px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .cta-subtext {
+        margin-top: 14px;
+        font-size: 13px;
+        color: #71717a;
+      }
+
+      .link-box {
+        margin-top: 16px;
+        display: block;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: #fafafa;
+        border: 1px solid #e4e4e7;
+        color: #52525b;
+        font-size: 12px;
+        line-height: 1.6;
+        word-break: break-word;
+        text-decoration: none;
+      }
+
+      .notice {
+        margin-top: 32px;
+        padding: 18px 20px;
+        background: #fafafa;
+        border: 1px solid #ececec;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #71717a;
+      }
+
+      .notice a {
+        color: #111111;
+      }
+
+      .footer {
+        padding: 24px 40px;
+        border-top: 1px solid #ececec;
+        background: #fafafa;
+      }
+
+      .footer-top {
+        font-size: 14px;
+        font-weight: 700;
+        color: #111111;
+        margin-bottom: 8px;
+      }
+
+      .footer-bottom {
+        font-size: 12px;
+        line-height: 1.6;
+        color: #71717a;
+      }
+
       @media only screen and (max-width: 600px) {
-        .wrapper { padding: 24px 12px; }
-        .header, .body { padding-left: 24px; padding-right: 24px; }
-        .footer { padding: 16px 24px; flex-direction: column; align-items: flex-start; }
-        .footer-right { text-align: left; }
+        .wrapper {
+          padding: 20px 10px;
+        }
+
+        .hero,
+        .content,
+        .footer {
+          padding-left: 22px;
+          padding-right: 22px;
+        }
+
+        .hero {
+          padding-top: 32px;
+        }
+
+        .hero h1 {
+          font-size: 26px;
+        }
+
+        .meta-row {
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .meta-value {
+          text-align: left;
+        }
+
+        .cta-button {
+          display: block;
+          width: 100%;
+          box-sizing: border-box;
+        }
       }
     </style>
   </head>
+
   <body>
     <div class="wrapper">
-      <div class="card">
+      <div class="container">
 
-        <div class="header">
-          <p class="brand">{{appName}}</p>
-          <h1>You've been invited</h1>
-          <p>Join {{orgName}} on {{appName}} and start collaborating.</p>
-        </div>
+        <div class="hero">
+          <div class="brand">{{appName}}</div>
 
-        <div class="body">
-          <p>{{inviterName}} has invited you to join their workspace on {{appName}}.</p>
+          <h1>You've been invited to join {{orgName}}</h1>
 
-          <div class="invite-meta">
-            <div class="invite-meta-row">
-              <span class="invite-meta-label">From</span>
-              <span class="invite-meta-value">{{inviterName}}</span>
-            </div>
-            <div class="invite-meta-row">
-              <span class="invite-meta-label">Workspace</span>
-              <span class="invite-meta-value">{{orgName}}</span>
-            </div>
-            <div class="invite-meta-row">
-              <span class="invite-meta-label">Expires</span>
-              <span class="invite-meta-value">{{expiryDays}} days from now</span>
-            </div>
-          </div>
-
-          <div class="cta-wrap">
-            <a class="cta-btn" href="{{inviteLink}}">Accept invitation</a>
-          </div>
-
-          <div class="link-fallback">
-            <p>Or copy this link into your browser:</p>
-            <a class="link-box" href="{{inviteLink}}">{{inviteLink}}</a>
-          </div>
-
-          <p class="notice">
-            If you don't recognize {{inviterName}} or {{orgName}}, you can safely ignore this email.
-            For help, contact <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+          <p>
+            Collaborate with your team, manage workspaces,
+            and get started on {{appName}}.
           </p>
         </div>
 
+        <div class="content">
+
+          <p>
+            Hi there,
+          </p>
+
+          <p>
+            <strong>{{inviterName}}</strong> invited you to join the
+            <strong>{{orgName}}</strong> workspace on {{appName}}.
+          </p>
+
+          <div class="meta-card">
+
+            <div class="meta-row">
+              <div class="meta-label">Invited by</div>
+              <div class="meta-value">{{inviterName}}</div>
+            </div>
+
+            <div class="meta-row">
+              <div class="meta-label">Workspace</div>
+              <div class="meta-value">{{orgName}}</div>
+            </div>
+
+            <div class="meta-row">
+              <div class="meta-label">Invitation expires</div>
+              <div class="meta-value">{{expiryDays}} days</div>
+            </div>
+
+          </div>
+
+          <div class="cta-section">
+
+            <a
+              href="{{inviteLink}}"
+              class="cta-button"
+            >
+              Accept Invitation
+            </a>
+
+            <div class="cta-subtext">
+              This invitation is secure and unique to you.
+            </div>
+
+          </div>
+
+          <p style="margin-bottom: 10px; font-size: 13px; color: #71717a;">
+            If the button above doesn’t work, copy and paste this URL into your browser:
+          </p>
+
+          <a
+            href="{{inviteLink}}"
+            class="link-box"
+          >
+            {{inviteLink}}
+          </a>
+
+          <div class="notice">
+            If you weren't expecting this invitation,
+            you can safely ignore this email.
+
+            If you need help, contact
+            <a href="mailto:{{supportEmail}}">
+              {{supportEmail}}
+            </a>.
+          </div>
+
+        </div>
+
         <div class="footer">
-          <span class="footer-left">{{appName}}</span>
-          <span class="footer-right">Automated message — do not reply</span>
+          <div class="footer-top">
+            {{appName}}
+          </div>
+
+          <div class="footer-bottom">
+            This is an automated email. Please do not reply directly to this message.
+          </div>
         </div>
 
       </div>
     </div>
   </body>
 </html>
+```
