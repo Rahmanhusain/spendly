@@ -1,6 +1,8 @@
 const LOCALHOST = "localhost";
 const VERCEL_APP_SUFFIX = ".vercel.app";
 
+type TenantRoutingMode = "subdomain" | "path";
+
 function stripProtocol(value: string): string {
   return value.replace(/^https?:\/\//, "");
 }
@@ -43,6 +45,19 @@ function deriveBaseDomain(hostname: string): string {
   return parts.slice(1).join(".");
 }
 
+function resolveTenantRoutingMode(): TenantRoutingMode {
+  const raw =
+    process.env.TENANT_ROUTING_MODE ||
+    process.env.NEXT_PUBLIC_TENANT_ROUTING_MODE;
+
+  if (!raw) {
+    return "subdomain";
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return normalized === "path" ? "path" : "subdomain";
+}
+
 export function getCookieDomainForHostname(
   hostname: string,
   rootDomain?: string,
@@ -80,6 +95,12 @@ export function buildTenantWorkspaceUrl(
   const port = url.port;
   const normalizedRoot = normalizeRootDomain(rootDomain);
   const slug = tenantSlug.toLowerCase();
+  const routingMode = resolveTenantRoutingMode();
+
+  if (routingMode === "path") {
+    const hostWithPort = port ? `${hostname}:${port}` : hostname;
+    return `${url.protocol}//${hostWithPort}/workspace`;
+  }
 
   let targetHost: string;
 
