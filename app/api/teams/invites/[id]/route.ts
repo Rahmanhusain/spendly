@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import crypto from "crypto";
 import {
@@ -15,8 +15,8 @@ import logger from "@/lib/utils/logger";
 const paramsSchema = z.object({ id: z.string().uuid() });
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
 ) {
   const requestId = `req_${crypto.randomUUID()}`;
   logger.info("Delete invite request started", {
@@ -28,7 +28,7 @@ export async function DELETE(
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext, "admin", "manager");
 
-    const { id } = await params;
+    const { id } = await context.params;
     const parse = paramsSchema.safeParse({ id });
     if (!parse.success) {
       return NextResponse.json(
