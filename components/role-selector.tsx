@@ -48,7 +48,7 @@ export function RoleSelector({
         <label className="text-xs font-medium text-slate-700">Role</label>
         <select
           value={role}
-          onChange={(e) => void handleChange(e.target.value)}
+          onChange={(e) => void handleChange(e.target.value as "employee" | "manager")}
           disabled={isLoading || disabled}
           className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
         >

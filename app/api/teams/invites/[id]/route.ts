@@ -16,7 +16,7 @@ const paramsSchema = z.object({ id: z.string().uuid() });
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const requestId = `req_${crypto.randomUUID()}`;
   logger.info("Delete invite request started", {
@@ -28,7 +28,8 @@ export async function DELETE(
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext, "admin", "manager");
 
-    const parse = paramsSchema.safeParse(params);
+    const { id } = await params;
+    const parse = paramsSchema.safeParse({ id });
     if (!parse.success) {
       return NextResponse.json(
         {
