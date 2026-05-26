@@ -8,16 +8,10 @@ import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "default-secret-key-change-this",
 );
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET ||
-    process.env.JWT_SECRET ||
-    "admin-default-secret-change-this",
-);
 
 // ── Route sets ────────────────────────────────────────────────────────────────
 // Tenant auth: redirect to workspace if already logged in
 const AUTH_REDIRECT_ROUTES = new Set(["/", "/login", "/sign-up"]);
-// Require admin/manager role
 const INVITE_MANAGER_ROUTES = new Set(["/team-setup", "/workspace/invites"]);
 
 interface TenantTokenPayload {
@@ -25,44 +19,47 @@ interface TenantTokenPayload {
   role?: "employee" | "manager" | "admin";
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-async function isValidAdminToken(token: string): Promise<boolean> {
-  try {
-    await jwtVerify(token, ADMIN_JWT_SECRET);
-    return true;
-  } catch {
-    return false;
+function getAdminPanelOrigin(): string | null {
+  const raw =
+    process.env.ADMIN_PANEL_ORIGIN ||
+    process.env.NEXT_PUBLIC_ADMIN_PANEL_ORIGIN;
+
+  if (!raw) {
+    return null;
   }
+
+  try {
+    return new URL(raw).toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+function buildAdminPanelRedirect(request: NextRequest): URL | null {
+  const origin = getAdminPanelOrigin();
+  if (!origin) {
+    return null;
+  }
+
+  const adminPath = request.nextUrl.pathname.slice("/admin".length) || "/";
+  const target = new URL(origin);
+  target.pathname = adminPath.startsWith("/") ? adminPath : `/${adminPath}`;
+  target.search = request.nextUrl.search;
+  return target;
 }
 
 // ── Main proxy ────────────────────────────────────────────────────────────────
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── 1. Admin panel — /admin/* ──────────────────────────────────────────────
+  // ── 1. Admin panel bridge — /admin/* ───────────────────────────────────────
   if (pathname.startsWith("/admin")) {
-    const adminToken = request.cookies.get("adminAccessToken")?.value;
-
-    // /admin/login is always accessible (but redirect away if already authed)
-    if (pathname === "/admin/login") {
-      if (adminToken && (await isValidAdminToken(adminToken))) {
-        return NextResponse.redirect(new URL("/admin", request.url));
-      }
-      return NextResponse.next();
+    const redirectUrl = buildAdminPanelRedirect(request);
+    if (redirectUrl) {
+      return NextResponse.redirect(redirectUrl);
     }
 
-    // All other /admin/* routes require a valid admin token
-    if (!adminToken || !(await isValidAdminToken(adminToken))) {
-      const loginUrl = new URL("/admin/login", request.url);
-      const response = NextResponse.redirect(loginUrl);
-      // Clear stale cookie if present
-      if (adminToken) {
-        response.cookies.set("adminAccessToken", "", { maxAge: 0, path: "/" });
-      }
-      return response;
-    }
-
-    // Authenticated — pass through
+    // Fall through if the admin panel origin is not configured.
     return NextResponse.next();
   }
 
@@ -88,7 +85,11 @@ export async function proxy(request: NextRequest) {
     } catch {
       // Stale token — clear it and let the user through to the auth page
       const response = NextResponse.next();
-      response.cookies.set("accessToken", "", createAuthCookieOptions(request, 0));
+      response.cookies.set(
+        "accessToken",
+        "",
+        createAuthCookieOptions(request, 0),
+      );
       return response;
     }
 
@@ -113,7 +114,11 @@ export async function proxy(request: NextRequest) {
       }
     } catch {
       const response = NextResponse.redirect(new URL("/login", request.url));
-      response.cookies.set("accessToken", "", createAuthCookieOptions(request, 0));
+      response.cookies.set(
+        "accessToken",
+        "",
+        createAuthCookieOptions(request, 0),
+      );
       return response;
     }
   }

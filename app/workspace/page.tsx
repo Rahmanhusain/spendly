@@ -7,6 +7,7 @@ import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { DateRangeSelector } from "@/components/date-range-selector";
 import { SpendTimelineChart } from "@/components/spend-timeline-chart";
 import { DashboardExportButton } from "@/components/dashboard-export-button";
+import DashboardActivityClient from "@/components/dashboard-activity-client";
 import {
   loadDashboardData,
   type DashboardRole,
@@ -538,61 +539,10 @@ async function DashboardData({
                 Latest receipts, reports, and compliance events
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 max-h-130 overflow-y-auto pr-1">
-              {dashboard.activity.length > 0 ? (
-                dashboard.activity.slice(0, 10).map((item) => {
-                  const toneClass =
-                    item.tone === "emerald"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : item.tone === "blue"
-                        ? "border-sky-200 bg-sky-50 text-sky-700"
-                        : item.tone === "rose"
-                          ? "border-rose-200 bg-rose-50 text-rose-700"
-                          : "border-amber-200 bg-amber-50 text-amber-700";
-
-                  return (
-                    <article
-                      key={item.id}
-                      className="rounded-2xl border border-slate-200 px-4 py-4"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex min-w-0 gap-3">
-                          <span
-                            className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${toneClass}`}
-                          >
-                            {item.kind === "receipt" ? (
-                              <FileUp className="h-4 w-4" />
-                            ) : item.kind === "report" ? (
-                              <FileText className="h-4 w-4" />
-                            ) : (
-                              <CircleAlert className="h-4 w-4" />
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-950">
-                              {item.title}
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">
-                              {item.detail}
-                            </p>
-                            <p className="mt-2 text-xs text-slate-500">
-                              Actor: {item.actor}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-xs text-slate-400">
-                          {formatDateTime(item.timestamp)}
-                        </span>
-                      </div>
-                    </article>
-                  );
-                })
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
-                  No recent activity yet. Upload a receipt or submit a report to
-                  populate the feed.
-                </div>
-              )}
+            <CardContent className="space-y-4">
+              <div className="max-h-130 overflow-y-auto">
+                <DashboardActivityClient limit={10} />
+              </div>
             </CardContent>
           </Card>
 

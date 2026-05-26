@@ -769,3 +769,147 @@ export async function loadDashboardData(input: {
     maxTrendValue,
   };
 }
+
+export async function loadDashboardActivity(input: {
+  tenantId: string;
+  userId: string;
+  role: DashboardRole;
+  limit?: number;
+}): Promise<ActivityItem[]> {
+  const { tenantId, userId, role, limit = 10 } = input;
+  const isEmployee = role === "employee";
+  const canReview = role === "manager" || role === "admin";
+
+  const recentReceiptsPromise = query<{
+    id: string;
+    vendor_name: string | null;
+    amount: string;
+    status: string;
+    created_at: string;
+    actor_name: string;
+    category: string | null;
+  }>(
+    isEmployee
+      ? `SELECT
+          r.id,
+          r.vendor_name,
+          r.amount::text AS amount,
+          r.status,
+          r.created_at::text AS created_at,
+          COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email) AS actor_name,
+          r.category
+        FROM receipts r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.tenant_id = $1
+          AND r.user_id = $2
+        ORDER BY r.created_at DESC
+        LIMIT $3`
+      : `SELECT
+          r.id,
+          r.vendor_name,
+          r.amount::text AS amount,
+          r.status,
+          r.created_at::text AS created_at,
+          COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email) AS actor_name,
+          r.category
+        FROM receipts r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.tenant_id = $1
+        ORDER BY r.created_at DESC
+        LIMIT $2`,
+    isEmployee ? [tenantId, userId, limit] : [tenantId, limit],
+  );
+
+  const recentReportsPromise = getReportsForTenant(tenantId, {
+    limit: Math.min(5, limit),
+    userId: isEmployee ? userId : undefined,
+    status: "all",
+  });
+
+  const recentPolicyIssuesPromise = query<{
+    id: string;
+    rule_code: string;
+    message: string;
+    severity: string;
+    created_at: string;
+    receipt_vendor: string | null;
+    owner_name: string | null;
+  }>(
+    isEmployee
+      ? `SELECT
+          pv.id,
+          pv.rule_code,
+          pv.message,
+          pv.severity,
+          pv.created_at::text AS created_at,
+          COALESCE(r.vendor_name, 'Receipt') AS receipt_vendor,
+          COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email) AS owner_name
+        FROM policy_violations pv
+        LEFT JOIN receipts r ON r.id = pv.receipt_id
+        LEFT JOIN users u ON u.id = r.user_id
+        WHERE pv.tenant_id = $1
+          AND pv.resolved = FALSE
+          AND r.user_id = $2
+        ORDER BY pv.created_at DESC
+        LIMIT $3`
+      : `SELECT
+          pv.id,
+          pv.rule_code,
+          pv.message,
+          pv.severity,
+          pv.created_at::text AS created_at,
+          COALESCE(r.vendor_name, 'Receipt') AS receipt_vendor,
+          COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email) AS owner_name
+        FROM policy_violations pv
+        LEFT JOIN receipts r ON r.id = pv.receipt_id
+        LEFT JOIN users u ON u.id = r.user_id
+        WHERE pv.tenant_id = $1
+          AND pv.resolved = FALSE
+        ORDER BY pv.created_at DESC
+        LIMIT $2`,
+    isEmployee ? [tenantId, userId, limit] : [tenantId, limit],
+  );
+
+  const [recentReceipts, recentReports, recentPolicyIssues] = await Promise.all(
+    [recentReceiptsPromise, recentReportsPromise, recentPolicyIssuesPromise],
+  );
+
+  const recentReceiptItems = recentReceipts.rows.map((receipt) => ({
+    id: receipt.id,
+    kind: "receipt" as const,
+    title: receipt.vendor_name
+      ? `Receipt from ${receipt.vendor_name}`
+      : "Receipt uploaded",
+    detail: `${formatMoney(receipt.amount)} · ${receipt.category ?? "Uncategorized"} · ${receipt.status.replace(/_/g, " ")}`,
+    actor: receipt.actor_name,
+    timestamp: receipt.created_at,
+    tone: "emerald" as const,
+  }));
+
+  const recentReportItems = recentReports.reports.map((report) => ({
+    id: `report-${report.id}`,
+    kind: "report" as const,
+    title: `Report ${report.status.replace(/_/g, " ")}`,
+    detail: `${report.status.toUpperCase()} · ${formatMoney(report.totalAmount)}`,
+    actor: report.creatorName ?? "Unknown user",
+    timestamp: report.createdAt,
+    tone: "blue" as const,
+  }));
+
+  const recentIssueItems = recentPolicyIssues.rows.map((issue) => ({
+    id: issue.id,
+    kind: "violation" as const,
+    title: `${issue.severity.toUpperCase()} policy issue`,
+    detail: `${issue.rule_code} · ${issue.message}`,
+    actor: issue.owner_name ?? issue.receipt_vendor ?? "Workspace",
+    timestamp: issue.created_at,
+    tone: issue.severity === "error" ? ("rose" as const) : ("amber" as const),
+  }));
+
+  return [...recentReceiptItems, ...recentReportItems, ...recentIssueItems]
+    .sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )
+    .slice(0, limit);
+}
