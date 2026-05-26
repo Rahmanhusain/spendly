@@ -14,10 +14,21 @@
 import fs from "fs";
 import path from "path";
 
-// Ensure logs directory exists
-const logsDir = path.join(process.cwd(), "logs");
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+// In Vercel/serverless environments, process.cwd() points to a read-only path.
+// Use /tmp for ephemeral file logs and gracefully fall back to console-only logging.
+const logsDir = process.env.VERCEL
+  ? path.join("/tmp", "spendly-logs")
+  : path.join(process.cwd(), "logs");
+
+function ensureLogsDirExists(): boolean {
+  try {
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 enum LogLevel {
@@ -40,14 +51,21 @@ type FeatureTracking = {
  * Logger service: writes to files and console
  */
 class Logger {
+  private fileLoggingEnabled: boolean;
   private logFile: string;
   private deviceLogFile: string;
   private errorLogFile: string;
 
   constructor() {
+    this.fileLoggingEnabled = ensureLogsDirExists();
     this.logFile = path.join(logsDir, "progress.log");
     this.deviceLogFile = path.join(logsDir, "development.log");
     this.errorLogFile = path.join(logsDir, "errors.log");
+
+    if (!this.fileLoggingEnabled) {
+      console.warn("Disk logging disabled; using console-only logging");
+      return;
+    }
 
     // Initialize log files if they don't exist
     if (!fs.existsSync(this.logFile)) {
@@ -78,6 +96,10 @@ class Logger {
     content: string,
     append: boolean = true,
   ): void {
+    if (!this.fileLoggingEnabled) {
+      return;
+    }
+
     try {
       if (append) {
         fs.appendFileSync(filePath, content);
@@ -190,6 +212,10 @@ class Logger {
     status: string,
     metadata?: Record<string, unknown>,
   ): void {
+    if (!this.fileLoggingEnabled) {
+      return;
+    }
+
     const trackingFile = path.join(logsDir, "feature-completion.json");
     let tracking: FeatureTracking = {
       last_updated: new Date().toISOString(),
@@ -263,6 +289,10 @@ class Logger {
    * Get progress summary
    */
   public getSummary(): string {
+    if (!this.fileLoggingEnabled) {
+      return "Disk logging disabled in this environment";
+    }
+
     try {
       const content = fs.readFileSync(this.logFile, "utf-8");
       return content;
@@ -275,10 +305,19 @@ class Logger {
    * Get feature tracking status
    */
   public getFeatureStatus(): FeatureTracking | { error: string } {
+    if (!this.fileLoggingEnabled) {
+      return {
+        last_updated: new Date().toISOString(),
+        features: {},
+      };
+    }
+
     const trackingFile = path.join(logsDir, "feature-completion.json");
     if (fs.existsSync(trackingFile)) {
       try {
-        return JSON.parse(fs.readFileSync(trackingFile, "utf-8")) as FeatureTracking;
+        return JSON.parse(
+          fs.readFileSync(trackingFile, "utf-8"),
+        ) as FeatureTracking;
       } catch (error) {
         return { error: "Could not parse feature tracking" };
       }
