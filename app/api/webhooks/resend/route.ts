@@ -4,6 +4,41 @@ import logger from "@/lib/utils/logger";
 import { Webhook } from "svix";
 import { Resend } from "resend";
 
+function stripQuotedTextBody(body: string): string {
+  const normalizedBody = body.replace(/\r\n/g, "\n").trim();
+  const replyMarkers = [
+    /^On .+wrote:$/m,
+    /^-----Original Message-----$/m,
+    /^_{5,}$/m,
+  ];
+
+  let cutIndex = normalizedBody.length;
+
+  for (const marker of replyMarkers) {
+    const match = normalizedBody.match(marker);
+    if (match?.index !== undefined) {
+      cutIndex = Math.min(cutIndex, match.index);
+    }
+  }
+
+  return normalizedBody.slice(0, cutIndex).trim();
+}
+
+function stripQuotedHtmlBody(body: string): string {
+  const blockquoteIndex = body.search(/<blockquote\b/i);
+  const gmailQuoteIndex = body.search(/class="[^"]*gmail_quote[^"]*"/i);
+  const cutIndex =
+    blockquoteIndex >= 0 && gmailQuoteIndex >= 0
+      ? Math.min(blockquoteIndex, gmailQuoteIndex)
+      : Math.max(blockquoteIndex, gmailQuoteIndex);
+
+  if (cutIndex >= 0) {
+    return body.slice(0, cutIndex).trim();
+  }
+
+  return body.trim();
+}
+
 /**
  * Resend inbound email webhook.
  * Configure in Resend dashboard: Webhooks → Add endpoint → select "email.received"
@@ -67,7 +102,7 @@ export async function POST(request: Request) {
           error,
         });
 
-        if (errorName === "restricted_api_i key") {
+        if (errorName === "restricted_api_key") {
           logger.warn(
             "Set RESEND_RECEIVING_API_KEY to a Resend full-access key so inbound email content can be fetched",
             { requestId, emailId },
@@ -80,6 +115,8 @@ export async function POST(request: Request) {
 
     const fullText = fullEmail?.text ?? data?.text ?? data?.plain_text ?? null;
     const fullHtml = fullEmail?.html ?? data?.html ?? null;
+    const trimmedText = fullText ? stripQuotedTextBody(fullText) : null;
+    const trimmedHtml = fullHtml ? stripQuotedHtmlBody(fullHtml) : null;
     const senderAddress = fullEmail?.from ?? data?.from ?? data?.sender ?? "";
     const recipientAddress = Array.isArray(fullEmail?.to)
       ? fullEmail.to.join(", ")
@@ -93,8 +130,8 @@ export async function POST(request: Request) {
       from_address: senderAddress,
       to_address: recipientAddress,
       subject: data?.subject ?? "(no subject)",
-      text_body: fullText ?? undefined,
-      html_body: fullHtml ?? undefined,
+      text_body: trimmedText ?? undefined,
+      html_body: trimmedHtml ?? undefined,
       raw_payload: {
         webhook: payload,
         received_email: fullEmail,
