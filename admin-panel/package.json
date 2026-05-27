@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@aws-sdk/client-s3": "^3.1051.0",
     "@aws-sdk/s3-request-presigner": "^3.1051.0",
     "@react-email/components": "^1.0.12",
@@ -39,6 +42,7 @@
     "redis": "^4.6.0",
     "tailwindcss": "^4",
     "postcss": "8.5.15",
+    "typescript": "^5",
     "zod": "^3.22.0",
     "resend": "^6.12.3",
     "sharp": "^0.33.0",
@@ -51,10 +55,7 @@
     "@types/express": "^4.17.0",
     "@types/jest": "^29.5.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20",
     "@types/pg": "^8.20.0",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "dotenv": "^16.3.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
@@ -62,7 +63,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "knex": "^3.1.0",
     "supertest": "^6.3.0",
-    "ts-node": "^10.9.0",
-    "typescript": "^5"
+    "ts-node": "^10.9.0"
   }
 }
