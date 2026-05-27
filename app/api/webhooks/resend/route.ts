@@ -9,11 +9,12 @@ import { Resend } from "resend";
  * Configure in Resend dashboard: Webhooks → Add endpoint → select "email.received"
  * Endpoint URL: https://admin.spendly.software/api/webhooks/resend
  *
- * Resend signs requests with the webhook signing secret from the dashboard. its
+ * Resend signs requests with the webhook signing secret from the dashboard.
  */
 export async function POST(request: Request) {
   const requestId = `wh_${crypto.randomUUID()}`;
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendApiKey =
+    process.env.RESEND_RECEIVING_API_KEY ?? process.env.RESEND_API_KEY;
   const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
   try {
@@ -54,11 +55,24 @@ export async function POST(request: Request) {
         await resend.emails.receiving.get(emailId);
 
       if (error) {
+        const errorName =
+          typeof error === "object" && error && "name" in error
+            ? String((error as { name?: unknown }).name)
+            : "unknown_error";
+
         logger.warn("Failed to fetch full received email", {
           requestId,
           emailId,
+          errorName,
           error,
         });
+
+        if (errorName === "restricted_api_i key") {
+          logger.warn(
+            "Set RESEND_RECEIVING_API_KEY to a Resend full-access key so inbound email content can be fetched",
+            { requestId, emailId },
+          );
+        }
       } else {
         fullEmail = receivedEmail;
       }
