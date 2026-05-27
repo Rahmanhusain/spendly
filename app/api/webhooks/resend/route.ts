@@ -9,7 +9,7 @@ import { Resend } from "resend";
  * Configure in Resend dashboard: Webhooks → Add endpoint → select "email.received"
  * Endpoint URL: https://admin.spendly.software/api/webhooks/resend
  *
- * Resend signs requests with the webhook signing secret from the dashboard.
+ * Resend signs requests with the webhook signing secret from the dashboard. its
  */
 export async function POST(request: Request) {
   const requestId = `wh_${crypto.randomUUID()}`;
