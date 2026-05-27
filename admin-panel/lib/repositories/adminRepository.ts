@@ -63,6 +63,35 @@ export interface InboundEmailRecord {
   created_at: string;
 }
 
+export interface RecentInquirySummary {
+  id: string;
+  sender_name: string;
+  subject: string;
+  reason: InquiryReason;
+  status: InquiryStatus;
+  created_at: string;
+}
+
+export interface DashboardStats {
+  inquiries: {
+    total: number;
+    new: number;
+  };
+  emails: {
+    total: number;
+    unread: number;
+  };
+  tenants: {
+    total: number;
+    active: number;
+  };
+  users: {
+    total: number;
+    active: number;
+  };
+  recentInquiries: RecentInquirySummary[];
+}
+
 export async function getSuperAdminByEmail(
   email: string,
 ): Promise<(SuperAdminRecord & { password_hash: string }) | null> {
@@ -130,6 +159,58 @@ export async function revokeAdminSession(sessionId: string): Promise<void> {
   await query(`UPDATE admin_sessions SET revoked_at = NOW() WHERE id = $1`, [
     sessionId,
   ]);
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const [inquiries, emails, tenants, users, recentInquiries] =
+    await Promise.all([
+      query<{ total: string; new_count: string }>(
+        `SELECT COUNT(*)::text AS total,
+              COUNT(*) FILTER (WHERE status = 'new')::text AS new_count
+         FROM contact_inquiries`,
+      ),
+      query<{ total: string; unread: string }>(
+        `SELECT COUNT(*)::text AS total,
+              COUNT(*) FILTER (WHERE is_read = FALSE)::text AS unread
+         FROM inbound_emails`,
+      ),
+      query<{ total: string; active_count: string }>(
+        `SELECT COUNT(*)::text AS total,
+              COUNT(*) FILTER (WHERE status = 'active')::text AS active_count
+         FROM tenants`,
+      ),
+      query<{ total: string; active: string }>(
+        `SELECT COUNT(*)::text AS total,
+              COUNT(*) FILTER (WHERE status = 'active')::text AS active
+         FROM users`,
+      ),
+      query<RecentInquirySummary>(
+        `SELECT id, sender_name, subject, reason, status, created_at
+         FROM contact_inquiries
+         ORDER BY created_at DESC
+         LIMIT 5`,
+      ),
+    ]);
+
+  return {
+    inquiries: {
+      total: parseInt(inquiries.rows[0]?.total ?? "0", 10),
+      new: parseInt(inquiries.rows[0]?.new_count ?? "0", 10),
+    },
+    emails: {
+      total: parseInt(emails.rows[0]?.total ?? "0", 10),
+      unread: parseInt(emails.rows[0]?.unread ?? "0", 10),
+    },
+    tenants: {
+      total: parseInt(tenants.rows[0]?.total ?? "0", 10),
+      active: parseInt(tenants.rows[0]?.active_count ?? "0", 10),
+    },
+    users: {
+      total: parseInt(users.rows[0]?.total ?? "0", 10),
+      active: parseInt(users.rows[0]?.active ?? "0", 10),
+    },
+    recentInquiries: recentInquiries.rows,
+  };
 }
 
 export interface InquiryListOptions {

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { query } from "../../lib/db/client";
 import {
   Card,
   CardContent,
@@ -17,65 +16,7 @@ import {
   Circle,
 } from "lucide-react";
 import { RefreshButton } from "../../components/refresh-button";
-
-async function getStats() {
-  const [inquiries, emails, tenants, users, recentInquiries] =
-    await Promise.all([
-      query<{ total: string; new_count: string }>(
-        `SELECT COUNT(*)::text AS total,
-              COUNT(*) FILTER (WHERE status = 'new')::text AS new_count
-       FROM contact_inquiries`,
-      ),
-      query<{ total: string; unread: string }>(
-        `SELECT COUNT(*)::text AS total,
-              COUNT(*) FILTER (WHERE is_read = FALSE)::text AS unread
-       FROM inbound_emails`,
-      ),
-      query<{ total: string; active_count: string }>(
-        `SELECT COUNT(*)::text AS total,
-              COUNT(*) FILTER (WHERE status = 'active')::text AS active_count
-       FROM tenants`,
-      ),
-      query<{ total: string; active: string }>(
-        `SELECT COUNT(*)::text AS total,
-              COUNT(*) FILTER (WHERE status = 'active')::text AS active
-       FROM users`,
-      ),
-      query<{
-        id: string;
-        sender_name: string;
-        subject: string;
-        reason: string;
-        status: string;
-        created_at: string;
-      }>(
-        `SELECT id, sender_name, subject, reason, status, created_at
-       FROM contact_inquiries
-       ORDER BY created_at DESC
-       LIMIT 5`,
-      ),
-    ]);
-
-  return {
-    inquiries: {
-      total: parseInt(inquiries.rows[0]?.total ?? "0"),
-      new: parseInt(inquiries.rows[0]?.new_count ?? "0"),
-    },
-    emails: {
-      total: parseInt(emails.rows[0]?.total ?? "0"),
-      unread: parseInt(emails.rows[0]?.unread ?? "0"),
-    },
-    tenants: {
-      total: parseInt(tenants.rows[0]?.total ?? "0"),
-      active: parseInt(tenants.rows[0]?.active_count ?? "0"),
-    },
-    users: {
-      total: parseInt(users.rows[0]?.total ?? "0"),
-      active: parseInt(users.rows[0]?.active ?? "0"),
-    },
-    recentInquiries: recentInquiries.rows,
-  };
-}
+import { getDashboardStats } from "../../lib/repositories/adminRepository";
 
 const STATUS_PILL: Record<string, string> = {
   new: "bg-slate-950 text-white",
@@ -111,7 +52,7 @@ function formatRelative(iso: string) {
 }
 
 export default async function AdminDashboardPage() {
-  const stats = await getStats();
+  const stats = await getDashboardStats();
 
   const statCards = [
     {
