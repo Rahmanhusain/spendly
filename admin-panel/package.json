@@ -9,10 +9,8 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix"
   },
-  "overrides": {
-    "postcss": "8.5.15"
-  },
   "dependencies": {
+    "@tailwindcss/postcss": "^4",
     "@aws-sdk/client-s3": "^3.1051.0",
     "@aws-sdk/s3-request-presigner": "^3.1051.0",
     "@react-email/components": "^1.0.12",
@@ -39,13 +37,14 @@
     "react-dom": "18.3.1",
     "recharts": "^2.10.0",
     "redis": "^4.6.0",
+    "tailwindcss": "^4",
+    "postcss": "8.5.15",
     "zod": "^3.22.0",
     "resend": "^6.12.3",
     "sharp": "^0.33.0",
     "simple-statistics": "^7.8.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.1.0",
     "@testing-library/react": "^14.1.0",
     "@types/bcrypt": "^6.0.0",
@@ -63,7 +62,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "knex": "^3.1.0",
     "supertest": "^6.3.0",
-    "tailwindcss": "^4",
     "ts-node": "^10.9.0",
     "typescript": "^5"
   }
