@@ -18,9 +18,7 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "ignoreDeprecations": "5.0"
   },
   "include": [
     "next-env.d.ts",
