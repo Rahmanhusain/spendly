@@ -20,6 +20,26 @@
 
       a {
         color: #111111;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        border: 0;
+      }
+
+      p,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        margin-top: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .wrapper {
@@ -29,6 +49,7 @@
       }
 
       .container {
+        width: 100%;
         max-width: 600px;
         margin: 0 auto;
         background: #ffffff;
@@ -52,9 +73,7 @@
       }
 
       .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
+        display: inline-block;
         padding: 6px 10px;
         background: #111111;
         color: #ffffff;
@@ -92,12 +111,11 @@
         margin-top: 24px;
         border: 1px solid #e4e4e7;
         background: #fafafa;
+        overflow: hidden;
       }
 
       .row {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
+        display: block;
         padding: 14px 16px;
         border-top: 1px solid #e4e4e7;
       }
@@ -107,7 +125,7 @@
       }
 
       .label {
-        flex: 0 0 35%;
+        display: block;
         font-size: 12px;
         line-height: 1.4;
         text-transform: uppercase;
@@ -116,11 +134,12 @@
       }
 
       .value {
-        flex: 1;
+        display: block;
+        margin-top: 4px;
         font-size: 14px;
         line-height: 1.6;
         font-weight: 600;
-        text-align: right;
+        text-align: left;
         overflow-wrap: anywhere;
         word-break: break-word;
       }
@@ -144,6 +163,8 @@
         margin: 0;
         font-size: 13px;
         line-height: 1.7;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .footer {
@@ -184,13 +205,10 @@
           font-size: 24px;
         }
 
-        .row {
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .value {
-          text-align: left;
+        .panel,
+        .note {
+          padding-left: 14px;
+          padding-right: 14px;
         }
       }
     </style>
