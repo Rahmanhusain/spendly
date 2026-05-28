@@ -10,20 +10,20 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AnimatedPageContent } from "@/components/animated-page-content";
-import { Smartphone, ShieldCheck, FileSpreadsheet, Users, BarChart3, Zap } from "lucide-react";
+import { ClipboardList, ShieldCheck, FileSpreadsheet, Users, BarChart3, Zap } from "lucide-react";
 
 export const metadata = buildPageMetadata({
   title: "About",
   description:
-    "Spendly is an India-first expense management platform for receipt capture, approvals, and GST-ready reporting.",
+    "Spendly is an India-first expense management platform for structured approvals and GST-ready reporting.",
 });
 
 const pillars = [
   {
-    icon: Smartphone,
-    title: "Mobile-first capture",
+    icon: ClipboardList,
+    title: "Structured expense reporting",
     description:
-      "Employees snap receipts from their phone in seconds. Spendly extracts amount, vendor, date, category, and GST details automatically.",
+      "Employees submit expenses through a clear, guided workflow. Every report is organised, categorised, and ready for review — no scattered emails or spreadsheets.",
   },
   {
     icon: ShieldCheck,
@@ -61,7 +61,7 @@ const audience = [
 ];
 
 const milestones = [
-  { label: "Receipts processed", value: "10,000+" },
+  { label: "Expenses processed", value: "10,000+" },
   { label: "Teams onboarded", value: "200+" },
   { label: "GST reports exported", value: "1,500+" },
   { label: "Avg. approval time", value: "< 4 hrs" },
@@ -82,9 +82,9 @@ export default function AboutPage() {
               Built for teams that want a cleaner expense workflow.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-              Spendly replaces scattered receipts, chat-based approvals, and
-              spreadsheet reporting with a single, professional product
-              experience — designed specifically for Indian businesses.
+              Spendly replaces scattered expense submissions, chat-based
+              approvals, and spreadsheet reporting with a single, professional
+              product experience — designed specifically for Indian businesses.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
@@ -127,7 +127,7 @@ export default function AboutPage() {
                 </CardTitle>
                 <CardDescription className="text-sm leading-7">
                   A workspace-based expense management platform for teams that
-                  need receipt capture, structured approvals, and reliable
+                  need structured reporting, structured approvals, and reliable
                   compliance exports.
                 </CardDescription>
               </CardHeader>
@@ -157,15 +157,15 @@ export default function AboutPage() {
             <div className="space-y-4">
               <Card className="border-slate-200 bg-slate-900 text-white shadow-lg shadow-slate-300/40">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-slate-950">
+                  <CardTitle className="text-2xl text-white">
                     Why we built it
                   </CardTitle>
-                  <CardDescription className="text-slate-600">
+                  <CardDescription className="text-slate-300">
                     The problem was real and the existing tools weren&apos;t
                     designed for Indian teams.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm leading-7 text-slate-500">
+                <CardContent className="space-y-3 text-sm leading-7 text-slate-300">
                   <p>
                     Most expense tools are built for Western markets and bolt on
                     GST support as an afterthought.
