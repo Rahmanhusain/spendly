@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -147,7 +145,6 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col">
-      <SiteHeader ctaLabel="Login" ctaHref="/login" />
       <div className="relative flex-1 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_34%)]" />
         <div className="mx-auto flex w-full max-w-7xl items-center px-4 py-8 sm:px-6 lg:px-8">
@@ -276,7 +273,6 @@ export default function ForgotPasswordPage() {
           </Card>
         </div>
       </div>
-      <SiteFooter />
     </main>
   );
 }
