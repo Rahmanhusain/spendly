@@ -25,6 +25,18 @@ import { cn } from "@/lib/utils";
 
 type AuthMode = "signup" | "login";
 
+const WORKSPACE_SLUG_MAX_LENGTH = 80;
+
+function normalizeWorkspaceSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, WORKSPACE_SLUG_MAX_LENGTH);
+}
+
 type FieldState = {
   companyName: string;
   companySlug: string;
@@ -428,8 +440,14 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                 <Field
                   label="Workspace slug"
                   value={form.companySlug}
-                  onChange={(value) => updateField("companySlug", value)}
+                  onChange={(value) =>
+                    updateField("companySlug", normalizeWorkspaceSlug(value))
+                  }
                   placeholder="bluepeak-studio"
+                  maxLength={WORKSPACE_SLUG_MAX_LENGTH}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
                   error={fieldErrors.companySlug}
                 />
                 <Field
@@ -659,6 +677,10 @@ function Field({
   type = "text",
   placeholder,
   className = "",
+  maxLength,
+  autoCapitalize,
+  autoComplete,
+  spellCheck,
   error,
 }: {
   label: string;
@@ -667,6 +689,10 @@ function Field({
   type?: string;
   placeholder?: string;
   className?: string;
+  maxLength?: number;
+  autoCapitalize?: string;
+  autoComplete?: string;
+  spellCheck?: boolean;
   error?: string;
 }) {
   return (
@@ -677,6 +703,10 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         type={type}
         placeholder={placeholder}
+        maxLength={maxLength}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        spellCheck={spellCheck}
         aria-invalid={Boolean(error)}
         className={
           error ? "border-rose-500 focus-visible:ring-rose-500" : undefined
