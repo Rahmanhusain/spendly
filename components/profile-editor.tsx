@@ -3,6 +3,45 @@
 import { useEffect, useState } from "react";
 import { Lock, Mail, ShieldCheck } from "lucide-react";
 
+const WORKSPACE_SLUG_MAX_LENGTH = 80;
+const WORKSPACE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function normalizeWorkspaceSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, WORKSPACE_SLUG_MAX_LENGTH);
+}
+
+function validateWorkspaceSlug(value: string): string {
+  const slug = value.trim();
+
+  if (!slug) {
+    return "Workspace slug is required";
+  }
+
+  if (slug.length < 2) {
+    return "Workspace slug must be at least 2 characters";
+  }
+
+  if (slug.length > WORKSPACE_SLUG_MAX_LENGTH) {
+    return `Workspace slug must be ${WORKSPACE_SLUG_MAX_LENGTH} characters or fewer`;
+  }
+
+  if (!WORKSPACE_SLUG_PATTERN.test(slug)) {
+    return "Use lowercase letters, numbers, and hyphens only";
+  }
+
+  return "";
+}
+
+function isSuccessMessage(message: string): boolean {
+  return message === "Organization updated successfully";
+}
+
 type User = {
   id: string;
   email: string;
@@ -15,6 +54,7 @@ type User = {
 type Tenant = {
   id: string;
   name?: string | null;
+  slug?: string | null;
   country_code?: string | null;
 };
 
@@ -31,6 +71,7 @@ export default function ProfileEditor({
   const canEditOrg = role === "admin";
 
   const [editOrgName, setEditOrgName] = useState(tenant.name ?? "");
+  const [editWorkspaceSlug, setEditWorkspaceSlug] = useState(tenant.slug ?? "");
   const [countryCode, setCountryCode] = useState(tenant.country_code ?? "");
   const [isSavingOrg, setIsSavingOrg] = useState(false);
   const [orgMessage, setOrgMessage] = useState("");
@@ -69,6 +110,14 @@ export default function ProfileEditor({
   }, [otpCooldown]);
 
   const saveOrgProfile = async () => {
+    const normalizedWorkspaceSlug = normalizeWorkspaceSlug(editWorkspaceSlug);
+    const workspaceSlugError = validateWorkspaceSlug(normalizedWorkspaceSlug);
+
+    if (workspaceSlugError) {
+      setOrgMessage(workspaceSlugError);
+      return;
+    }
+
     setIsSavingOrg(true);
     setOrgMessage("");
     try {
@@ -79,14 +128,26 @@ export default function ProfileEditor({
         body: JSON.stringify({
           name: editOrgName,
           countryCode,
+          slug: normalizedWorkspaceSlug,
         }),
       });
+
+      const result = await res.json().catch(() => ({}));
+
       if (res.ok) {
+        if (
+          typeof result.workspaceUrl === "string" &&
+          result.workspaceUrl.length > 0 &&
+          result.workspaceUrl !== window.location.href
+        ) {
+          window.location.assign(result.workspaceUrl);
+          return;
+        }
+
         setOrgMessage("Organization updated successfully");
         setTimeout(() => setOrgMessage(""), 3000);
       } else {
-        const err = await res.json();
-        setOrgMessage(err.error?.message || "Failed to update");
+        setOrgMessage(result.error?.message || "Failed to update");
       }
     } catch {
       setOrgMessage("Error updating organization");
@@ -245,18 +306,46 @@ export default function ProfileEditor({
 
             <div>
               <label className="text-sm font-medium text-slate-700">
+                Workspace Slug
+              </label>
+              <input
+                value={editWorkspaceSlug}
+                onChange={(e) =>
+                  setEditWorkspaceSlug(normalizeWorkspaceSlug(e.target.value))
+                }
+                maxLength={WORKSPACE_SLUG_MAX_LENGTH}
+                autoCapitalize="none"
+                autoComplete="off"
+                spellCheck={false}
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                placeholder="bluepeak-studio"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Use lowercase letters, numbers, and hyphens only. Keep it short
+                since it becomes your workspace subdomain.
+              </p>
+            </div>
+
+            {orgMessage && (
+              <div
+                className={`rounded-md p-3 text-sm border ${
+                  isSuccessMessage(orgMessage)
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : "bg-red-50 text-red-700 border-red-200"
+                }`}
+              >
+                {orgMessage}
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-medium text-slate-700">
                 Tenant ID (Read-only)
               </label>
               <div className="mt-2 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                 {tenant.id}
               </div>
             </div>
-
-            {orgMessage && (
-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200">
-                {orgMessage}
-              </div>
-            )}
 
             <div className="flex gap-2 pt-2">
               <button

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo";
 import { redirectToLogin } from "@/lib/auth/redirect";
