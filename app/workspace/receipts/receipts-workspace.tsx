@@ -829,7 +829,7 @@ export function ReceiptsWorkspace({
         )}
       >
         {showReceiptBrowser ? (
-          <Card className="border-slate-200">
+          <Card className="border-slate-200 h-fit">
             <CardHeader className="border-b border-slate-200 pb-4">
               <CardTitle className="text-lg text-slate-950">
                 Receipts ({filteredReceipts.length})
