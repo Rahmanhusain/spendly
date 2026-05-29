@@ -7,6 +7,84 @@ export const RECEIPT_IMAGE_OCR_USER_PROMPT =
 export const RECEIPT_STRUCTURING_SYSTEM_PROMPT =
   "Extract structured receipt data from OCR text. Return strict JSON with keys: vendor_name, amount, currency, receipt_date, category, gst_rate, cgst_rate, igst_rate, sgst_rate, cgst_amount, igst_amount, sgst_amount, tax_amount, vendor_gstin, gst_amount, confidence_score.";
 
+export const DASHBOARD_SUMMARY_SYSTEM_PROMPT =
+  "You are an assistant that writes concise finance summaries for a dashboard export. Return strict JSON with keys: executive_summary, key_highlights, risk_flags, recommended_actions.";
+
+export function buildDashboardSummaryUserPrompt(params: {
+  companyName: string;
+  periodLabel: string;
+  summary: {
+    currentSpend: number;
+    totalTax: number;
+    receiptCount: number;
+    averageReceipt: number;
+    openReports: number;
+    reviewQueue: number;
+    policyIssues: number;
+    duplicateReceipts: number;
+    monthOverMonthChange: number | null;
+  };
+  categories: Array<{
+    category: string;
+    amount: number;
+    tax: number;
+    count: number;
+    share: number;
+  }>;
+  trend: Array<{ label: string; amount: number; date: string }>;
+  topContributors: Array<{
+    name: string;
+    totalSpend: number;
+    receiptCount: number;
+  }>;
+}): string {
+  const topCategories = params.categories
+    .slice(0, 6)
+    .map(
+      (category) =>
+        `${category.category}: amount=${category.amount}, tax=${category.tax}, receipts=${category.count}, share=${category.share.toFixed(1)}%`,
+    )
+    .join("\n");
+
+  const trendPoints = params.trend
+    .slice(-8)
+    .map((point) => `${point.label}: amount=${point.amount}`)
+    .join("\n");
+
+  const contributors = params.topContributors
+    .slice(0, 5)
+    .map(
+      (person) =>
+        `${person.name}: totalSpend=${person.totalSpend}, receiptCount=${person.receiptCount}`,
+    )
+    .join("\n");
+
+  return `Company: ${params.companyName}
+Period: ${params.periodLabel}
+
+Summary metrics:
+- currentSpend=${params.summary.currentSpend}
+- totalTax=${params.summary.totalTax}
+- receiptCount=${params.summary.receiptCount}
+- averageReceipt=${params.summary.averageReceipt}
+- openReports=${params.summary.openReports}
+- reviewQueue=${params.summary.reviewQueue}
+- policyIssues=${params.summary.policyIssues}
+- duplicateReceipts=${params.summary.duplicateReceipts}
+- monthOverMonthChange=${params.summary.monthOverMonthChange ?? "null"}
+
+Top categories:
+${topCategories || "none"}
+
+Recent trend points:
+${trendPoints || "none"}
+
+Top contributors:
+${contributors || "none"}
+
+Write a concise executive summary with 3 to 5 bullets, plus short risk flags and recommended actions that reflect the numbers above. Avoid inventing facts not present in the data.`;
+}
+
 export function buildReceiptStructuringUserPrompt(params: {
   ocrText: string;
   note: string;

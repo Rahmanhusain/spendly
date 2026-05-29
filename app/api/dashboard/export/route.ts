@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { loadDashboardData } from "@/lib/repositories/dashboardRepository";
+import { generateDashboardAiSummary } from "@/lib/ai/dashboardSummary";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -26,14 +27,43 @@ function fmtINRCompact(value: number | string) {
   }).format(num);
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function categoryColor(index: number, total: number): string {
+  if (total <= 1) return "#0f172a";
+  const hue = Math.round((index * 360) / total) % 360;
+  const saturation = 65 + (index % 3) * 8; // 65–81%
+  const lightness = 38 + (index % 2) * 10; // 38–48%
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
-const PIE_PALETTE = ["#0f172a", "#10b981", "#0ea5e9", "#8b5cf6", "#f97316", "#14b8a6"];
+const PIE_PALETTE = [
+  "#0f172a",
+  "#2563eb",
+  "#0f6c4b",
+  "#6b7280",
+  "#94a3b8",
+  "#cbd5e1",
+];
 
 // ─── SVG Donut Pie ────────────────────────────────────────────────────────────
 
 function buildPieSvg(
-  segments: Array<{ label: string; share: number; color: string; amount: number }>,
+  segments: Array<{
+    label: string;
+    share: number;
+    color: string;
+    amount: number;
+  }>,
   total: number,
   size = 200,
 ): string {
@@ -105,10 +135,14 @@ function buildTrendSvg(
   const plotH = height - pad.top - pad.bottom;
   const maxVal = Math.max(...points.map((p) => p.amount), 1);
 
-  const xs = points.map((_, i) => pad.left + (i / Math.max(points.length - 1, 1)) * plotW);
+  const xs = points.map(
+    (_, i) => pad.left + (i / Math.max(points.length - 1, 1)) * plotW,
+  );
   const ys = points.map((p) => pad.top + plotH - (p.amount / maxVal) * plotH);
 
-  const polyline = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const polyline = xs
+    .map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`)
+    .join(" ");
   const area = [
     `M ${xs[0].toFixed(1)} ${(pad.top + plotH).toFixed(1)}`,
     ...xs.map((x, i) => `L ${x.toFixed(1)} ${ys[i].toFixed(1)}`),
@@ -160,17 +194,42 @@ function renderSummaryHtml(opts: {
     duplicateReceipts: number;
     monthOverMonthChange: number | null;
   };
-  categories: Array<{ category: string; amount: number; tax: number; count: number; share: number }>;
+  categories: Array<{
+    category: string;
+    amount: number;
+    tax: number;
+    count: number;
+    share: number;
+  }>;
   trend: Array<{ label: string; amount: number; date: string }>;
-  topContributors: Array<{ name: string; totalSpend: number; receiptCount: number }>;
+  topContributors: Array<{
+    name: string;
+    totalSpend: number;
+    receiptCount: number;
+  }>;
+  aiSummary: {
+    executiveSummary?: string[];
+    keyHighlights: string[];
+    riskFlags?: string[];
+    recommendedActions?: string[];
+  };
 }) {
-  const { companyName, displayName, periodLabel, generatedAt, summary, categories, trend, topContributors } = opts;
+  const {
+    companyName,
+    displayName,
+    periodLabel,
+    generatedAt,
+    summary,
+    categories,
+    trend,
+    topContributors,
+  } = opts;
 
   const categoryTotal = categories.reduce((s, c) => s + c.amount, 0);
   const pieSegments = categories.map((c, i) => ({
     label: c.category,
     share: categoryTotal > 0 ? (c.amount / categoryTotal) * 100 : 0,
-    color: PIE_PALETTE[i % PIE_PALETTE.length],
+    color: categoryColor(i, categories.length),
     amount: c.amount,
   }));
 
@@ -194,7 +253,7 @@ function renderSummaryHtml(opts: {
       ? categories
           .map(
             (c, i) => `<tr>
-            <td><span class="dot" style="background:${PIE_PALETTE[i % PIE_PALETTE.length]}"></span>${c.category}</td>
+            <td><span class="dot" style="background:${categoryColor(i, categories.length)}"></span>${c.category}</td>
             <td class="r">${fmtINRCompact(c.amount)}</td>
             <td class="r">${fmtINRCompact(c.tax)}</td>
             <td class="r">${c.count}</td>
@@ -218,23 +277,84 @@ function renderSummaryHtml(opts: {
       : "";
 
   const metricCards = [
-    { label: "Total Spend", value: `₹${fmtINR(summary.currentSpend)}`, note: momText, noteColor: momColor, accent: "#ecfdf5", border: "#6ee7b7" },
-    { label: "Total Tax", value: `₹${fmtINR(summary.totalTax)}`, note: "CGST + SGST + IGST", noteColor: "#94a3b8", accent: "#eff6ff", border: "#93c5fd" },
-    { label: "Receipts", value: String(summary.receiptCount), note: `Avg ₹${fmtINR(summary.averageReceipt)} each`, noteColor: "#94a3b8", accent: "#f5f3ff", border: "#c4b5fd" },
-    { label: "Avg Receipt", value: `₹${fmtINR(summary.averageReceipt)}`, note: "Typical ticket size", noteColor: "#94a3b8", accent: "#f8fafc", border: "#cbd5e1" },
-    { label: "Open Reports", value: String(summary.openReports), note: `${summary.reviewQueue} in review queue`, noteColor: "#94a3b8", accent: "#fffbeb", border: "#fcd34d" },
-    { label: "Review Queue", value: String(summary.reviewQueue), note: "Pending action", noteColor: "#94a3b8", accent: "#fff7ed", border: "#fdba74" },
-    { label: "Policy Issues", value: String(summary.policyIssues), note: `${summary.duplicateReceipts} duplicate(s) flagged`, noteColor: summary.policyIssues > 0 ? "#ef4444" : "#94a3b8", accent: summary.policyIssues > 0 ? "#fff1f2" : "#f8fafc", border: summary.policyIssues > 0 ? "#fca5a5" : "#cbd5e1" },
-    { label: "Duplicates", value: String(summary.duplicateReceipts), note: "Flagged receipts", noteColor: "#94a3b8", accent: "#f8fafc", border: "#cbd5e1" },
+    {
+      label: "Total Spend",
+      value: `₹${fmtINR(summary.currentSpend)}`,
+      note: momText,
+      noteColor: momColor,
+      accent: "#ecfdf5",
+      border: "#6ee7b7",
+    },
+    {
+      label: "Total Tax",
+      value: `₹${fmtINR(summary.totalTax)}`,
+      note: "CGST + SGST + IGST",
+      noteColor: "#94a3b8",
+      accent: "#eff6ff",
+      border: "#93c5fd",
+    },
+    {
+      label: "Receipts",
+      value: String(summary.receiptCount),
+      note: `Avg ₹${fmtINR(summary.averageReceipt)} each`,
+      noteColor: "#94a3b8",
+      accent: "#f5f3ff",
+      border: "#c4b5fd",
+    },
+    {
+      label: "Avg Receipt",
+      value: `₹${fmtINR(summary.averageReceipt)}`,
+      note: "Typical ticket size",
+      noteColor: "#94a3b8",
+      accent: "#f8fafc",
+      border: "#cbd5e1",
+    },
+    {
+      label: "Open Reports",
+      value: String(summary.openReports),
+      note: `${summary.reviewQueue} in review queue`,
+      noteColor: "#94a3b8",
+      accent: "#fffbeb",
+      border: "#fcd34d",
+    },
+    {
+      label: "Review Queue",
+      value: String(summary.reviewQueue),
+      note: "Pending action",
+      noteColor: "#94a3b8",
+      accent: "#fff7ed",
+      border: "#fdba74",
+    },
+    {
+      label: "Policy Issues",
+      value: String(summary.policyIssues),
+      note: `${summary.duplicateReceipts} duplicate(s) flagged`,
+      noteColor: summary.policyIssues > 0 ? "#ef4444" : "#94a3b8",
+      accent: summary.policyIssues > 0 ? "#fff1f2" : "#f8fafc",
+      border: summary.policyIssues > 0 ? "#fca5a5" : "#cbd5e1",
+    },
+    {
+      label: "Duplicates",
+      value: String(summary.duplicateReceipts),
+      note: "Flagged receipts",
+      noteColor: "#94a3b8",
+      accent: "#f8fafc",
+      border: "#cbd5e1",
+    },
   ]
     .map(
-      (m) => `<div class="metric-card" style="background:${m.accent};border-color:${m.border}">
+      (
+        m,
+      ) => `<div class="metric-card" style="background:${m.accent};border-color:${m.border}">
         <div class="metric-label">${m.label}</div>
         <div class="metric-value">${m.value}</div>
         <div class="metric-note" style="color:${m.noteColor}">${m.note}</div>
       </div>`,
     )
     .join("");
+
+  const escapedKeyHighlights = (opts.aiSummary?.keyHighlights || []).map((s) => escapeHtml(s));
+
 
   return `<!doctype html>
 <html lang="en">
@@ -306,6 +426,15 @@ function renderSummaryHtml(opts: {
     .section-title::after {
       content: ''; flex: 1; height: 1px; background: #e2e8f0;
     }
+
+    /* ── Simplified AI summary ── */
+    .ai-simple { display: flex; gap: 16px; align-items: flex-start; margin-top: 8px; }
+    .ai-highlights { flex: 1; }
+    .ai-highlights ul { padding-left: 18px; color: #0f172a; font-size: 13px; line-height: 1.6; }
+    .ai-stats { width: 220px; display: flex; flex-direction: column; gap: 8px; }
+    .ai-stat { padding: 12px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+    .ai-stat .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+    .ai-stat .value { font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 6px; }
 
     /* ── Metric cards ── */
     .metrics-grid {
@@ -412,6 +541,29 @@ function renderSummaryHtml(opts: {
       ${metricCards}
     </div>
 
+    <!-- AI Summary (simplified) -->
+    <div class="section-title">AI Summary</div>
+    <div class="ai-simple">
+      <div class="ai-highlights">
+        <div class="ai-card">
+          <h4 style="margin-bottom:8px">Key Highlights</h4>
+          <ul>
+            ${escapedKeyHighlights.length > 0 ? escapedKeyHighlights.map((h) => `<li>${h}</li>`).join("") : `<li class="muted">No highlights available</li>`}
+          </ul>
+        </div>
+      </div>
+      <div class="ai-stats">
+        <div class="ai-stat">
+          <div class="label">Current Spend</div>
+          <div class="value">₹${fmtINR(summary.currentSpend)}</div>
+        </div>
+        <div class="ai-stat">
+          <div class="label">Total Tax</div>
+          <div class="value">₹${fmtINR(summary.totalTax)}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Spend by Category -->
     <div class="section-title">Spend by Category</div>
     <div class="category-layout">
@@ -506,7 +658,8 @@ export async function GET(request: NextRequest) {
     requireAuth(authContext, "employee", "manager", "admin");
 
     const sp = request.nextUrl.searchParams;
-    const dateRangeMode = (sp.get("dateRange") as "monthly" | "all-time" | "custom") || "monthly";
+    const dateRangeMode =
+      (sp.get("dateRange") as "monthly" | "all-time" | "custom") || "monthly";
     const customStartDate = sp.get("startDate") ?? undefined;
     const customEndDate = sp.get("endDate") ?? undefined;
 
@@ -519,10 +672,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
-    const displayName =
-      user
-        ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || (user as { email?: string }).email || "User"
-        : "Workspace user";
+    const displayName = user
+      ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() ||
+        (user as { email?: string }).email ||
+        "User"
+      : "Workspace user";
 
     const role = authContext!.role as "employee" | "manager" | "admin";
 
@@ -550,6 +704,15 @@ export async function GET(request: NextRequest) {
       timeStyle: "short",
     });
 
+    const aiSummary = await generateDashboardAiSummary({
+      companyName: tenant.name || "Workspace",
+      periodLabel,
+      summary: dashboard.summary,
+      categories: dashboard.categories,
+      trend: dashboard.trend,
+      topContributors: dashboard.topContributors,
+    });
+
     const html = renderSummaryHtml({
       companyName: tenant.name || "Workspace",
       displayName: displayName ?? "User",
@@ -559,6 +722,7 @@ export async function GET(request: NextRequest) {
       categories: dashboard.categories,
       trend: dashboard.trend,
       topContributors: dashboard.topContributors,
+      aiSummary,
     });
 
     // Serve as inline HTML — the page opens in a new tab and auto-prints
