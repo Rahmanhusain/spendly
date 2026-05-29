@@ -57,6 +57,7 @@ export async function aggregateGstForPeriod(
     WHERE tenant_id = $1
       AND receipt_date >= $2::date
       AND receipt_date <= $3::date
+      AND status = 'verified'
     GROUP BY 1,2,3
     ORDER BY 1,2`,
     [tenantId, periodStart, periodEnd],
@@ -73,7 +74,8 @@ export async function aggregateGstForPeriod(
     FROM receipts
     WHERE tenant_id = $1
       AND receipt_date >= $2::date
-      AND receipt_date <= $3::date`,
+      AND receipt_date <= $3::date
+      AND status = 'verified'`,
     [tenantId, periodStart, periodEnd],
   );
 

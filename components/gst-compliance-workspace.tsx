@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -75,6 +75,7 @@ type Props = {
   initialEnd: string;
   initialSummary: GstReportData;
   initialHistory: GstExportHistoryRow[];
+  initialHasMoreHistory: boolean;
 };
 
 const HISTORY_PAGE_SIZE = 5;
@@ -153,6 +154,7 @@ export function GstComplianceWorkspace({
   initialEnd,
   initialSummary,
   initialHistory,
+  initialHasMoreHistory,
 }: Props) {
   const router = useRouter();
   const [start, setStart] = useState(initialStart);
@@ -170,12 +172,12 @@ export function GstComplianceWorkspace({
   const [historyDateFrom, setHistoryDateFrom] = useState("");
   const [historyDateTo, setHistoryDateTo] = useState("");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreHistory, setHasMoreHistory] = useState(
-    initialHistory.length > HISTORY_PAGE_SIZE,
-  );
+  const [hasMoreHistory, setHasMoreHistory] = useState(initialHasMoreHistory);
   const firstRenderRef = useRef(true);
   const refreshTimerRef = useRef<number | null>(null);
   const reportPeriodRef = useRef<HTMLDivElement>(null);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+  const historySentinelRef = useRef<HTMLDivElement>(null);
   const historyIdsRef = useRef<Set<string>>(
     new Set(initialHistory.map((item) => item.id)),
   );
@@ -227,30 +229,34 @@ export function GstComplianceWorkspace({
     printFrame.src = "about:blank";
   };
 
-  const handleViewFile = (filePath: string, format: "html" | "csv" | "pdf") => {
-    // For PDF, use the print dialog (we don't have native PDF on server, it's HTML)
+  const handleViewFile = (exportId: string, format: "html" | "csv" | "pdf") => {
     if (format === "pdf") {
-      // Fetch the HTML and show print dialog
-      fetch(filePath, { credentials: "include" })
+      // Re-generate as HTML and open print dialog
+      fetch(`/api/compliance/gst-report/view/${exportId}?format=html`, {
+        credentials: "include",
+      })
         .then((res) => res.text())
-        .then((html) => {
-          printReportHtml(html);
-        })
-        .catch(() => {
-          setErrorMessage("Unable to load PDF for printing. Please try again.");
-        });
+        .then((html) => printReportHtml(html))
+        .catch(() => setErrorMessage("Unable to load report for printing."));
+    } else if (format === "csv") {
+      // Download CSV directly
+      const a = document.createElement("a");
+      a.href = `/api/compliance/gst-report/view/${exportId}?format=csv`;
+      a.download = `gst-report.csv`;
+      a.click();
     } else {
-      // For HTML and CSV, open/download directly
-      window.open(filePath, "_blank");
+      // Open HTML in a new tab — renders in the browser
+      window.open(
+        `/api/compliance/gst-report/view/${exportId}?format=html`,
+        "_blank",
+      );
     }
   };
 
-  const hasReceipts = summary.totals.receiptCount > 0;
+  const hasVerifiedReceipts = summary.totals.receiptCount > 0;
   const hasHistory = historyItems.length > 0;
 
-  const detailRows = useMemo(() => {
-    return summary.byVendor.slice(0, 6);
-  }, [summary.byVendor]);
+  const detailRows = summary.byVendor;
 
   const loadMoreHistory = useCallback(async () => {
     setIsLoadingMore(true);
@@ -295,6 +301,37 @@ export function GstComplianceWorkspace({
       setIsLoadingMore(false);
     }
   }, [historyOffset, historyDateFrom, historyDateTo]);
+
+  useEffect(() => {
+    if (!hasMoreHistory || isLoadingMore) {
+      return;
+    }
+
+    const scrollContainer = historyScrollRef.current;
+    const sentinel = historySentinelRef.current;
+
+    if (!scrollContainer || !sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMoreHistory();
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: "120px",
+      },
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMoreHistory, isLoadingMore, loadMoreHistory]);
 
   const applyHistoryDateFilter = useCallback(async () => {
     try {
@@ -377,8 +414,8 @@ export function GstComplianceWorkspace({
       setSummary(payload.data);
       setStatusMessage(
         payload.data.totals.receiptCount > 0
-          ? `Loaded ${payload.data.totals.receiptCount} receipts for the selected period.`
-          : "No receipts found for this period. Try a wider range or import receipts first.",
+          ? `Loaded ${payload.data.totals.receiptCount} verified receipts for the selected period.`
+          : "No verified receipts found for this period. Try a wider range or verify receipts first.",
       );
     } catch (error) {
       setErrorMessage(
@@ -445,9 +482,9 @@ export function GstComplianceWorkspace({
       return;
     }
 
-    if (!hasReceipts) {
+    if (!hasVerifiedReceipts) {
       setErrorMessage(
-        "Cannot export: No receipts found for the selected period. Please import receipts or select a different date range.",
+        "Cannot export: No verified receipts found for the selected period. Please verify receipts or select a different date range.",
       );
       return;
     }
@@ -503,7 +540,7 @@ export function GstComplianceWorkspace({
       setHistoryDateFrom("");
       setHistoryDateTo("");
       setHistoryOffset(HISTORY_PAGE_SIZE);
-      setHasMoreHistory(true);
+      setHasMoreHistory(initialHasMoreHistory);
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -739,7 +776,7 @@ export function GstComplianceWorkspace({
                 <Button
                   type="button"
                   onClick={() => void handleExport(exportFormat)}
-                  disabled={isExporting || !hasReceipts}
+                  disabled={isExporting || !hasVerifiedReceipts}
                 >
                   <Download className="mr-2 h-4 w-4" />
                   {isExporting
@@ -770,12 +807,14 @@ export function GstComplianceWorkspace({
               </p>
             ) : null}
 
-            {!hasReceipts ? (
+            {!hasVerifiedReceipts ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                <p className="font-medium">No receipts in this period</p>
+                <p className="font-medium">
+                  No verified receipts in this period
+                </p>
                 <p className="mt-1 text-xs">
-                  Try a wider date range, import receipts, or upload new
-                  expenses to generate an export.
+                  Try a wider date range, verify receipts, or upload new
+                  expenses before generating an export.
                 </p>
               </div>
             ) : null}
@@ -789,7 +828,7 @@ export function GstComplianceWorkspace({
               Summary by vendor
             </CardTitle>
             <CardDescription>
-              The first six grouped rows for the chosen period.
+              All grouped vendor rows for the chosen period.
             </CardDescription>
           </CardHeader>
           <CardContent
@@ -921,87 +960,106 @@ export function GstComplianceWorkspace({
               ) : null}
             </div>
           </CardHeader>
-          <CardContent
-            className="space-y-3 overflow-y-auto"
-            style={{ maxHeight: "500px" }}
-          >
-            {hasHistory ? (
-              <div className="space-y-3">
-                {historyItems.map((entry) => {
-                  const fileUrl = entry.file_path ?? null;
-                  return (
-                    <div
-                      key={entry.id}
-                      className="rounded-2xl border border-slate-200 p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-slate-950">
-                            {formatDate(entry.period_start)} to{" "}
-                            {formatDate(entry.period_end)}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Generated by {entry.generated_by_name} ·{" "}
-                            {formatDateTime(entry.generated_at)}
-                          </p>
+          <CardContent>
+            <div
+              ref={historyScrollRef}
+              className="space-y-3 overflow-y-auto"
+              style={{ maxHeight: "500px" }}
+            >
+              {hasHistory ? (
+                <div className="space-y-3">
+                  {historyItems.map((entry) => {
+                    const fileUrl = entry.file_path ?? null;
+                    void fileUrl; // kept for potential future use
+                    return (
+                      <div
+                        key={entry.id}
+                        className="rounded-2xl border border-slate-200 p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-950">
+                              {formatDate(entry.period_start)} to{" "}
+                              {formatDate(entry.period_end)}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Generated by {entry.generated_by_name} ·{" "}
+                              {formatDateTime(entry.generated_at)}
+                            </p>
+                          </div>
+                          <div className="text-right text-sm text-slate-700">
+                            <p>{formatMoney(entry.total_amount)}</p>
+                            <p className="text-xs text-slate-500">
+                              CGST {formatMoney(entry.total_cgst)} · SGST{" "}
+                              {formatMoney(entry.total_sgst)} · IGST{" "}
+                              {formatMoney(entry.total_igst)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right text-sm text-slate-700">
-                          <p>{formatMoney(entry.total_amount)}</p>
-                          <p className="text-xs text-slate-500">
-                            CGST {formatMoney(entry.total_cgst)} · SGST{" "}
-                            {formatMoney(entry.total_sgst)} · IGST{" "}
-                            {formatMoney(entry.total_igst)}
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {fileUrl ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {/* View as HTML in new tab */}
                           <button
                             type="button"
-                            onClick={() => {
-                              // Detect format from file path
-                              const format: "html" | "csv" | "pdf" =
-                                fileUrl.endsWith(".csv")
-                                  ? "csv"
-                                  : fileUrl.endsWith(".pdf")
-                                    ? "pdf"
-                                    : "html";
-                              handleViewFile(fileUrl, format);
-                            }}
+                            onClick={() =>
+                              window.open(
+                                `/api/compliance/gst-report/view/${entry.id}?format=html`,
+                                "_blank",
+                              )
+                            }
                             className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
                           >
-                            View file
+                            View HTML
                           </button>
-                        ) : (
+
+                          {/* Print as PDF */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              fetch(
+                                `/api/compliance/gst-report/view/${entry.id}?format=html`,
+                                { credentials: "include" },
+                              )
+                                .then((r) => r.text())
+                                .then((html) => printReportHtml(html))
+                                .catch(() =>
+                                  setErrorMessage(
+                                    "Unable to load report for printing.",
+                                  ),
+                                )
+                            }
+                            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                          >
+                            Print PDF
+                          </button>
+
                           <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
-                            Generating...
+                            Role {entry.generated_by_role}
                           </span>
-                        )}
-                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
-                          Role {entry.generated_by_role}
-                        </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-                {hasMoreHistory && (
-                  <button
-                    type="button"
-                    onClick={() => void loadMoreHistory()}
-                    disabled={isLoadingMore}
-                    className="w-full rounded-md border border-slate-200 bg-white py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    {isLoadingMore ? "Loading..." : "Load more"}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
-                No GST export history yet. Generate your first report and it
-                will appear here automatically.
-              </div>
-            )}
+                    );
+                  })}
+                  <div
+                    ref={historySentinelRef}
+                    aria-hidden="true"
+                    className="h-1"
+                  />
+                  {hasMoreHistory ? (
+                    <p className="text-center text-xs text-slate-500">
+                      {isLoadingMore
+                        ? "Loading more history..."
+                        : "Scroll to load more history."}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                  No GST export history yet. Generate your first report and it
+                  will appear here automatically.
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

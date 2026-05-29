@@ -68,12 +68,12 @@ function parseR2StoragePath(
 export type StoreGstExportInput = {
   tenantId: string;
   fileBuffer: Buffer;
-  filename: string;       // e.g. "gst-report-2026-01-01-2026-03-31.csv"
-  contentType: string;    // "text/csv" | "text/html"
+  filename: string; // e.g. "gst-report-2026-01-01-2026-03-31.csv"
+  contentType: string; // "text/csv" | "text/html"
 };
 
 export type StoredGstExport = {
-  storagePath: string;    // r2://bucket/gst-exports/...
+  storagePath: string; // r2://bucket/gst-exports/...
   objectKey: string;
 };
 
@@ -118,7 +118,9 @@ export async function storeGstExportFile(
  */
 export async function getGstExportSignedUrl(
   storagePath: string | null,
-  expiresInSeconds = Number(process.env.RECEIPT_SIGNED_URL_TTL_SECONDS || "900"),
+  expiresInSeconds = Number(
+    process.env.RECEIPT_SIGNED_URL_TTL_SECONDS || "900",
+  ),
 ): Promise<string | null> {
   if (!storagePath) return null;
 
@@ -133,4 +135,50 @@ export async function getGstExportSignedUrl(
     new GetObjectCommand({ Bucket: remote.bucket, Key: remote.key }),
     { expiresIn: expiresInSeconds },
   );
+}
+
+/**
+ * Fetch the stored GST export file contents from R2.
+ * Returns null when storage is unavailable or the path is invalid.
+ */
+export async function getGstExportFileContents(
+  storagePath: string | null,
+): Promise<string | null> {
+  if (!storagePath) {
+    return null;
+  }
+
+  const remote = parseR2StoragePath(storagePath);
+  if (!remote) {
+    return null;
+  }
+
+  const client = getS3Client();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const response = await client.client.send(
+      new GetObjectCommand({ Bucket: remote.bucket, Key: remote.key }),
+    );
+
+    if (response.Body) {
+      return response.Body.transformToString("utf-8");
+    }
+  } catch {
+    // Fall through to signed-URL fetch.
+  }
+
+  const signedUrl = await getGstExportSignedUrl(storagePath);
+  if (!signedUrl) {
+    return null;
+  }
+
+  const response = await fetch(signedUrl);
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.text();
 }

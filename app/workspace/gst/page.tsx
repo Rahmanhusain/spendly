@@ -38,11 +38,14 @@ async function GstData({
 }) {
   const { start, end } = getDefaultRange();
 
-  const [tenant, initialSummary, initialHistory] = await Promise.all([
+  const [tenant, initialSummary, initialHistoryWithExtra] = await Promise.all([
     getTenantById(authContext.tenantId),
     aggregateGstForPeriod(authContext.tenantId, start, end),
-    getGstExportHistoryForTenant(authContext.tenantId, 5),
+    getGstExportHistoryForTenant(authContext.tenantId, 6),
   ]);
+
+  const initialHistory = initialHistoryWithExtra.slice(0, 5);
+  const initialHasMoreHistory = initialHistoryWithExtra.length > 5;
 
   return (
     <GstComplianceWorkspace
@@ -57,6 +60,7 @@ async function GstData({
       initialEnd={end}
       initialSummary={initialSummary}
       initialHistory={initialHistory}
+      initialHasMoreHistory={initialHasMoreHistory}
     />
   );
 }
