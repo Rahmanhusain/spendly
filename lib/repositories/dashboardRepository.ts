@@ -393,8 +393,7 @@ export async function loadDashboardData(input: {
           AND r.receipt_date >= $3::date
           AND r.receipt_date < $4::date
         GROUP BY 1
-        ORDER BY COALESCE(SUM(r.amount), 0) DESC
-        LIMIT 6`
+        ORDER BY COALESCE(SUM(r.amount), 0) DESC`
       : `SELECT
           COALESCE(r.category, 'Uncategorized') AS category,
           COALESCE(SUM(r.amount), 0)::text AS amount,
@@ -406,8 +405,7 @@ export async function loadDashboardData(input: {
           AND r.receipt_date >= $2::date
           AND r.receipt_date < $3::date
         GROUP BY 1
-        ORDER BY COALESCE(SUM(r.amount), 0) DESC
-        LIMIT 6`,
+        ORDER BY COALESCE(SUM(r.amount), 0) DESC`,
     isEmployee
       ? [tenantId, userId, currentMonth.start, currentMonth.endExclusive]
       : [tenantId, currentMonth.start, currentMonth.endExclusive],

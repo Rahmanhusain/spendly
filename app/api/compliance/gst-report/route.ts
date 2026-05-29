@@ -7,15 +7,14 @@ import {
   createGstExportRecord,
 } from "@/lib/repositories/gstRepository";
 import renderer from "@/lib/services/gstExportRenderer";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
+import { storeGstExportFile } from "@/lib/storage/gst-export-storage";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
 
 /**
  * GET /api/compliance/gst-report?start=YYYY-MM-DD&end=YYYY-MM-DD
- * Returns aggregated GST data for the tenant
+ * Returns aggregated GST data for the tenant.
  */
 export async function GET(request: NextRequest) {
   const requestId = `req_${crypto.randomUUID()}`;
@@ -28,8 +27,6 @@ export async function GET(request: NextRequest) {
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext);
 
-    // Admins and managers always have access.
-    // Employees need the can_export_gst flag explicitly set.
     if (authContext!.role === "employee") {
       const userResult = await query<{ can_export_gst: boolean }>(
         `SELECT can_export_gst FROM users WHERE id = $1`,
@@ -54,7 +51,6 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await aggregateGstForPeriod(authContext!.tenantId, start, end);
-
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     logger.error("Failed to aggregate GST report", {
@@ -69,22 +65,21 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/compliance/gst-report/export
- * Generates an HTML report and persists an export record (returns downloadable HTML)
+ * POST /api/compliance/gst-report
+ * Generates an HTML report, uploads it to R2, records the export,
+ * and streams the file directly to the client.
  */
 export async function POST(request: NextRequest) {
   const requestId = `req_${crypto.randomUUID()}`;
   logger.info("GST report export request started", {
     requestId,
-    route: "/api/compliance/gst-report/export",
+    route: "/api/compliance/gst-report",
   });
 
   try {
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext);
 
-    // Admins and managers always have access.
-    // Employees need the can_export_gst flag explicitly set.
     if (authContext!.role === "employee") {
       const userResult = await query<{ can_export_gst: boolean }>(
         `SELECT can_export_gst FROM users WHERE id = $1`,
@@ -102,8 +97,8 @@ export async function POST(request: NextRequest) {
       start?: string;
       end?: string;
     };
-    const start = body.start || request.nextUrl.searchParams.get("start");
-    const end = body.end || request.nextUrl.searchParams.get("end");
+    const start = body.start ?? request.nextUrl.searchParams.get("start");
+    const end = body.end ?? request.nextUrl.searchParams.get("end");
 
     if (!start || !end) {
       return NextResponse.json(
@@ -126,19 +121,17 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
 
-    // Save HTML file under public/uploads/gst-exports
-    const uploadsDir = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      "gst-exports",
-    );
-    await mkdir(uploadsDir, { recursive: true });
-    const filename = `gst-report-${authContext!.tenantId}-${Date.now()}.html`;
-    const filePath = path.join(uploadsDir, filename);
-    await writeFile(filePath, html, "utf8");
+    const filename = `gst-report-${start}-${end}.html`;
+    const fileBuffer = Buffer.from(html, "utf8");
 
-    // Persist export record
+    // Upload to R2 — no local disk write
+    const stored = await storeGstExportFile({
+      tenantId: authContext!.tenantId,
+      fileBuffer,
+      filename,
+      contentType: "text/html; charset=utf-8",
+    });
+
     await createGstExportRecord({
       tenantId: authContext!.tenantId,
       generatedBy: authContext!.userId,
@@ -148,14 +141,19 @@ export async function POST(request: NextRequest) {
       totalCgst: data.totals.totalCgst,
       totalSgst: data.totals.totalSgst,
       totalIgst: data.totals.totalIgst,
-      filePath: `/uploads/gst-exports/${filename}`,
+      filePath: stored.storagePath,
     });
 
-    // Return HTML as downloadable attachment (future: convert to PDF with puppeteer)
-    return new NextResponse(html, {
+    logger.info("GST report exported and uploaded to R2", {
+      requestId,
+      storagePath: stored.storagePath,
+    });
+
+    // Stream the file directly to the browser
+    return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `attachment; filename="gst-report-${start}-${end}.html"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

@@ -234,14 +234,19 @@ async function DashboardData({
     },
   ];
 
-  const piePalette = [
-    "#0f172a",
-    "#10b981",
-    "#0ea5e9",
-    "#8b5cf6",
-    "#f97316",
-    "#14b8a6",
-  ];
+  // Generate a distinct colour for each category index.
+  // Uses a golden-angle HSL spread so colours stay visually separated
+  // regardless of how many categories exist.
+  function categoryColor(index: number, total: number): string {
+    if (total <= 1) return "#0f172a";
+    const hue = Math.round((index * 360) / total) % 360;
+    // Keep saturation and lightness in a range that looks good on white
+    const saturation = 65 + (index % 3) * 8;   // 65–81%
+    const lightness  = 38 + (index % 2) * 10;  // 38–48%
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }
+
+  const total = dashboard.categories.length;
   const categorySpendTotal = dashboard.categories.reduce(
     (sum, category) => sum + category.amount,
     0,
@@ -257,7 +262,7 @@ async function DashboardData({
         categorySpendTotal > 0
           ? (category.amount / categorySpendTotal) * 100
           : 0,
-      color: piePalette[index % piePalette.length],
+      color: categoryColor(index, total),
     })),
   ];
 

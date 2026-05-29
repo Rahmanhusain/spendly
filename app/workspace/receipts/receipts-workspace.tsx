@@ -130,6 +130,10 @@ export function ReceiptsWorkspace({
   initialSelectedDetails?: ReceiptListItem | null;
 }) {
   const [receiptRows, setReceiptRows] = useState(receipts);
+  const [allCategories, setAllCategories] = useState<string[]>(() => [
+    "all",
+    ...new Set(receipts.map((r) => r.category).filter(Boolean)),
+  ]);
   const [dateFrom, setDateFrom] = useState(initialDateFrom);
   const [dateTo, setDateTo] = useState(initialDateTo);
   const [showAll, setShowAll] = useState(true);
@@ -182,9 +186,7 @@ export function ReceiptsWorkspace({
     return null;
   }, [draftDateFrom, draftDateTo, isDateDialogOpen, todayIso]);
 
-  const categories = useMemo(() => {
-    return ["all", ...new Set(receiptRows.map((row) => row.category))];
-  }, [receiptRows]);
+  const categories = allCategories;
 
   const filteredReceipts = receiptRows;
 
@@ -275,6 +277,18 @@ export function ReceiptsWorkspace({
             : mergeUniqueReceipts(current, data.data!.receipts),
         );
 
+        // Keep the category dropdown populated with all known categories.
+        // Only update when no category filter is active so we capture the full set.
+        if (replace && categoryFilter === "all") {
+          setAllCategories((prev) => {
+            const incoming = data.data!.receipts
+              .map((r) => r.category)
+              .filter(Boolean);
+            const merged = new Set([...prev.filter((c) => c !== "all"), ...incoming]);
+            return ["all", ...merged];
+          });
+        }
+
         if (data.data.receipts.length > 0) {
           setSelectedReceiptId(
             (current) => current || data.data!.receipts[0]!.receiptId,
@@ -311,7 +325,7 @@ export function ReceiptsWorkspace({
         }
       }
     },
-    [buildFilterParams],
+    [buildFilterParams, categoryFilter],
   );
 
   const loadMore = useCallback(async () => {
