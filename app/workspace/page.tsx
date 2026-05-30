@@ -241,8 +241,8 @@ async function DashboardData({
     if (total <= 1) return "#0f172a";
     const hue = Math.round((index * 360) / total) % 360;
     // Keep saturation and lightness in a range that looks good on white
-    const saturation = 65 + (index % 3) * 8;   // 65–81%
-    const lightness  = 38 + (index % 2) * 10;  // 38–48%
+    const saturation = 65 + (index % 3) * 8; // 65–81%
+    const lightness = 38 + (index % 2) * 10; // 38–48%
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
 
