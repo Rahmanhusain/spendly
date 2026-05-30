@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 function InvitePageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const inviteId = searchParams.get("id");
   const token = searchParams.get("token");
@@ -49,13 +48,40 @@ function InvitePageContent() {
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error?.message || "Failed to accept invite");
       }
 
-      // Redirect to workspace
-      router.push("/workspace");
+      const workspaceTarget = new URL(
+        data.workspaceUrl ?? "/workspace",
+        window.location.origin,
+      );
+
+      if (data.tokens?.accessToken && data.tokens?.refreshToken) {
+        const bootstrapForm = document.createElement("form");
+        bootstrapForm.method = "POST";
+        bootstrapForm.action = `${workspaceTarget.origin}/api/auth/bootstrap`;
+        bootstrapForm.style.display = "none";
+
+        const accessTokenInput = document.createElement("input");
+        accessTokenInput.type = "hidden";
+        accessTokenInput.name = "accessToken";
+        accessTokenInput.value = data.tokens.accessToken;
+
+        const refreshTokenInput = document.createElement("input");
+        refreshTokenInput.type = "hidden";
+        refreshTokenInput.name = "refreshToken";
+        refreshTokenInput.value = data.tokens.refreshToken;
+
+        bootstrapForm.append(accessTokenInput, refreshTokenInput);
+        document.body.appendChild(bootstrapForm);
+        bootstrapForm.submit();
+        return;
+      }
+
+      window.location.assign(workspaceTarget.toString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -70,12 +96,6 @@ function InvitePageContent() {
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
             Invite
           </p>
-          <Link
-            href="/workspace"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-          >
-            Back to app
-          </Link>
         </div>
         <Card className="mx-auto max-w-md p-6">
           <h1 className="text-2xl font-bold mb-4">Invalid Invite</h1>

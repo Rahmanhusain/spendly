@@ -4,14 +4,20 @@ import {
   createUserFromInvite,
   acceptTeamInvite,
 } from "@/lib/repositories/teamRepository";
-import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
+import {
+  createSession,
+  getTenantById,
+  getUserById,
+} from "@/lib/repositories/authRepository";
 import { extractAuthContext } from "@/lib/middleware/auth";
 import { notifyInviteAccepted } from "@/lib/utils/notifications";
 import { createAuthTokens } from "@/lib/auth/tokens";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
+import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
 import logger from "@/lib/utils/logger";
 import { z } from "zod";
 import crypto from "crypto";
+import { hashToken } from "@/lib/auth/tokens";
 
 const acceptInviteSchema = z.object({
   inviteId: z.string().uuid(),
@@ -138,14 +144,35 @@ export async function POST(request: Request) {
       throw new Error("Workspace not found for invite acceptance.");
     }
 
+    const refreshTokenValue = crypto.randomUUID();
+    const refreshTokenHash = await hashToken(refreshTokenValue);
+    const expiresAt = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const session = await createSession(
+      tenant.id,
+      user.id,
+      refreshTokenHash,
+      expiresAt,
+      request.headers.get("x-forwarded-for") || undefined,
+      request.headers.get("user-agent") || undefined,
+    );
+
     // Create session and tokens
     const tokens = await createAuthTokens({
       userId: user.id,
       tenantId: user.tenant_id,
       tenantSlug: tenant.slug,
       role: user.role,
-      sessionId: crypto.randomUUID(),
+      sessionId: session.id,
     });
+
+    const workspaceUrl = buildTenantWorkspaceUrl(
+      tenant.slug,
+      request.url,
+      process.env.ROOT_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+    );
 
     const response = NextResponse.json(
       {
@@ -153,6 +180,7 @@ export async function POST(request: Request) {
         message: "Invite accepted successfully.",
         requestId,
         tokens,
+        workspaceUrl,
         workspace: {
           user: {
             id: user.id,
@@ -203,7 +231,8 @@ export async function POST(request: Request) {
     } catch (notifyErr) {
       logger.warn("Failed to send invite-accepted notification", {
         requestId,
-        error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+        error:
+          notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
       });
     }
     // ─────────────────────────────────────────────────────────────────────────

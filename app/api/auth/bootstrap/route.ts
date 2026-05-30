@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth/tokens";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
+import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
 import { normalizeRootDomain } from "@/lib/utils/tenant-host";
 import logger from "@/lib/utils/logger";
 import crypto from "crypto";
@@ -48,6 +49,34 @@ function addCorsHeaders(response: NextResponse, origin: string | null) {
   response.headers.set("Vary", "Origin");
 }
 
+function isNavigationRequest(request: Request): boolean {
+  const secFetchMode = request.headers.get("sec-fetch-mode");
+  const accept = request.headers.get("accept") || "";
+
+  return secFetchMode === "navigate" || accept.includes("text/html");
+}
+
+async function readBootstrapTokens(request: Request): Promise<{
+  accessToken?: string;
+  refreshToken?: string;
+}> {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return (await request.json()) as {
+      accessToken?: string;
+      refreshToken?: string;
+    };
+  }
+
+  const formData = await request.formData();
+
+  return {
+    accessToken: formData.get("accessToken")?.toString(),
+    refreshToken: formData.get("refreshToken")?.toString(),
+  };
+}
+
 export async function OPTIONS(request: Request) {
   const origin = getAllowedOrigin(request);
   const response = new NextResponse(null, { status: 204 });
@@ -66,10 +95,8 @@ export async function POST(request: Request) {
   });
 
   try {
-    const body = (await request.json()) as {
-      accessToken?: string;
-      refreshToken?: string;
-    };
+    const body = await readBootstrapTokens(request);
+    const isNavigation = isNavigationRequest(request);
 
     if (
       typeof body.accessToken !== "string" ||
@@ -77,17 +104,19 @@ export async function POST(request: Request) {
       typeof body.refreshToken !== "string" ||
       body.refreshToken.length === 0
     ) {
-      const response = NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "INVALID_PAYLOAD",
-            message: "Access and refresh token are required.",
-            requestId,
-          },
-        },
-        { status: 400 },
-      );
+      const response = isNavigation
+        ? NextResponse.redirect(new URL("/login", request.url), 303)
+        : NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "INVALID_PAYLOAD",
+                message: "Access and refresh token are required.",
+                requestId,
+              },
+            },
+            { status: 400 },
+          );
       addCorsHeaders(response, origin);
       return response;
     }
@@ -96,45 +125,58 @@ export async function POST(request: Request) {
     const refreshPayload = await verifyToken(body.refreshToken);
 
     if (!accessPayload || !refreshPayload) {
-      const response = NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "INVALID_TOKEN",
-            message: "Invalid token provided for bootstrap.",
-            requestId,
-          },
-        },
-        { status: 401 },
-      );
+      const response = isNavigation
+        ? NextResponse.redirect(new URL("/login", request.url), 303)
+        : NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "INVALID_TOKEN",
+                message: "Invalid token provided for bootstrap.",
+                requestId,
+              },
+            },
+            { status: 401 },
+          );
       addCorsHeaders(response, origin);
       return response;
     }
 
     if (accessPayload.userId !== refreshPayload.userId) {
-      const response = NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "TOKEN_MISMATCH",
-            message: "Bootstrap token mismatch.",
-            requestId,
-          },
-        },
-        { status: 401 },
-      );
+      const response = isNavigation
+        ? NextResponse.redirect(new URL("/login", request.url), 303)
+        : NextResponse.json(
+            {
+              ok: false,
+              error: {
+                code: "TOKEN_MISMATCH",
+                message: "Bootstrap token mismatch.",
+                requestId,
+              },
+            },
+            { status: 401 },
+          );
       addCorsHeaders(response, origin);
       return response;
     }
 
-    const response = NextResponse.json(
-      {
-        ok: true,
-        requestId,
-        message: "Auth bootstrap completed.",
-      },
-      { status: 200 },
+    const workspaceUrl = buildTenantWorkspaceUrl(
+      accessPayload.tenantSlug,
+      request.url,
+      process.env.ROOT_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
     );
+
+    const response = isNavigation
+      ? NextResponse.redirect(new URL(workspaceUrl), 303)
+      : NextResponse.json(
+          {
+            ok: true,
+            requestId,
+            message: "Auth bootstrap completed.",
+            workspaceUrl,
+          },
+          { status: 200 },
+        );
 
     response.cookies.set(
       "accessToken",
@@ -156,6 +198,7 @@ export async function POST(request: Request) {
       tenantId: accessPayload.tenantId,
       userId: accessPayload.userId,
       tenantSlug: accessPayload.tenantSlug,
+      workspaceUrl,
     });
 
     return response;
