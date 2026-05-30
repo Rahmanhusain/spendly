@@ -59,7 +59,7 @@ export function SiteHeader({
 
         <nav
           id="site-navigation"
-          className={`${isMenuOpen ? "flex" : "hidden"} absolute left-4 right-4 top-[calc(100%-0.25rem)] z-50 flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 text-sm text-slate-600 shadow-lg shadow-slate-200/70 lg:static lg:z-auto lg:flex lg:w-auto lg:flex-row lg:items-center lg:gap-1 lg:rounded-full lg:border-slate-200 lg:bg-slate-50 lg:p-1`}
+          className={`${isMenuOpen ? "flex" : "hidden"} absolute left-4 right-4 top-17 z-50 flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2 text-sm text-slate-600 shadow-lg shadow-slate-200/70 lg:static lg:z-auto lg:flex lg:w-auto lg:flex-row lg:items-center lg:gap-1 lg:rounded-full lg:border-slate-200 lg:bg-slate-50 lg:p-1`}
         >
           {navItems.map((item) => (
             <Link
