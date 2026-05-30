@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { createAuthCookieOptions } from "@/lib/auth/cookies";
 import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
+import { createAuthCookieOptions } from "@/lib/auth/cookies";
 
 // ── Secrets ───────────────────────────────────────────────────────────────────
 const JWT_SECRET = new TextEncoder().encode(
@@ -20,6 +20,12 @@ const INVITE_MANAGER_ROUTES = new Set([
 interface TenantTokenPayload {
   tenantSlug?: string;
   role?: "employee" | "manager" | "admin";
+}
+
+function redirectThroughLogout(request: NextRequest, nextPath = "/"): NextResponse {
+  return NextResponse.redirect(
+    new URL(`/api/auth/logout?next=${encodeURIComponent(nextPath)}`, request.url),
+  );
 }
 
 function getAdminPanelOrigin(): string | null {
@@ -86,14 +92,8 @@ export async function proxy(request: NextRequest) {
         }
       }
     } catch {
-      // Stale token — clear it and let the user through to the auth page
-      const response = NextResponse.next();
-      response.cookies.set(
-        "accessToken",
-        "",
-        createAuthCookieOptions(request, 0),
-      );
-      return response;
+      // Stale token — clear it via logout before sending the user back home.
+      return redirectThroughLogout(request);
     }
 
     // Valid token but no tenantSlug — fall back to /workspace
@@ -106,7 +106,7 @@ export async function proxy(request: NextRequest) {
   // Protect invite/manager routes
   if (INVITE_MANAGER_ROUTES.has(pathname)) {
     if (!accessToken) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return redirectThroughLogout(request);
     }
 
     try {
@@ -116,13 +116,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL("/workspace", request.url));
       }
     } catch {
-      const response = NextResponse.redirect(new URL("/login", request.url));
-      response.cookies.set(
-        "accessToken",
-        "",
-        createAuthCookieOptions(request, 0),
-      );
-      return response;
+      return redirectThroughLogout(request);
     }
   }
 

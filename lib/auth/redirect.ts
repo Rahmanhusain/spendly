@@ -26,3 +26,17 @@ export function redirectToLogin(): never {
 export function redirectToWorkspace(): never {
   redirect(ROUTES.workspace);
 }
+
+/**
+ * Redirect to the public home page.
+ */
+export function redirectToHome(): never {
+  redirect(ROUTES.home);
+}
+
+/**
+ * Redirect through the logout endpoint so auth cookies are cleared first.
+ */
+export function redirectToLogout(nextPath: string = ROUTES.home): never {
+  redirect(`/api/auth/logout?next=${encodeURIComponent(nextPath)}`);
+}
