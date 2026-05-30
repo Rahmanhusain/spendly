@@ -94,11 +94,6 @@ export default function TeamSetupPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-md">
-        <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
-            Team setup
-          </p>
-        </div>
 
         <Card className="p-6">
           <div className="mb-6 space-y-2">
