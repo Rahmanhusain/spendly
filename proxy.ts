@@ -12,7 +12,7 @@ const JWT_SECRET = new TextEncoder().encode(
 // ── Route sets ────────────────────────────────────────────────────────────────
 // Tenant auth: redirect to workspace if already logged in
 const AUTH_REDIRECT_ROUTES = new Set(["/", "/login", "/sign-up"]);
-const INVITE_MANAGER_ROUTES = new Set(["/team-setup", "/workspace/invites"]);
+const INVITE_MANAGER_ROUTES = new Set(["/workspace/team-setup", "/workspace/invites"]);
 
 interface TenantTokenPayload {
   tenantSlug?: string;

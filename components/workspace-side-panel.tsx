@@ -200,7 +200,7 @@ export function WorkspaceSidePanel({
                 </div>
               </div>
               <Link
-                href="/team-setup"
+                href="/workspace/team-setup"
                 className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-all duration-200 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-md hover:scale-105 active:scale-100"
               >
                 Invite teammates

@@ -345,7 +345,7 @@ async function DashboardData({
                 )}
                 {canReview ? (
                   <Link
-                    href="/team-setup"
+                    href="/workspace/team-setup"
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
                   >
                     <BadgePlus className="h-4 w-4" />

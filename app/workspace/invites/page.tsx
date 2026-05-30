@@ -57,7 +57,7 @@ async function InvitesData({ authContext }: { authContext: AuthContext }) {
           </div>
           {canManageMembers && (
             <Link
-              href="/team-setup"
+              href="/workspace/team-setup"
               className="inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-medium text-white transition-colors hover:bg-slate-900"
             >
               Invite teammates
