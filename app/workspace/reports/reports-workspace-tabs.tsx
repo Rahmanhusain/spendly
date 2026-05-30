@@ -32,19 +32,20 @@ export function ReportsWorkspaceTabs({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
           Reports
         </h1>
 
-        <div className="ml-auto flex flex-wrap gap-2">
+        <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
           <button
             type="button"
             onClick={() => setTab("reports")}
+            aria-pressed={tab === "reports"}
             className={
               tab === "reports"
-                ? "rounded-xl border border-slate-900 bg-slate-950 px-3 py-2 text-sm font-medium text-white"
-                : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                ? "w-full rounded-xl border border-slate-900 bg-slate-950 px-3 py-2 text-sm font-medium text-white sm:w-auto"
+                : "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
             }
           >
             Create/View reports
@@ -54,10 +55,11 @@ export function ReportsWorkspaceTabs({
             <button
               type="button"
               onClick={() => setTab("approvals")}
+              aria-pressed={tab === "approvals"}
               className={
                 tab === "approvals"
-                  ? "rounded-xl border border-slate-900 bg-slate-950 px-3 py-2 text-sm font-medium text-white"
-                  : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  ? "w-full rounded-xl border border-slate-900 bg-slate-950 px-3 py-2 text-sm font-medium text-white sm:w-auto"
+                  : "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
               }
             >
               Approvals
@@ -87,4 +89,3 @@ export function ReportsWorkspaceTabs({
     </div>
   );
 }
-

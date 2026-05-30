@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: "%s | Spendly",
   },
   description:
-    "India-first expense management for tenant onboarding, receipt capture, approvals, and GST-ready reporting.",
+    "India-first expense management for tenant onboarding, receipt upload, approvals, and GST-ready reporting.",
   icons: {
     icon: [
       { url: "/logo/app_favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },

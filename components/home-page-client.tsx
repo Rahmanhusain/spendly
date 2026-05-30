@@ -100,16 +100,16 @@ export default function HomePageClient() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:overflow-visible sm:pb-0">
               <Link
                 href="/sign-up"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-slate-800 hover:shadow-md"
+                className="inline-flex h-11 min-w-0 items-center justify-center rounded-full bg-slate-950 px-3 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-all duration-200 hover:bg-slate-800 hover:shadow-md sm:px-5"
               >
                 Start 15-day trial
               </Link>
               <Link
                 href="/#about"
-                className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:bg-slate-50"
+                className="inline-flex h-11 min-w-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 text-sm font-medium whitespace-nowrap text-slate-900 shadow-sm transition-colors hover:bg-slate-50 sm:px-5"
               >
                 See how it works
               </Link>

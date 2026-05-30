@@ -1294,13 +1294,13 @@ export function ExpenseReportWorkspace({
         {/* BROWSE_PANEL_START */}
         <div
           className={cn(
-            "grid gap-6",
+            "min-w-0 grid gap-6",
             showReportBrowser ? "lg:grid-cols-[1fr_1.2fr]" : "",
           )}
         >
           {/* ── Left column: New Report button + inline form + search + list ── */}
           {showReportBrowser ? (
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               {/* New Report button */}
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium uppercase tracking-widest text-slate-500">
@@ -1517,9 +1517,9 @@ export function ExpenseReportWorkspace({
           ) : null}
 
           {/* ── Right column: detail panel ── */}
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-slate-100">
-              <div>
+          <Card className="min-w-0 overflow-hidden border-slate-200 shadow-sm">
+            <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-3 border-b border-slate-100">
+              <div className="min-w-0">
                 <CardTitle className="text-lg text-slate-950">
                   {browseSelectedDetails?.report?.title ||
                     browseSelectedReport?.title ||
@@ -1531,7 +1531,7 @@ export function ExpenseReportWorkspace({
                     "Select a report to view its items, export, and print."}
                 </CardDescription>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex max-w-full flex-wrap justify-end gap-2">
                 {!showReportBrowser ? (
                   <a
                     href="/workspace/reports"
@@ -1570,7 +1570,7 @@ export function ExpenseReportWorkspace({
                 </button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="min-w-0 space-y-4">
               {/* CSV import section */}
               <div className="space-y-3">
                 <p className="text-sm font-medium text-slate-700">
@@ -1671,7 +1671,7 @@ export function ExpenseReportWorkspace({
                         Report ID
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <code className="rounded-md bg-white px-2 py-1 text-xs text-slate-700">
+                        <code className="max-w-full break-all rounded-md bg-white px-2 py-1 text-xs text-slate-700">
                           {browseDetailReportId}
                         </code>
                         <button
@@ -1758,9 +1758,9 @@ export function ExpenseReportWorkspace({
                           {browseSelectedDetails.items.map((item) => (
                             <div
                               key={item.id}
-                              className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
+                              className="flex min-w-0 items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
                             >
-                              <div className="flex-1 min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-slate-900 truncate">
                                   {item.vendor ?? "Unknown vendor"}
                                 </p>
