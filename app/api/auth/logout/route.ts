@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
 
+const PUBLIC_SITE_URL = "https://spendly.software";
+
 function buildRedirectTarget(request: Request): URL {
   const url = new URL(request.url);
-  const nextPath = url.searchParams.get("next") || "/";
+  const nextPath = url.searchParams.get("next") || PUBLIC_SITE_URL;
 
-  return new URL(nextPath, request.url);
+  if (nextPath === "/") {
+    return new URL(PUBLIC_SITE_URL);
+  }
+
+  return new URL(nextPath, nextPath.startsWith("http") ? undefined : request.url);
 }
 
 function clearSessionCookies(request: Request, response: NextResponse) {

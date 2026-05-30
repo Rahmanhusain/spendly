@@ -1,18 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ROUTES } from "@/lib/auth/redirect";
+import { PUBLIC_SITE_URL } from "@/lib/auth/redirect";
 
 type LogoutButtonProps = {
   className?: string;
 };
 
 export function LogoutButton({ className }: LogoutButtonProps) {
-  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -26,8 +24,7 @@ export function LogoutButton({ className }: LogoutButtonProps) {
         },
       });
     } finally {
-      router.replace(ROUTES.home);
-      router.refresh();
+      window.location.assign(PUBLIC_SITE_URL);
     }
   };
 

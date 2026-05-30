@@ -22,9 +22,15 @@ interface TenantTokenPayload {
   role?: "employee" | "manager" | "admin";
 }
 
-function redirectThroughLogout(request: NextRequest, nextPath = "/"): NextResponse {
+function redirectThroughLogout(
+  request: NextRequest,
+  nextPath = "/",
+): NextResponse {
   return NextResponse.redirect(
-    new URL(`/api/auth/logout?next=${encodeURIComponent(nextPath)}`, request.url),
+    new URL(
+      `/api/auth/logout?next=${encodeURIComponent(nextPath)}`,
+      request.url,
+    ),
   );
 }
 

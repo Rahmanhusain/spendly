@@ -10,6 +10,8 @@ export const ROUTES = {
   workspace: "/workspace",
 } as const;
 
+export const PUBLIC_SITE_URL = "https://spendly.software";
+
 // ─── Redirect helpers ─────────────────────────────────────────────────────────
 
 /**
