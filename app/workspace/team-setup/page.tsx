@@ -98,12 +98,6 @@ export default function TeamSetupPage() {
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
             Team setup
           </p>
-          <Link
-            href="/workspace"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-          >
-            Back to app
-          </Link>
         </div>
 
         <Card className="p-6">
