@@ -11,7 +11,10 @@ function buildRedirectTarget(request: Request): URL {
     return new URL(PUBLIC_SITE_URL);
   }
 
-  return new URL(nextPath, nextPath.startsWith("http") ? undefined : request.url);
+  return new URL(
+    nextPath,
+    nextPath.startsWith("http") ? undefined : request.url,
+  );
 }
 
 function clearSessionCookies(request: Request, response: NextResponse) {
