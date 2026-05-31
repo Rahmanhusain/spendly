@@ -10,7 +10,10 @@ export const ROUTES = {
   workspace: "/workspace",
 } as const;
 
-export const PUBLIC_SITE_URL = "https://spendly.software";
+export const PUBLIC_SITE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.APP_URL ||
+  "https://spendly.software";
 
 // ─── Redirect helpers ─────────────────────────────────────────────────────────
 
