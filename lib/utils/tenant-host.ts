@@ -50,8 +50,21 @@ function resolveTenantRoutingMode(hostname?: string): TenantRoutingMode {
     process.env.TENANT_ROUTING_MODE ||
     process.env.NEXT_PUBLIC_TENANT_ROUTING_MODE;
 
+  const normalizedHost = hostname?.toLowerCase();
+
+  // Production/custom domains must always use tenant subdomains.
+  // Keep path mode only for localhost and preview hosts where subdomains are
+  // either unavailable or intentionally routed by path.
+  if (
+    normalizedHost &&
+    !isLocalhostFamily(normalizedHost) &&
+    !isVercelAppHostname(normalizedHost)
+  ) {
+    return "subdomain";
+  }
+
   if (!raw) {
-    if (hostname && isLocalhostFamily(hostname.toLowerCase())) {
+    if (normalizedHost && isLocalhostFamily(normalizedHost)) {
       return "path";
     }
 
