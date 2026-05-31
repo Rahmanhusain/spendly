@@ -30,6 +30,27 @@ function buildRedirectTarget(request: Request): URL {
     }
   }
 
+  const hostname = url.hostname.toLowerCase();
+
+  // If running on localhost-family subdomain (tenant.localhost), redirect
+  // to the base localhost root (preserve port) so users land on the marketing
+  // site instead of remaining on the tenant host.
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    const port = url.port ? `:${url.port}` : "";
+    return new URL(`${url.protocol}//localhost${port}/`);
+  }
+
+  // If we are on a tenant subdomain under a configured root domain,
+  // redirect to the root domain (e.g., spendly.software) so the user lands
+  // on the canonical public site after logout.
+  const root = normalizeRootDomain(
+    process.env.ROOT_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+  );
+  if (root && (hostname === root || hostname.endsWith(`.${root}`))) {
+    const protocol = url.protocol || "https:";
+    return new URL(`${protocol}//${root}/`);
+  }
+
   // Default: marketing home on the same origin
   return new URL("/", url.origin);
 }
