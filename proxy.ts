@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
+import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
 
 // ── Secrets ───────────────────────────────────────────────────────────────────
 const JWT_SECRET = new TextEncoder().encode(
@@ -26,12 +26,11 @@ function redirectThroughLogout(
   request: NextRequest,
   nextPath = "/",
 ): NextResponse {
-  return NextResponse.redirect(
-    new URL(
-      `/api/auth/logout?next=${encodeURIComponent(nextPath)}`,
-      request.url,
-    ),
-  );
+  const response = NextResponse.redirect(new URL(nextPath, request.url));
+  const expiredCookieOptions = createAuthCookieOptions(request, 0);
+  response.cookies.set("accessToken", "", expiredCookieOptions);
+  response.cookies.set("refreshToken", "", expiredCookieOptions);
+  return response;
 }
 
 function getAdminPanelOrigin(): string | null {

@@ -311,17 +311,15 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const isCrossOrigin = absoluteTargetUrl.origin !== window.location.origin;
 
       if (result.tokens?.accessToken && result.tokens?.refreshToken) {
-        console.info(
-          "[AuthForm] Bootstrapping auth cookies on workspace host",
-          {
-            mode,
-            targetOrigin: absoluteTargetUrl.origin,
-            isCrossOrigin,
-          },
-        );
+        // With path-based routing, bootstrap is always same-origin.
+        // With subdomain routing, bootstrap goes to the tenant subdomain.
+        // Either way, call bootstrap then navigate.
+        const bootstrapOrigin = isCrossOrigin
+          ? absoluteTargetUrl.origin
+          : window.location.origin;
 
         const bootstrapResponse = await fetch(
-          `${absoluteTargetUrl.origin}/api/auth/bootstrap`,
+          `${bootstrapOrigin}/api/auth/bootstrap`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -342,40 +340,18 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           console.error("[AuthForm] Cookie bootstrap failed", {
             mode,
             status: bootstrapResponse.status,
-            targetOrigin: absoluteTargetUrl.origin,
             message: bootstrapResult.error?.message,
-            isCrossOrigin,
           });
-
-          if (isCrossOrigin) {
-            setStatus({
-              kind: "error",
-              message:
-                bootstrapResult.error?.message ??
-                "Signed in but failed to establish tenant session on workspace host.",
-            });
-            return;
-          }
-
-          console.warn(
-            "[AuthForm] Continuing with same-origin redirect despite bootstrap failure",
-            { mode, targetOrigin: absoluteTargetUrl.origin },
-          );
+          setStatus({
+            kind: "error",
+            message:
+              bootstrapResult.error?.message ??
+              "Signed in but failed to establish session. Please try again.",
+          });
+          return;
         }
-
-        console.info("[AuthForm] Cookie bootstrap succeeded", {
-          mode,
-          targetOrigin: absoluteTargetUrl.origin,
-        });
       }
 
-      console.info("[AuthForm] Navigating to workspace", {
-        mode,
-        targetUrl: absoluteTargetUrl.toString(),
-      });
-
-      // Show the redirect overlay, then navigate after a short frame so the
-      // overlay has time to paint before the browser starts loading the new page.
       setIsRedirecting(true);
       setTimeout(() => {
         window.location.assign(absoluteTargetUrl.toString());

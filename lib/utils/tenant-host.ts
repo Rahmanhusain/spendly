@@ -45,12 +45,16 @@ function deriveBaseDomain(hostname: string): string {
   return parts.slice(1).join(".");
 }
 
-function resolveTenantRoutingMode(): TenantRoutingMode {
+function resolveTenantRoutingMode(hostname?: string): TenantRoutingMode {
   const raw =
     process.env.TENANT_ROUTING_MODE ||
     process.env.NEXT_PUBLIC_TENANT_ROUTING_MODE;
 
   if (!raw) {
+    if (hostname && isLocalhostFamily(hostname.toLowerCase())) {
+      return "path";
+    }
+
     return "subdomain";
   }
 
@@ -95,10 +99,11 @@ export function buildTenantWorkspaceUrl(
   const port = url.port;
   const normalizedRoot = normalizeRootDomain(rootDomain);
   const slug = tenantSlug.toLowerCase();
-  const routingMode = resolveTenantRoutingMode();
+  const routingMode = resolveTenantRoutingMode(hostname);
 
   if (routingMode === "path") {
-    const hostWithPort = port ? `${hostname}:${port}` : hostname;
+    const host = isLocalhostFamily(hostname) ? LOCALHOST : hostname;
+    const hostWithPort = port ? `${host}:${port}` : host;
     return `${url.protocol}//${hostWithPort}/workspace`;
   }
 

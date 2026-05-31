@@ -4,7 +4,6 @@ import { useState } from "react";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PUBLIC_SITE_URL } from "@/lib/auth/redirect";
 
 type LogoutButtonProps = {
   className?: string;
@@ -19,12 +18,11 @@ export function LogoutButton({ className }: LogoutButtonProps) {
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
     } finally {
-      window.location.assign(PUBLIC_SITE_URL);
+      // Go to marketing home — login only shows when accessing protected routes
+      window.location.assign("/");
     }
   };
 
