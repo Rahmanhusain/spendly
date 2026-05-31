@@ -7,7 +7,8 @@ const footerLinks = [
   { label: "About", href: "/about" },
   { label: "How it works", href: "/how-it-works" },
   { label: "Contact", href: "/contact" },
-  { label: "Legal", href: "/legal" }
+  { label: "Legal", href: "/legal" },
+  { label: "Refund policy", href: "/legal?scroll=refund#refund-policy" },
 ];
 
 const structuredData = {
@@ -42,7 +43,6 @@ export function SiteFooter() {
       />
 
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.4fr_0.8fr_1fr] lg:px-8">
-
         {/* Brand */}
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -61,7 +61,8 @@ export function SiteFooter() {
             reporting for teams that want a professional workflow.
           </p>
           <p className="text-xs text-slate-400">
-            Designed for Indian businesses — founders, managers, and finance teams.
+            Designed for Indian businesses — founders, managers, and finance
+            teams.
           </p>
         </div>
 
@@ -121,7 +122,8 @@ export function SiteFooter() {
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-xs text-slate-500 sm:px-6 lg:px-8">
           <p>© 2026 Spendly. All rights reserved.</p>
           <p>
-            India-first expense management — Receipt uploads, approvals &amp; GST reporting.
+            India-first expense management — Receipt uploads, approvals &amp;
+            GST reporting.
           </p>
         </div>
       </div>

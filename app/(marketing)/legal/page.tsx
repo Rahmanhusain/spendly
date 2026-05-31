@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AnimatedPageContent } from "@/components/animated-page-content";
+import HashScroller from "@/components/hash-scroller";
 import { Scale, Lock, Database, Clock, ShieldAlert } from "lucide-react";
 
 export const metadata = buildPageMetadata({
@@ -44,6 +45,11 @@ const sections = [
     title: "Changes to this policy",
     body: "We may update these terms as the product evolves. Significant changes will be communicated through the product or via email. Continued use of Spendly after changes constitutes acceptance of the updated terms.",
   },
+  {
+    icon: ShieldAlert,
+    title: "Refund policy",
+    body: "We provide a 15-day free trial without requiring a credit card. After a subscription is activated we do not provide refunds, except when a payment error occurs due to an issue on our side. If a payment fails because of our system during checkout, please contact support and we will investigate and refund where appropriate.",
+  },
 ];
 
 const highlights = [
@@ -58,8 +64,8 @@ export default function LegalPage() {
   return (
     <main className="min-h-[calc(100vh-18.625rem)] bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.06),transparent_28%),linear-gradient(to_bottom,rgba(255,255,255,1),rgba(248,250,252,1))]">
       <AnimatedPageContent>
+        <HashScroller />
         <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-
           {/* Hero — matches how-it-works layout */}
           <div className="grid gap-4 lg:grid-cols-[1.25fr_0.92fr] lg:items-start">
             <div className="space-y-6">
@@ -112,7 +118,6 @@ export default function LegalPage() {
 
           {/* Policy sections + navigation */}
           <div className="mt-10 grid gap-4 lg:grid-cols-7">
-
             {/* Policy content */}
             <Card className="lg:col-span-4 border-slate-200 shadow-sm">
               <CardHeader>
@@ -126,7 +131,15 @@ export default function LegalPage() {
               </CardHeader>
               <CardContent className="space-y-5">
                 {sections.map((section, index) => (
-                  <div key={section.title} className="space-y-4">
+                  <section
+                    key={section.title}
+                    id={
+                      section.title === "Refund policy"
+                        ? "refund-policy"
+                        : undefined
+                    }
+                    className="space-y-4"
+                  >
                     {index > 0 && <Separator />}
                     <div className="flex items-start gap-4 pt-1">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700">
@@ -141,7 +154,7 @@ export default function LegalPage() {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </section>
                 ))}
               </CardContent>
             </Card>
@@ -210,7 +223,6 @@ export default function LegalPage() {
               </Card>
             </div>
           </div>
-
         </section>
       </AnimatedPageContent>
     </main>
