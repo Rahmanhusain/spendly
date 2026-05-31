@@ -31,6 +31,15 @@ function buildRedirectTarget(request: Request): URL {
   }
 
   const hostname = url.hostname.toLowerCase();
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (publicAppUrl) {
+    try {
+      return new URL(publicAppUrl);
+    } catch {
+      // Fall through to host-based defaults if the env var is invalid.
+    }
+  }
 
   // If running on localhost-family subdomain (tenant.localhost), redirect
   // to the base localhost root (preserve port) so users land on the marketing
@@ -96,7 +105,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const response = NextResponse.json({ ok: true, message: "Logged out." });
+  const response = NextResponse.json({
+    ok: true,
+    message: "Logged out.",
+    redirectTo: process.env.NEXT_PUBLIC_APP_URL ?? "/",
+  });
   clearSessionCookies(request, response);
   return response;
 }

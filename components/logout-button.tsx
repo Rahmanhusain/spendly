@@ -11,18 +11,26 @@ type LogoutButtonProps = {
 
 export function LogoutButton({ className }: LogoutButtonProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "/";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
 
     try {
-      await fetch("/api/auth/logout", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
+
+      const result = (await response.json().catch(() => null)) as {
+        redirectTo?: string;
+      } | null;
+
+      const target = result?.redirectTo || appUrl;
+
+      window.location.assign(target);
     } finally {
-      // Go to marketing home — login only shows when accessing protected routes
-      window.location.assign("/");
+      setIsLoggingOut(false);
     }
   };
 
