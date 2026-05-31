@@ -39,6 +39,6 @@ export function redirectToHome(): never {
 /**
  * Redirect through the logout endpoint so auth cookies are cleared first.
  */
-export function redirectToLogout(nextPath: string = ROUTES.home): never {
+export function redirectToLogout(nextPath: string = PUBLIC_SITE_URL): never {
   redirect(`/api/auth/logout?next=${encodeURIComponent(nextPath)}`);
 }

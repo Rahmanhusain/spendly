@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
 import { buildTenantWorkspaceUrl } from "@/lib/utils/tenant-host";
+import { PUBLIC_SITE_URL } from "@/lib/auth/redirect";
 
 // ── Secrets ───────────────────────────────────────────────────────────────────
 const JWT_SECRET = new TextEncoder().encode(
@@ -24,7 +25,7 @@ interface TenantTokenPayload {
 
 function redirectThroughLogout(
   request: NextRequest,
-  nextPath = "/",
+  nextPath = PUBLIC_SITE_URL,
 ): NextResponse {
   const response = NextResponse.redirect(new URL(nextPath, request.url));
   const expiredCookieOptions = createAuthCookieOptions(request, 0);

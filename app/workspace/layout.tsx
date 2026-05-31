@@ -2,7 +2,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { buildPageMetadata } from "@/lib/seo";
-import { redirectToLogout } from "@/lib/auth/redirect";
+import { PUBLIC_SITE_URL, redirectToLogout } from "@/lib/auth/redirect";
 
 export const metadata = buildPageMetadata({
   title: "Workspace",
@@ -19,7 +19,7 @@ export default async function WorkspaceLayout({
   const authContext = await getServerAuthContext();
 
   if (!authContext) {
-    redirectToLogout();
+    redirectToLogout(PUBLIC_SITE_URL);
   }
 
   const [user, tenant] = await Promise.all([

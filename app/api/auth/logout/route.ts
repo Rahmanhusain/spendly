@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
+import { PUBLIC_SITE_URL } from "@/lib/auth/redirect";
 import {
   normalizeRootDomain,
   getCookieDomainForHostname,
@@ -31,7 +32,7 @@ function buildRedirectTarget(request: Request): URL {
   }
 
   const hostname = url.hostname.toLowerCase();
-  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL || PUBLIC_SITE_URL;
 
   if (publicAppUrl) {
     try {
