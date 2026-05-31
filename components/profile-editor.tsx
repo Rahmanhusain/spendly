@@ -67,6 +67,7 @@ export default function ProfileEditor({
   tenant: Tenant;
   role: string;
 }) {
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? "/";
   const displayName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
   const canEditOrg = role === "admin";
 
@@ -215,9 +216,14 @@ export default function ProfileEditor({
         setConfirmPassword("");
         setPasswordOtp("");
         setTimeout(() => {
+          window.location.assign(
+            `/api/auth/logout?next=${encodeURIComponent(publicAppUrl)}`,
+          );
+        }, 900);
+        setTimeout(() => {
           setShowPasswordForm(false);
           setPasswordMessage("");
-        }, 2000);
+        }, 1200);
       } else {
         const err = await res.json();
         setPasswordMessage(err.error?.message || "Failed to change password");
