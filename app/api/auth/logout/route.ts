@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAuthCookieOptions } from "@/lib/auth/cookies";
+import {
+  normalizeRootDomain,
+  getCookieDomainForHostname,
+} from "@/lib/utils/tenant-host";
 
 /**
  * Build the post-logout redirect target.
@@ -32,8 +36,36 @@ function buildRedirectTarget(request: Request): URL {
 
 function clearSessionCookies(request: Request, response: NextResponse) {
   const expiredCookieOptions = createAuthCookieOptions(request, 0);
-  response.cookies.set("accessToken", "", expiredCookieOptions);
-  response.cookies.set("refreshToken", "", expiredCookieOptions);
+
+  // Always clear host-only cookies (no domain attribute)
+  const hostOnlyOpts = { ...expiredCookieOptions } as any;
+  delete hostOnlyOpts.domain;
+  response.cookies.set("accessToken", "", hostOnlyOpts);
+  response.cookies.set("refreshToken", "", hostOnlyOpts);
+
+  // Also clear domain-scoped cookies (root domain) if applicable
+  try {
+    const url = new URL(request.url);
+    const hostname = url.hostname.toLowerCase();
+    const root = normalizeRootDomain(
+      process.env.ROOT_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+    );
+    const cookieDomain = getCookieDomainForHostname(
+      hostname,
+      root ?? undefined,
+    );
+
+    if (cookieDomain) {
+      const domainOpts = {
+        ...expiredCookieOptions,
+        domain: cookieDomain,
+      } as any;
+      response.cookies.set("accessToken", "", domainOpts);
+      response.cookies.set("refreshToken", "", domainOpts);
+    }
+  } catch {
+    // ignore URL parse errors and rely on host-only clear above
+  }
 }
 
 export async function GET(request: Request) {
