@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { AnimatedPageContent } from "@/components/animated-page-content";
-import { Mail, MessageSquare, Clock, CheckCircle2 } from "lucide-react";
+import { Mail, MessageSquare, Clock, CheckCircle2, Phone } from "lucide-react";
 
 const contactReasons = [
   { value: "complaint", label: "Complaint" },
@@ -32,8 +32,20 @@ const infoItems = [
     icon: Mail,
     title: "Email us directly",
     description: "For detailed questions or formal requests.",
-    detail: "support@spendly.software",
-    href: "mailto:support@spendly.software",
+    detail: null,
+    href: null,
+    emails: [
+      { label: "support@spendly.software", href: "mailto:support@spendly.software" },
+      { label: "rahmanhusain899@gmail.com", href: "mailto:rahmanhusain899@gmail.com" },
+    ],
+  },
+  {
+    icon: Phone,
+    title: "Phone",
+    description: "Call us during business hours.",
+    detail: "+91 92055 82846",
+    href: "tel:+919205582846",
+    emails: undefined,
   },
   {
     icon: Clock,
@@ -41,6 +53,7 @@ const infoItems = [
     description: "We aim to respond within one business day.",
     detail: "Mon – Fri, 10 AM – 6 PM IST",
     href: null,
+    emails: undefined,
   },
   {
     icon: MessageSquare,
@@ -48,6 +61,7 @@ const infoItems = [
     description: "Your workspace name, role, and a clear description of the issue.",
     detail: null,
     href: null,
+    emails: undefined,
   },
 ];
 
@@ -127,6 +141,9 @@ export default function ContactPage() {
                   How it works
                 </Link>
               </div>
+              <p className="text-sm text-slate-500">
+                Operated by: <span className="font-medium text-slate-500">Rahman Husain</span>
+              </p>
             </div>
 
             {/* Info card */}
@@ -140,7 +157,7 @@ export default function ContactPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                {infoItems.map(({ icon: Icon, title, description, detail, href }, index) => (
+                {infoItems.map(({ icon: Icon, title, description, detail, href, emails }, index) => (
                   <div key={title} className="space-y-4">
                     {index > 0 && <Separator />}
                     <div className="flex items-start gap-4 pt-1">
@@ -150,6 +167,13 @@ export default function ContactPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-semibold text-slate-950">{title}</p>
                         <p className="text-sm leading-6 text-slate-600">{description}</p>
+                        {emails && (
+                          <div className="flex flex-col w-fit items-start gap-0.5 text-sm font-medium text-slate-950">
+                            <a href={emails[0].href} className="underline-offset-4 hover:underline">{emails[0].label}</a>
+                            <span className="text-xs text-center w-full text-slate-400">or</span>
+                            <a href={emails[1].href} className="underline-offset-4 hover:underline">{emails[1].label}</a>
+                          </div>
+                        )}
                         {detail && href && (
                           <a
                             href={href}

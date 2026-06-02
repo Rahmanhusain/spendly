@@ -17,7 +17,7 @@ export default function HashScroller() {
         try {
           const url = new URL(window.location.href);
           const p = url.searchParams.get("scroll");
-          if (p === "refund") shouldScroll = true;
+          if (p) shouldScroll = true;
         } catch {}
 
         if (!shouldScroll) {

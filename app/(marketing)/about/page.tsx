@@ -15,7 +15,7 @@ import { ClipboardList, ShieldCheck, FileSpreadsheet, Users, BarChart3, Zap } fr
 export const metadata = buildPageMetadata({
   title: "About",
   description:
-    "Spendly is an India-first expense management platform for structured approvals and GST-ready reporting.",
+    "Spendly is a personal finance and expense management platform for individuals and teams — independently developed software for tracking expenses, managing budgets, and gaining financial insights.",
 });
 
 const pillars = [
@@ -79,12 +79,17 @@ export default function AboutPage() {
               About Spendly
             </Badge>
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              Built for teams that want a cleaner expense workflow.
+              Personal finance and expense management, built for teams.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-              Spendly replaces scattered expense submissions, chat-based
-              approvals, and spreadsheet reporting with a single, professional
-              product experience — designed specifically for Indian businesses.
+              Spendly is a personal finance and expense management platform that
+              helps individuals and teams track expenses, manage budgets, and
+              gain clear financial insights — with structured approvals and
+              GST-ready reporting built in for Indian businesses.
+            </p>
+            <p className="max-w-2xl text-sm leading-7 text-slate-500">
+              Spendly is an independently developed software project, designed
+              and built to solve real expense workflow problems for Indian teams.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
@@ -126,9 +131,10 @@ export default function AboutPage() {
                   What Spendly is
                 </CardTitle>
                 <CardDescription className="text-sm leading-7">
-                  A workspace-based expense management platform for teams that
-                  need structured reporting, structured approvals, and reliable
-                  compliance exports.
+                  A personal finance and expense management platform for
+                  individuals and teams — track expenses, manage budgets, gain
+                  financial insights, and run structured approvals with
+                  GST-ready compliance exports.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
@@ -157,21 +163,22 @@ export default function AboutPage() {
             <div className="space-y-4">
               <Card className="border-slate-200 bg-slate-900 text-white shadow-lg shadow-slate-300/40">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-white">
+                  <CardTitle className="text-2xl text-slate-950">
                     Why we built it
                   </CardTitle>
-                  <CardDescription className="text-slate-300">
+                  <CardDescription className="">
                     The problem was real and the existing tools weren&apos;t
                     designed for Indian teams.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm leading-7 text-slate-300">
+                <CardContent className="space-y-3 text-sm leading-7 text-slate-500">
                   <p>
                     Most expense tools are built for Western markets and bolt on
                     GST support as an afterthought.
                   </p>
                   <p>
-                    Spendly is designed from the ground up for Indian compliance
+                    Spendly is an independently developed software project,
+                    designed from the ground up for Indian compliance
                     requirements, team structures, and approval workflows.
                   </p>
                   <p>

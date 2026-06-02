@@ -11,7 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AnimatedPageContent } from "@/components/animated-page-content";
 import HashScroller from "@/components/hash-scroller";
-import { Scale, Lock, Database, Clock, ShieldAlert } from "lucide-react";
+import { Scale, Lock, Database, Clock, ShieldAlert, CreditCard } from "lucide-react";
 
 export const metadata = buildPageMetadata({
   title: "Terms and Privacy",
@@ -49,6 +49,11 @@ const sections = [
     icon: ShieldAlert,
     title: "Refund policy",
     body: "We provide a 15-day free trial without requiring a credit card. After a subscription is activated we do not provide refunds, except when a payment error occurs due to an issue on our side. If a payment fails because of our system during checkout, please contact support and we will investigate and refund where appropriate.",
+  },
+  {
+    icon: CreditCard,
+    title: "Payments",
+    body: "Payments collected through the payment gateway are used for software subscriptions and premium features offered by Spendly. No physical products are sold.",
   },
 ];
 
@@ -136,6 +141,8 @@ export default function LegalPage() {
                     id={
                       section.title === "Refund policy"
                         ? "refund-policy"
+                        : section.title === "Payments"
+                        ? "payments"
                         : undefined
                     }
                     className="space-y-4"

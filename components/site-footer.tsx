@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, Clock } from "lucide-react";
+import { Mail, Clock, Phone } from "lucide-react";
 
 const footerLinks = [
   { label: "Home", href: "/" },
@@ -9,6 +9,7 @@ const footerLinks = [
   { label: "Contact", href: "/contact" },
   { label: "Legal", href: "/legal" },
   { label: "Refund policy", href: "/legal?scroll=refund#refund-policy" },
+  { label: "Payments", href: "/legal?scroll=payments#payments" },
 ];
 
 const structuredData = {
@@ -64,6 +65,7 @@ export function SiteFooter() {
             Designed for Indian businesses — founders, managers, and finance
             teams.
           </p>
+          <p className="text-xs text-slate-500">Operated by: Rahman Husain</p>
         </div>
 
         {/* Navigation */}
@@ -94,6 +96,22 @@ export function SiteFooter() {
             >
               <Mail className="h-4 w-4 shrink-0 text-slate-400" />
               support@spendly.software
+            </a>
+            <a
+              href="mailto:rahmanhusain899@gmail.com"
+              className="flex items-center gap-2.5 text-sm text-slate-600 transition-colors hover:text-slate-950"
+              aria-label="Email Rahman Husain"
+            >
+              <Mail className="h-4 w-4 shrink-0 text-slate-400" />
+              rahmanhusain899@gmail.com
+            </a>
+            <a
+              href="tel:+919205582846"
+              className="flex items-center gap-2.5 text-sm text-slate-600 transition-colors hover:text-slate-950"
+              aria-label="Call Spendly support"
+            >
+              <Phone className="h-4 w-4 shrink-0 text-slate-400" />
+              +91 92055 82846
             </a>
             <div className="flex items-start gap-2.5 text-sm text-slate-600">
               <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
