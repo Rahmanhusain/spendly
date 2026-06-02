@@ -10,6 +10,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Override Tailwind v4 spacing to rem so clamp() on html font-size scales
+     padding, margin, gap, width, height — everything — not just text. */
+  --spacing: 0.25rem;
 }
 
 /* Smooth page transitions */
@@ -75,6 +78,8 @@
 
 html {
   scroll-behavior: smooth;
+  /* Base: Linux/Mac 1x displays — full size */
+  font-size: clamp(10px, 0.9vw, 16px);
 }
 
 body {

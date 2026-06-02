@@ -35,7 +35,7 @@ export function WorkspaceShell({
         userLabel={userLabel}
       />
 
-      <div className="grid w-full gap-0 lg:grid-cols-[280px_1fr]">
+      <div className="grid w-full gap-0 lg:grid-cols-[17.5rem_1fr]">
         <WorkspaceSidePanel
           orgName={orgName}
           tenantId={tenantId}
