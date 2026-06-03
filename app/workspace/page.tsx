@@ -8,6 +8,7 @@ import { DateRangeSelector } from "@/components/date-range-selector";
 import { SpendTimelineChart } from "@/components/spend-timeline-chart";
 import { DashboardExportButton } from "@/components/dashboard-export-button";
 import DashboardActivityClient from "@/components/dashboard-activity-client";
+import DashboardQueueClient, { type QueueItem } from "@/components/dashboard-queue-client";
 import {
   loadDashboardData,
   type DashboardRole,
@@ -534,7 +535,7 @@ async function DashboardData({
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-slate-200 shadow-sm h-fit">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl text-slate-950">
                 <Clock3 className="h-5 w-5 text-slate-500" />
@@ -544,8 +545,8 @@ async function DashboardData({
                 Latest receipts, reports, and compliance events
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="max-h-130 overflow-y-auto">
+            <CardContent className="space-y-4 h-">
+              <div className="max-h-170 md:max-h-160 overflow-y-auto">
                 <DashboardActivityClient limit={10} />
               </div>
             </CardContent>
@@ -565,36 +566,13 @@ async function DashboardData({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {dashboard.queueItems.length > 0 ? (
-                  dashboard.queueItems.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      className="block rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:bg-slate-50"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-slate-950">
-                            {item.title}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-600">
-                            {item.detail}
-                          </p>
-                          <p className="mt-2 text-xs text-slate-500">
-                            {item.actor} · {formatDateTime(item.timestamp)}
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
-                          {item.status}
-                        </span>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
-                    Nothing in the queue right now.
-                  </div>
-                )}
+                <DashboardQueueClient
+                  initialItems={dashboard.queueItems}
+                  total={dashboard.summary.reviewQueue}
+                  canLoadMore={canReview}
+                  queueLabel={dashboard.queueLabel}
+                  isManager={canReview}
+                />
               </CardContent>
             </Card>
 
@@ -666,7 +644,7 @@ async function DashboardData({
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <Card className="border-slate-200 shadow-sm">
+          <Card className="border-slate-200 shadow-sm ">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl text-slate-950">
                 <Sparkles className="h-5 w-5 text-slate-500" />

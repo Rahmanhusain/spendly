@@ -533,6 +533,15 @@ export async function loadDashboardData(input: {
     isEmployee ? [tenantId, userId] : [tenantId],
   );
 
+  const pendingApprovalsCountPromise = canReview
+    ? query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count
+         FROM approval_workflows aw
+         WHERE aw.tenant_id = $1 AND aw.status = 'submitted'`,
+        [tenantId],
+      )
+    : Promise.resolve({ rows: [{ count: "0" }] });
+
   const pendingApprovalsPromise = canReview
     ? query<{
         id: string;
@@ -559,7 +568,7 @@ export async function loadDashboardData(input: {
         WHERE aw.tenant_id = $1
           AND aw.status = 'submitted'
         ORDER BY aw.created_at DESC
-        LIMIT 5`,
+        LIMIT 10`,
         [tenantId],
       )
     : Promise.resolve({
@@ -615,6 +624,7 @@ export async function loadDashboardData(input: {
     policyIssuesRow,
     recentPolicyIssues,
     pendingApprovalsResult,
+    pendingApprovalsCountResult,
     contributorRows,
   ] = await Promise.all([
     currentMonthSummaryPromise,
@@ -627,6 +637,7 @@ export async function loadDashboardData(input: {
     policyIssuesPromise,
     recentPolicyIssuesPromise,
     pendingApprovalsPromise,
+    pendingApprovalsCountPromise,
     contributorRowsPromise,
   ]);
 
@@ -640,7 +651,7 @@ export async function loadDashboardData(input: {
   const openReports = Number(openReportsRow.rows[0]?.count ?? 0);
   const policyIssues = Number(policyIssuesRow.rows[0]?.count ?? 0);
   const reviewQueue = canReview
-    ? Number(pendingApprovalsResult.rows.length)
+    ? Number(pendingApprovalsCountResult.rows[0]?.count ?? 0)
     : openReports;
   const averageReceipt = receiptCount > 0 ? currentSpend / receiptCount : 0;
   const monthOverMonthChange =
