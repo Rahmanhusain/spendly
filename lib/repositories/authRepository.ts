@@ -99,7 +99,7 @@ export async function createTenantAccount(
 
     // Create tenant
     const tenantId = crypto.randomUUID();
-    const quotaMonthly = 999999;
+    const quotaMonthly = 1000;
 
     const tenantResult = await client.query<TenantRecord>(
       `INSERT INTO tenants (id, name, slug, plan, trial_ends_at, status, country_code, gstin, company_address, receipt_quota_monthly, created_at, updated_at)

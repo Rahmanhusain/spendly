@@ -100,7 +100,7 @@ export async function createTenantAccount(input: SignupInput) {
     countryCode: input.countryCode,
     gstin: input.gstin || null,
     companyAddress: input.companyAddress || null,
-    receiptQuotaMonthly: 999999,
+    receiptQuotaMonthly: 1000,
   };
 
   const user: UserRecord = {

@@ -50,7 +50,7 @@ VALUES (
   'IN',
   '27AABCV1234F1Z5',
   '42, Nariman Point, Mumbai, Maharashtra 400021',
-  999999
+  1000
 )
 ON CONFLICT (slug) DO NOTHING;
 
