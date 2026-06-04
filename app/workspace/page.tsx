@@ -9,6 +9,7 @@ import { SpendTimelineChart } from "@/components/spend-timeline-chart";
 import { DashboardExportButton } from "@/components/dashboard-export-button";
 import DashboardActivityClient from "@/components/dashboard-activity-client";
 import DashboardQueueClient, { type QueueItem } from "@/components/dashboard-queue-client";
+import { DashboardCtaButtons } from "@/components/dashboard-cta-buttons";
 import {
   loadDashboardData,
   type DashboardRole,
@@ -312,53 +313,12 @@ async function DashboardData({
                 {authContext.tenantId}
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/workspace/upload-receipt"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-medium text-white shadow-lg shadow-slate-950/15 transition-transform hover:-translate-y-0.5 hover:bg-slate-900"
-                >
-                  <FileUp className="h-4 w-4" />
-                  Upload receipt
-                </Link>
-                <Link
-                  href="/workspace/reports"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-                >
-                  <FileText className="h-4 w-4" />
-                  View reports
-                </Link>
-                {canReview ? (
-                  <Link
-                    href="/workspace/approvals"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Review queue
-                  </Link>
-                ) : (
-                  <Link
-                    href="/workspace/gst"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                    GST workspace
-                  </Link>
-                )}
-                {canReview ? (
-                  <Link
-                    href="/workspace/team-setup"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
-                  >
-                    <BadgePlus className="h-4 w-4" />
-                    Invite teammates
-                  </Link>
-                ) : null}
-                <DashboardExportButton
-                  dateRange={dateRangeMode}
-                  startDate={customStartDate}
-                  endDate={customEndDate}
-                />
-              </div>
+              <DashboardCtaButtons
+                canReview={canReview}
+                dateRange={dateRangeMode}
+                startDate={customStartDate}
+                endDate={customEndDate}
+              />
             </div>
 
             <div className="grid gap-3 rounded-3xl border border-slate-200/80 bg-white/90 p-4 backdrop-blur-sm">

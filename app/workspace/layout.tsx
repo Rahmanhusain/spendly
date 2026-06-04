@@ -3,6 +3,7 @@ import { getServerAuthContext } from "@/lib/middleware/auth";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { buildPageMetadata } from "@/lib/seo";
 import { PUBLIC_SITE_URL, redirectToLogout } from "@/lib/auth/redirect";
+import { SubscriptionProvider } from "@/lib/context/SubscriptionContext";
 
 export const metadata = buildPageMetadata({
   title: "Workspace",
@@ -35,22 +36,24 @@ export default async function WorkspaceLayout({
     authContext.role.charAt(0).toUpperCase() + authContext.role.slice(1);
 
   return (
-    <WorkspaceShell
-      orgName={tenant?.name ?? "Your workspace"}
-      tenantId={authContext.tenantId}
-      roleLabel={roleLabel}
-      role={authContext.role}
-      canSendInvites={
-        authContext.role === "admin" || authContext.role === "manager"
-      }
-      canExportGst={
-        authContext.role === "admin" ||
-        authContext.role === "manager" ||
-        (user?.can_export_gst ?? false)
-      }
-      userLabel={displayName || "Workspace user"}
-    >
-      {children}
-    </WorkspaceShell>
+    <SubscriptionProvider>
+      <WorkspaceShell
+        orgName={tenant?.name ?? "Your workspace"}
+        tenantId={authContext.tenantId}
+        roleLabel={roleLabel}
+        role={authContext.role}
+        canSendInvites={
+          authContext.role === "admin" || authContext.role === "manager"
+        }
+        canExportGst={
+          authContext.role === "admin" ||
+          authContext.role === "manager" ||
+          (user?.can_export_gst ?? false)
+        }
+        userLabel={displayName || "Workspace user"}
+      >
+        {children}
+      </WorkspaceShell>
+    </SubscriptionProvider>
   );
 }

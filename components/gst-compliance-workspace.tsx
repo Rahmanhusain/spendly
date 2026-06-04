@@ -66,6 +66,31 @@ type GstReportData = {
 
 type ExportFormat = "pdf" | "csv" | "html";
 
+type ApiErrorPayload = {
+  error?: string | { message?: string; reason?: string; code?: string };
+  message?: string;
+};
+
+function getApiErrorMessage(
+  payload: ApiErrorPayload | null | undefined,
+  fallback: string,
+) {
+  if (!payload) return fallback;
+  if (typeof payload.error === "string") return payload.error;
+  if (payload.error && typeof payload.error === "object") {
+    return (
+      payload.error.message ||
+      payload.error.reason ||
+      payload.error.code ||
+      fallback
+    );
+  }
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+  return fallback;
+}
+
 type Props = {
   orgName: string;
   orgGstin: string | null;
@@ -404,11 +429,14 @@ export function GstComplianceWorkspace({
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         data?: GstReportData;
-        error?: string;
+        error?: string | { message?: string; reason?: string; code?: string };
+        message?: string;
       };
 
       if (!response.ok || !payload.ok || !payload.data) {
-        throw new Error(payload.error || "Unable to load GST summary.");
+        throw new Error(
+          getApiErrorMessage(payload, "Unable to load GST summary."),
+        );
       }
 
       setSummary(payload.data);
@@ -503,9 +531,12 @@ export function GstComplianceWorkspace({
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
+          error?: string | { message?: string; reason?: string; code?: string };
+          message?: string;
         };
-        throw new Error(payload.error || "Failed to export GST report.");
+        throw new Error(
+          getApiErrorMessage(payload, "Failed to export GST report."),
+        );
       }
 
       const disposition = response.headers.get("content-disposition") || "";

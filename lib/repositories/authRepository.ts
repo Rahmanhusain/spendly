@@ -6,13 +6,17 @@ export interface TenantRecord {
   id: string;
   name: string;
   slug: string;
-  plan: "trial";
+  plan: "trial" | "subscribed" | "expired";
   trial_ends_at: string | null;
   status: "active" | "inactive" | "suspended";
   country_code: string;
   gstin: string | null;
   company_address: string | null;
   receipt_quota_monthly: number;
+  subscription_plan: "monthly" | "quarterly" | null;
+  subscription_starts_at: string | null;
+  subscription_ends_at: string | null;
+  subscription_renewed_at: string | null;
   created_at: string;
   updated_at: string;
 }

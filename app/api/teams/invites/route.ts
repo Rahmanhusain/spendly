@@ -4,6 +4,7 @@ import {
   requireAuth,
   successResponse,
 } from "@/lib/middleware/auth";
+import { requireActiveWorkspace } from "@/lib/middleware/requireActiveWorkspace";
 import {
   createTeamInvite,
   getTeamInvites,
@@ -29,6 +30,9 @@ export async function POST(request: Request) {
   try {
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext, "admin", "manager");
+
+    const guard = await requireActiveWorkspace(authContext!, requestId);
+    if (guard) return guard;
 
     const body = await request.json();
     const { email, role } = createInviteSchema.parse(body);

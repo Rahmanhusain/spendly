@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
+import { requireActiveWorkspace } from "@/lib/middleware/requireActiveWorkspace";
 import { query } from "@/lib/db/client";
 import { getTenantById } from "@/lib/repositories/authRepository";
 import {
@@ -98,6 +99,9 @@ export async function POST(request: NextRequest) {
   try {
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext);
+
+    const guard = await requireActiveWorkspace(authContext!, requestId);
+    if (guard) return guard;
 
     if (authContext!.role === "employee") {
       const userResult = await query<{ can_export_gst: boolean }>(

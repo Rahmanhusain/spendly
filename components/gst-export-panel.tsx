@@ -9,6 +9,31 @@ type GstExportPanelProps = {
   canExport: boolean;
 };
 
+type ApiErrorPayload = {
+  error?: string | { message?: string; reason?: string; code?: string };
+  message?: string;
+};
+
+function getApiErrorMessage(
+  payload: ApiErrorPayload | null | undefined,
+  fallback: string,
+) {
+  if (!payload) return fallback;
+  if (typeof payload.error === "string") return payload.error;
+  if (payload.error && typeof payload.error === "object") {
+    return (
+      payload.error.message ||
+      payload.error.reason ||
+      payload.error.code ||
+      fallback
+    );
+  }
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+  return fallback;
+}
+
 function formatIsoDate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
@@ -72,9 +97,12 @@ export function GstExportPanel({ canExport }: GstExportPanelProps) {
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
+          error?: string | { message?: string; reason?: string; code?: string };
+          message?: string;
         };
-        throw new Error(payload.error || "Failed to export GST report.");
+        throw new Error(
+          getApiErrorMessage(payload, "Failed to export GST report."),
+        );
       }
 
       const blob = await response.blob();

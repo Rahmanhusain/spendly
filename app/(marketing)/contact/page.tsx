@@ -94,9 +94,7 @@ export default function ContactPage() {
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(
-          json?.error?.message || "Something went wrong. Please try again."
-        );
+        throw new Error(json?.error?.message || "Something went wrong. Please try again.");
       }
 
       setSubmitted(true);
@@ -112,7 +110,7 @@ export default function ContactPage() {
       <AnimatedPageContent>
         <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
 
-          {/* Hero — matches how-it-works layout */}
+          {/* Hero — text left, contact form right */}
           <div className="grid gap-4 lg:grid-cols-[1.25fr_0.92fr] lg:items-start">
             <div className="space-y-6">
               <Badge className="w-fit border-slate-200 bg-white text-slate-700">
@@ -134,6 +132,12 @@ export default function ContactPage() {
                 >
                   support@spendly.software
                 </a>
+                <a
+                  href="tel:+919205582846"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
+                >
+                  +91 92055 82846
+                </a>
                 <Link
                   href="/how-it-works"
                   className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50"
@@ -146,58 +150,8 @@ export default function ContactPage() {
               </p>
             </div>
 
-            {/* Info card */}
+            {/* Contact form — hero right column */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-2xl text-slate-950">
-                  Get in touch
-                </CardTitle>
-                <CardDescription>
-                  Use the right channel for the right kind of request.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {infoItems.map(({ icon: Icon, title, description, detail, href, emails }, index) => (
-                  <div key={title} className="space-y-4">
-                    {index > 0 && <Separator />}
-                    <div className="flex items-start gap-4 pt-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-950">{title}</p>
-                        <p className="text-sm leading-6 text-slate-600">{description}</p>
-                        {emails && (
-                          <div className="flex flex-col w-fit items-start gap-0.5 text-sm font-medium text-slate-950">
-                            <a href={emails[0].href} className="underline-offset-4 hover:underline">{emails[0].label}</a>
-                            <span className="text-xs text-center w-full text-slate-400">or</span>
-                            <a href={emails[1].href} className="underline-offset-4 hover:underline">{emails[1].label}</a>
-                          </div>
-                        )}
-                        {detail && href && (
-                          <a
-                            href={href}
-                            className="text-sm font-medium text-slate-950 underline-offset-4 hover:underline"
-                          >
-                            {detail}
-                          </a>
-                        )}
-                        {detail && !href && (
-                          <p className="text-sm text-slate-500">{detail}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Form + sidebar */}
-          <div className="mt-10 grid gap-4 lg:grid-cols-7">
-
-            {/* Contact form */}
-            <Card className="lg:col-span-4 border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-2xl text-slate-950">
                   Send us a message
@@ -213,9 +167,7 @@ export default function ContactPage() {
                       <CheckCircle2 className="h-7 w-7 text-slate-950" />
                     </div>
                     <div className="space-y-1">
-                      <p className="text-lg font-semibold text-slate-950">
-                        Message received
-                      </p>
+                      <p className="text-lg font-semibold text-slate-950">Message received</p>
                       <p className="text-sm leading-6 text-slate-600">
                         We&apos;ll get back to you within one business day.
                       </p>
@@ -268,9 +220,7 @@ export default function ContactPage() {
                       >
                         <option value="" disabled>Select a reason</option>
                         {contactReasons.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
-                          </option>
+                          <option key={r.value} value={r.value}>{r.label}</option>
                         ))}
                       </select>
                     </div>
@@ -316,12 +266,57 @@ export default function ContactPage() {
                     </Button>
 
                     {error && (
-                      <p className="text-center text-sm text-slate-600">
-                        {error}
-                      </p>
+                      <p className="text-center text-sm text-slate-600">{error}</p>
                     )}
                   </form>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Get in touch + sidebar */}
+          <div className="mt-10 grid gap-4 lg:grid-cols-7">
+
+            {/* Get in touch card — bottom left */}
+            <Card className="lg:col-span-4 border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-2xl text-slate-950">
+                  Get in touch
+                </CardTitle>
+                <CardDescription>
+                  Use the right channel for the right kind of request.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {infoItems.map(({ icon: Icon, title, description, detail, href, emails }, index) => (
+                  <div key={title} className="space-y-4">
+                    {index > 0 && <Separator />}
+                    <div className="flex items-start gap-4 pt-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-950">{title}</p>
+                        <p className="text-sm leading-6 text-slate-600">{description}</p>
+                        {emails && (
+                          <div className="flex flex-col w-fit items-start gap-0.5 text-sm font-medium text-slate-950">
+                            <a href={emails[0].href} className="underline-offset-4 hover:underline">{emails[0].label}</a>
+                            <span className="text-xs text-center w-full text-slate-400">or</span>
+                            <a href={emails[1].href} className="underline-offset-4 hover:underline">{emails[1].label}</a>
+                          </div>
+                        )}
+                        {detail && href && (
+                          <a href={href} className="text-sm font-medium text-slate-950 underline-offset-4 hover:underline">
+                            {detail}
+                          </a>
+                        )}
+                        {detail && !href && (
+                          <p className="text-sm text-slate-500">{detail}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
@@ -356,13 +351,13 @@ export default function ContactPage() {
                 <CardContent className="flex flex-wrap gap-3">
                   <Link
                     href="/sign-up"
-                    className="inline-flex h-11 items-center justify-center rounded-full bg-slate-100 px-5 text-sm font-medium text-slate-950 transition-colors hover:bg-slate-150"
+                    className="inline-flex h-11 items-center justify-center rounded-full bg-slate-100 px-5 text-sm font-medium text-slate-950 transition-colors hover:bg-slate-200"
                   >
                     Start free trial
                   </Link>
                   <Link
                     href="/how-it-works"
-                    className="inline-flex h-11 items-center justify-center rounded-full bg-slate-100 px-5 text-sm font-medium text-slate-950 transition-colors hover:bg-slate-150"
+                    className="inline-flex h-11 items-center justify-center rounded-full bg-slate-100 px-5 text-sm font-medium text-slate-950 transition-colors hover:bg-slate-200"
                   >
                     How it works
                   </Link>

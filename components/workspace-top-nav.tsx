@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   Bell,
+  CheckCircle2,
   FileText,
   Receipt,
   RefreshCw,
@@ -14,6 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/logout-button";
 import { cn } from "@/lib/utils";
+import { useSubscription } from "@/lib/context/SubscriptionContext";
+import { SubscriptionExpiryModal } from "@/components/subscription-expiry-modal";
 
 type WorkspaceTopNavProps = {
   orgName: string;
@@ -60,8 +63,23 @@ export function WorkspaceTopNav({
   const [showMiniToast, setShowMiniToast] = useState(false);
   const [isToastExiting, setIsToastExiting] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [isExpiryModalOpen, setIsExpiryModalOpen] = useState(false);
   const isNotificationsOpenRef = useRef(false);
   const isFetchingNotificationsRef = useRef(false);
+
+  const { data: subData, isReadOnly } = useSubscription();
+
+  // Auto-show expiry modal once per session when workspace is read-only
+  useEffect(() => {
+    if (isReadOnly && !sessionStorage.getItem("expiry_modal_shown")) {
+      setIsExpiryModalOpen(true);
+    }
+  }, [isReadOnly]);
+
+  const handleCloseExpiryModal = () => {
+    sessionStorage.setItem("expiry_modal_shown", "1");
+    setIsExpiryModalOpen(false);
+  };
 
   const dismissMiniToast = () => {
     setIsToastExiting(true);
@@ -297,6 +315,31 @@ export function WorkspaceTopNav({
         </Link>
 
         <div className="flex items-center gap-2">
+          {/* Subscription state indicator */}
+          {!isReadOnly && subData?.plan === "trial" && (
+            <Link
+              href="/workspace/checkout"
+              className="hidden items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:inline-flex"
+            >
+              Subscribe
+            </Link>
+          )}
+          {!isReadOnly && subData?.plan === "subscribed" && (
+            <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:inline-flex">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Subscribed
+            </span>
+          )}
+          {isReadOnly && (
+            <button
+              type="button"
+              onClick={() => setIsExpiryModalOpen(true)}
+              className="hidden items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-700 sm:inline-flex"
+            >
+              Renew subscription
+            </button>
+          )}
+
           <div ref={notificationsMenuRef} className="relative">
             <button
               type="button"
@@ -488,6 +531,11 @@ export function WorkspaceTopNav({
           </div>
         </div>
       </div>
+
+      <SubscriptionExpiryModal
+        open={isExpiryModalOpen}
+        onClose={handleCloseExpiryModal}
+      />
 
       {showMiniToast ? (
         <div

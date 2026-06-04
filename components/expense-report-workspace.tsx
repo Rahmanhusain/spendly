@@ -104,6 +104,39 @@ type CsvValidationResult = {
   [key: string]: unknown;
 };
 
+type ApiErrorPayload = {
+  error?: string | { message?: string; reason?: string; code?: string };
+  message?: string;
+};
+
+function getApiErrorMessage(
+  payload: ApiErrorPayload | null | undefined,
+  fallback: string,
+) {
+  if (!payload) {
+    return fallback;
+  }
+
+  if (typeof payload.error === "string") {
+    return payload.error;
+  }
+
+  if (payload.error && typeof payload.error === "object") {
+    return (
+      payload.error.message ||
+      payload.error.reason ||
+      payload.error.code ||
+      fallback
+    );
+  }
+
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+
+  return fallback;
+}
+
 function formatMoney(amount: number, currency = "INR") {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -263,7 +296,9 @@ export function ExpenseReportWorkspace({
         const response = await fetch(`/api/reports/${reportId}`);
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Failed to load report details");
+          throw new Error(
+            getApiErrorMessage(data, "Failed to load report details"),
+          );
         }
 
         const data = (await response.json()) as {
@@ -313,7 +348,7 @@ export function ExpenseReportWorkspace({
       const payload = (await response.json()) as ReceiptListApiResponse;
 
       if (!response.ok || !payload.ok || !payload.data) {
-        throw new Error(payload.error?.message || "Failed to load receipts");
+        throw new Error(getApiErrorMessage(payload, "Failed to load receipts"));
       }
 
       const nextItems = payload.data.receipts;
@@ -441,7 +476,7 @@ export function ExpenseReportWorkspace({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create report");
+        throw new Error(getApiErrorMessage(data, "Failed to create report"));
       }
 
       const newReport: ExpenseReport = await response.json();
@@ -489,7 +524,7 @@ export function ExpenseReportWorkspace({
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Failed to add receipt");
+          throw new Error(getApiErrorMessage(data, "Failed to add receipt"));
         }
 
         setReportItems((prev) =>
@@ -586,7 +621,7 @@ export function ExpenseReportWorkspace({
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Failed to remove receipt");
+          throw new Error(getApiErrorMessage(data, "Failed to remove receipt"));
         }
 
         setReportItems((prev) => prev.filter((id) => id !== receiptId));
@@ -677,7 +712,7 @@ export function ExpenseReportWorkspace({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to delete report");
+        throw new Error(getApiErrorMessage(data, "Failed to delete report"));
       }
 
       setReports((prev) =>
@@ -842,7 +877,7 @@ export function ExpenseReportWorkspace({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to resubmit report");
+        throw new Error(getApiErrorMessage(data, "Failed to resubmit report"));
       }
 
       const updated: ExpenseReport = await response.json();
@@ -877,7 +912,7 @@ export function ExpenseReportWorkspace({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to submit report");
+        throw new Error(getApiErrorMessage(data, "Failed to submit report"));
       }
 
       const updated: ExpenseReport = await response.json();
@@ -966,7 +1001,7 @@ export function ExpenseReportWorkspace({
 
       const payload = await resp.json();
       if (!resp.ok) {
-        setBrowseError(payload.error || "CSV validation failed");
+        setBrowseError(getApiErrorMessage(payload, "CSV validation failed"));
       }
       setCsvValidationResult(payload);
     } catch (err) {
@@ -1236,7 +1271,9 @@ export function ExpenseReportWorkspace({
         const response = await fetch(`/api/reports/${reportId}`);
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Failed to load report details");
+          throw new Error(
+            getApiErrorMessage(data, "Failed to load report details"),
+          );
         }
         const data = (await response.json()) as {
           items?: Array<{ receiptId: string }>;

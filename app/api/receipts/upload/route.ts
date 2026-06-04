@@ -2,6 +2,7 @@ import path from "path";
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
+import { requireActiveWorkspace } from "@/lib/middleware/requireActiveWorkspace";
 import {
   createUploadedReceipt,
   findDuplicateReceiptCandidate,
@@ -216,6 +217,9 @@ export async function POST(request: Request) {
   try {
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext);
+
+    const guard = await requireActiveWorkspace(authContext!, requestId);
+    if (guard) return guard;
 
     const formData = await request.formData();
     const receiptFile = formData.get("receipt");

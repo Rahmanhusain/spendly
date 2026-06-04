@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
+import { requireActiveWorkspace } from "@/lib/middleware/requireActiveWorkspace";
 import { getTenantById, getUserById } from "@/lib/repositories/authRepository";
 import { loadDashboardData } from "@/lib/repositories/dashboardRepository";
 import { generateDashboardAiSummary } from "@/lib/ai/dashboardSummary";
@@ -656,6 +657,9 @@ export async function GET(request: NextRequest) {
   try {
     const authContext = await extractAuthContext(request, requestId);
     requireAuth(authContext, "employee", "manager", "admin");
+
+    const guard = await requireActiveWorkspace(authContext!, requestId);
+    if (guard) return guard;
 
     const sp = request.nextUrl.searchParams;
     const dateRangeMode =
