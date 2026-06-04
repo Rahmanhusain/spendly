@@ -25,6 +25,7 @@ export interface UserRecord {
   id: string;
   tenant_id: string;
   email: string;
+  phone_number: string | null;
   password_hash: string;
   first_name: string | null;
   last_name: string | null;
@@ -49,6 +50,13 @@ export interface SessionRecord {
   created_at: string;
 }
 
+export interface LoginWorkspaceOption {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  tenant_plan: "trial" | "subscribed" | "expired";
+}
+
 /**
  * Create a new tenant account and first admin user in a transaction
  */
@@ -63,6 +71,7 @@ export async function createTenantAccount(
   },
   userData: {
     email: string;
+    phoneNumber: string;
     password: string;
     firstName: string;
     lastName: string;
@@ -86,16 +95,6 @@ export async function createTenantAccount(
 
     if (slugCheck.rows.length > 0) {
       throw new Error("A workspace with this slug already exists.");
-    }
-
-    // Check if email already exists
-    const emailCheck = await client.query(
-      "SELECT id FROM users WHERE email = $1",
-      [userData.email.toLowerCase()],
-    );
-
-    if (emailCheck.rows.length > 0) {
-      throw new Error("An account with this email already exists.");
     }
 
     // Create tenant
@@ -127,13 +126,14 @@ export async function createTenantAccount(
     // Create admin user
     const userId = crypto.randomUUID();
     const userResult = await client.query<UserRecord>(
-      `INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, status, timezone, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      `INSERT INTO users (id, tenant_id, email, phone_number, password_hash, first_name, last_name, role, status, timezone, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
        RETURNING *`,
       [
         userId,
         tenantId,
         userData.email.toLowerCase(),
+        userData.phoneNumber.trim(),
         passwordHash,
         userData.firstName,
         userData.lastName,
@@ -171,12 +171,14 @@ export async function createTenantAccount(
  */
 export async function getUserByEmailAndVerifyPassword(
   email: string,
+  tenantSlug: string,
   password: string,
 ): Promise<{ user: UserRecord; tenant: TenantRecord } | null> {
   const result = await query<{
     id: string;
     tenant_id: string;
     email: string;
+    phone_number: string | null;
     password_hash: string;
     first_name: string | null;
     last_name: string | null;
@@ -196,6 +198,10 @@ export async function getUserByEmailAndVerifyPassword(
     tenant_country_code: string;
     tenant_gstin: string | null;
     tenant_company_address: string | null;
+    tenant_subscription_plan: "monthly" | "quarterly" | null;
+    tenant_subscription_starts_at: string | null;
+    tenant_subscription_ends_at: string | null;
+    tenant_subscription_renewed_at: string | null;
     tenant_receipt_quota_monthly: number;
     tenant_created_at: string;
     tenant_updated_at: string;
@@ -205,12 +211,18 @@ export async function getUserByEmailAndVerifyPassword(
           t.plan as tenant_plan, t.trial_ends_at as tenant_trial_ends_at,
           t.status as tenant_status, t.country_code as tenant_country_code,
             t.gstin as tenant_gstin, t.company_address as tenant_company_address, 
+            t.subscription_plan as tenant_subscription_plan,
+            t.subscription_starts_at as tenant_subscription_starts_at,
+            t.subscription_ends_at as tenant_subscription_ends_at,
+            t.subscription_renewed_at as tenant_subscription_renewed_at,
             t.receipt_quota_monthly as tenant_receipt_quota_monthly, t.created_at as tenant_created_at, 
             t.updated_at as tenant_updated_at
      FROM users u
      JOIN tenants t ON u.tenant_id = t.id
-     WHERE u.email = $1 AND u.status = 'active'`,
-    [email.toLowerCase()],
+     WHERE u.email = $1
+       AND t.slug = $2
+       AND u.status = 'active'`,
+    [email.toLowerCase(), tenantSlug.toLowerCase()],
   );
 
   if (result.rows.length === 0) {
@@ -228,6 +240,7 @@ export async function getUserByEmailAndVerifyPassword(
     id: row.id,
     tenant_id: row.tenant_id,
     email: row.email,
+    phone_number: row.phone_number,
     password_hash: row.password_hash,
     first_name: row.first_name,
     last_name: row.last_name,
@@ -250,12 +263,40 @@ export async function getUserByEmailAndVerifyPassword(
     country_code: row.tenant_country_code,
     gstin: row.tenant_gstin,
     company_address: row.tenant_company_address,
+    subscription_plan: row.tenant_subscription_plan,
+    subscription_starts_at: row.tenant_subscription_starts_at,
+    subscription_ends_at: row.tenant_subscription_ends_at,
+    subscription_renewed_at: row.tenant_subscription_renewed_at,
     receipt_quota_monthly: row.tenant_receipt_quota_monthly,
     created_at: row.tenant_created_at,
     updated_at: row.tenant_updated_at,
   };
 
   return { user, tenant };
+}
+
+/**
+ * Find all active workspaces associated with an email address.
+ */
+export async function getWorkspacesByEmail(
+  email: string,
+): Promise<LoginWorkspaceOption[]> {
+  const result = await query<LoginWorkspaceOption>(
+    `SELECT DISTINCT
+        t.id as tenant_id,
+        t.name as tenant_name,
+        t.slug as tenant_slug,
+        t.plan as tenant_plan
+     FROM users u
+     JOIN tenants t ON t.id = u.tenant_id
+     WHERE u.email = $1
+       AND u.status = 'active'
+       AND t.status = 'active'
+     ORDER BY t.name ASC`,
+    [email.toLowerCase()],
+  );
+
+  return result.rows;
 }
 
 /**

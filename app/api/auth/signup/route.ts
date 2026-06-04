@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       },
       {
         email: payload.email,
+        phoneNumber: payload.phoneNumber,
         password: payload.password,
         firstName: payload.firstName,
         lastName: payload.lastName,

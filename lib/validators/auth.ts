@@ -23,6 +23,10 @@ const signupBaseSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(100),
   lastName: z.string().trim().min(1, "Last name is required").max(100),
   email: z.string().trim().email("Enter a valid email address"),
+  phoneNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{10,15}$/, "Enter a valid mobile number"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters long")
@@ -53,6 +57,15 @@ export const signupWithOtpSchema = signupBaseSchema
 
 export const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
+  companySlug: z
+    .string()
+    .trim()
+    .min(2, "Workspace slug is required")
+    .max(80)
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Use lowercase letters, numbers, and hyphens only",
+    ),
   password: z.string().min(1, "Password is required"),
 });
 

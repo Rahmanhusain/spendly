@@ -43,8 +43,8 @@ export default async function LoginPage() {
                     Welcome back
                   </CardTitle>
                   <CardDescription className="text-base leading-7">
-                    Sign in with your email and password to access your
-                    workspace and review pending expenses.
+                    Enter your email first, pick the workspace that appears,
+                    then sign in with your password.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm leading-7 text-slate-600">

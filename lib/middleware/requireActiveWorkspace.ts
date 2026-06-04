@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { AuthContext } from "@/lib/middleware/auth";
 import { getTenantById } from "@/lib/repositories/authRepository";
-import { getWorkspaceStatus } from "@/lib/subscription/status";
+import { ensurePlanExpiry } from "@/lib/subscription/status";
 
 /**
  * Checks whether the workspace is active (trial valid or subscribed).
@@ -32,7 +32,7 @@ export async function requireActiveWorkspace(
     );
   }
 
-  const status = getWorkspaceStatus(tenant);
+  const status = await ensurePlanExpiry(tenant.id, tenant);
 
   if (status !== "active") {
     return NextResponse.json(

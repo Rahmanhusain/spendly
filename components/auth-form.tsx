@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, type FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  type FormEvent,
+  type InputHTMLAttributes,
+} from "react";
 import { Loader2, LogIn, ArrowRight } from "lucide-react";
 import {
   loginSchema,
@@ -46,10 +51,18 @@ type FieldState = {
   firstName: string;
   lastName: string;
   email: string;
+  phoneNumber: string;
   password: string;
   confirmPassword: string;
   otp: string;
   timezone: string;
+};
+
+type WorkspaceOption = {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  tenant_plan: "trial" | "subscribed" | "expired";
 };
 
 const initialFieldState: FieldState = {
@@ -61,6 +74,7 @@ const initialFieldState: FieldState = {
   firstName: "",
   lastName: "",
   email: "",
+  phoneNumber: "",
   password: "",
   confirmPassword: "",
   otp: "",
@@ -81,6 +95,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [workspaceOptions, setWorkspaceOptions] = useState<WorkspaceOption[]>(
+    [],
+  );
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(false);
+  const [workspaceLookupError, setWorkspaceLookupError] = useState<
+    string | null
+  >(null);
   const isSignup = mode === "signup";
 
   const canSendOtp = isSignup
@@ -88,6 +109,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         form.companyName.trim() &&
         form.companySlug.trim() &&
         form.email.trim() &&
+        form.phoneNumber.trim() &&
         form.password.trim() &&
         form.confirmPassword.trim(),
       )
@@ -104,8 +126,96 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       setOtpSent(false);
       setOtpSentForEmail("");
       setFieldErrors((current) => ({ ...current, otp: undefined }));
+      if (!isSignup) {
+        setWorkspaceOptions([]);
+        setWorkspaceLookupError(null);
+        setForm((current) => ({ ...current, companySlug: "" }));
+      }
     }
   };
+
+  useEffect(() => {
+    if (isSignup) {
+      return;
+    }
+
+    const email = form.email.trim();
+    if (!email) {
+      setWorkspaceOptions([]);
+      setWorkspaceLookupError(null);
+      setForm((current) => ({ ...current, companySlug: "" }));
+      return;
+    }
+
+    const validation = requestOtpSchema.safeParse({ email });
+    if (!validation.success) {
+      setWorkspaceOptions([]);
+      setWorkspaceLookupError(null);
+      setForm((current) => ({ ...current, companySlug: "" }));
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setIsLoadingWorkspaces(true);
+      setWorkspaceLookupError(null);
+
+      try {
+        const response = await fetch(
+          `/api/auth/workspaces?email=${encodeURIComponent(validation.data.email)}`,
+          { signal: controller.signal },
+        );
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          ok?: boolean;
+          data?: { workspaces?: WorkspaceOption[] };
+          error?: { message?: string };
+        };
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(
+            payload.error?.message ?? "Failed to load workspaces.",
+          );
+        }
+
+        const nextOptions = payload.data?.workspaces ?? [];
+        setWorkspaceOptions(nextOptions);
+
+        setForm((current) => {
+          const currentSlug = current.companySlug.trim();
+          const stillValid = nextOptions.some(
+            (workspace) => workspace.tenant_slug === currentSlug,
+          );
+          const nextSlug = stillValid
+            ? currentSlug
+            : (nextOptions[0]?.tenant_slug ?? "");
+
+          return nextSlug === current.companySlug
+            ? current
+            : { ...current, companySlug: nextSlug };
+        });
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setWorkspaceOptions([]);
+          setWorkspaceLookupError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load workspaces.",
+          );
+          setForm((current) => ({ ...current, companySlug: "" }));
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingWorkspaces(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [form.email, isSignup]);
 
   const mapValidationErrors = (
     issues: Array<{ path: Array<string | number>; message: string }>,
@@ -223,6 +333,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
+          phoneNumber: form.phoneNumber,
           password: form.password,
           confirmPassword: form.confirmPassword,
           otp: form.otp,
@@ -230,6 +341,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         }
       : {
           email: form.email,
+          companySlug: form.companySlug,
           password: form.password,
         };
 
@@ -452,8 +564,22 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                   onChange={(value) => updateField("lastName", value)}
                   error={fieldErrors.lastName}
                 />
+                <Field
+                  label="Mobile number"
+                  type="tel"
+                  value={form.phoneNumber}
+                  onChange={(value) =>
+                    updateField("phoneNumber", value.replace(/\D/g, ""))
+                  } 
+                  placeholder="9999999999"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  className="sm:col-span-2"
+                  error={fieldErrors.phoneNumber}
+                />
               </>
             ) : null}
+
             <Field
               label="Email"
               type="email"
@@ -462,6 +588,51 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               className="sm:col-span-2"
               error={fieldErrors.email}
             />
+
+            {!isSignup ? (
+              <label className="space-y-2 sm:col-span-2">
+                <Label htmlFor="workspaceSlug">Workspace</Label>
+                <select
+                  id="workspaceSlug"
+                  value={form.companySlug}
+                  onChange={(event) =>
+                    updateField("companySlug", event.target.value)
+                  }
+                  disabled={
+                    isLoadingWorkspaces || workspaceOptions.length === 0
+                  }
+                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">
+                    {isLoadingWorkspaces
+                      ? "Loading workspaces..."
+                      : "Select your workspace"}
+                  </option>
+                  {workspaceOptions.map((workspace) => (
+                    <option
+                      key={workspace.tenant_id}
+                      value={workspace.tenant_slug}
+                    >
+                      {workspace.tenant_name} ({workspace.tenant_slug})
+                    </option>
+                  ))}
+                </select>
+                {workspaceLookupError ? (
+                  <p className="text-sm text-rose-600">
+                    {workspaceLookupError}
+                  </p>
+                ) : workspaceOptions.length === 0 && form.email.trim() ? (
+                  <p className="text-sm text-slate-500">
+                    No workspaces found for this email.
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Choose the workspace you want to access with this email.
+                  </p>
+                )}
+              </label>
+            ) : null}
+
             <Field
               label="Password"
               type="password"
@@ -470,6 +641,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               className="sm:col-span-2"
               error={fieldErrors.password}
             />
+
             {isSignup ? (
               <>
                 <Field
@@ -555,7 +727,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                 ) : !canSendOtp ? (
                   <p className="mt-1 text-sm text-slate-500">
                     Fill required fields (company name, workspace slug, email,
-                    password) before sending OTP.
+                    mobile number, password) before sending OTP.
                   </p>
                 ) : (
                   <p className="mt-1 text-sm text-slate-500">
@@ -656,6 +828,7 @@ function Field({
   maxLength,
   autoCapitalize,
   autoComplete,
+  inputMode,
   spellCheck,
   error,
 }: {
@@ -668,6 +841,7 @@ function Field({
   maxLength?: number;
   autoCapitalize?: string;
   autoComplete?: string;
+  inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
   spellCheck?: boolean;
   error?: string;
 }) {
@@ -682,6 +856,7 @@ function Field({
         maxLength={maxLength}
         autoCapitalize={autoCapitalize}
         autoComplete={autoComplete}
+        inputMode={inputMode}
         spellCheck={spellCheck}
         aria-invalid={Boolean(error)}
         className={

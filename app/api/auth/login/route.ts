@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     // Find user and verify password
     const result = await getUserByEmailAndVerifyPassword(
       payload.email,
+      payload.companySlug,
       payload.password,
     );
 
@@ -47,7 +48,8 @@ export async function POST(request: Request) {
           ok: false,
           error: {
             code: "WORKSPACE_INACTIVE",
-            message: "This workspace has been deactivated. Please contact support.",
+            message:
+              "This workspace has been deactivated. Please contact support.",
             requestId,
           },
         },

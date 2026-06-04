@@ -2,10 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import { getTenantById } from "@/lib/repositories/authRepository";
-import {
-  getWorkspaceStatus,
-  getDaysLeft,
-} from "@/lib/subscription/status";
+import { ensurePlanExpiry, getDaysLeft } from "@/lib/subscription/status";
 import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
@@ -20,21 +17,28 @@ export async function GET(request: Request) {
     const tenant = await getTenantById(authContext!.tenantId);
     if (!tenant) {
       return NextResponse.json(
-        { ok: false, error: { code: "NOT_FOUND", message: "Workspace not found." } },
+        {
+          ok: false,
+          error: { code: "NOT_FOUND", message: "Workspace not found." },
+        },
         { status: 404 },
       );
     }
 
-    const status = getWorkspaceStatus(tenant);
+    const status = await ensurePlanExpiry(tenant.id, tenant);
     const daysLeft = getDaysLeft(tenant);
 
-    logger.info("Subscription status fetched", { requestId, tenantId: authContext!.tenantId, status });
+    logger.info("Subscription status fetched", {
+      requestId,
+      tenantId: authContext!.tenantId,
+      status,
+    });
 
     return NextResponse.json(
       {
         ok: true,
         data: {
-          plan: tenant.plan,
+          plan: status !== "active" ? "expired" : tenant.plan,
           status,
           subscriptionPlan: tenant.subscription_plan ?? null,
           trialEndsAt: tenant.trial_ends_at ?? null,
@@ -45,7 +49,8 @@ export async function GET(request: Request) {
       { status: 200 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch subscription.";
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch subscription.";
     const status = message.includes("Unauthorized") ? 401 : 400;
     logger.error("Subscription fetch failed", { requestId, error: message });
     return NextResponse.json({ ok: false, error: { message } }, { status });

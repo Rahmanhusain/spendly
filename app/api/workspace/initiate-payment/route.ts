@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       customer_details: {
         customer_id: authContext!.userId,
         customer_email: user.email,
-        customer_phone: "9999999999",
+        customer_phone: user.phone_number?.trim() || "9999999999",
       },
       order_meta: {
         return_url: `${baseUrl}/api/workspace/checkout/result?order_id={order_id}`,

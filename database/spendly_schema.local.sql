@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   email CITEXT NOT NULL,
+  phone_number VARCHAR(20),
   password_hash TEXT NOT NULL,
   first_name VARCHAR(100),
   last_name VARCHAR(100),

@@ -79,9 +79,9 @@ export function DashboardCtaButtons({ canReview, dateRange, startDate, endDate }
       )}
 
       <DashboardExportButton
-        dateRange={dateRange}
-        startDate={startDate}
-        endDate={endDate}
+        dateRange={dateRange || ""}
+        startDate={startDate || ""}
+        endDate={endDate || ""}
       />
     </div>
   );

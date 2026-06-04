@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { requestOtpSchema } from "@/lib/validators/auth";
-import { query } from "@/lib/db/client";
 import { createEmailOtpChallenge } from "@/lib/repositories/authChallengeRepository";
 import { sendEmail } from "@/lib/utils/mailer";
 import { getEmailBranding } from "@/lib/utils/email-branding";
@@ -13,25 +12,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const payload = requestOtpSchema.parse(body);
-
-    const existingUser = await query<{ id: string }>(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
-      [payload.email.toLowerCase()],
-    );
-
-    if (existingUser.rows.length > 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: "EMAIL_IN_USE",
-            message: "An account with this email already exists.",
-            requestId,
-          },
-        },
-        { status: 409 },
-      );
-    }
 
     let otp: string;
     try {

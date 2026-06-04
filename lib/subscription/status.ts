@@ -13,7 +13,9 @@ export type SubscriptionTenant = {
  * Pure function — no DB calls.
  * Derives the workspace access status from the tenant record.
  */
-export function getWorkspaceStatus(tenant: SubscriptionTenant): WorkspaceStatus {
+export function getWorkspaceStatus(
+  tenant: SubscriptionTenant,
+): WorkspaceStatus {
   const now = Date.now();
 
   if (tenant.plan === "subscribed") {
@@ -39,6 +41,30 @@ export function getWorkspaceStatus(tenant: SubscriptionTenant): WorkspaceStatus 
  */
 export function isWorkspaceReadOnly(tenant: SubscriptionTenant): boolean {
   return getWorkspaceStatus(tenant) !== "active";
+}
+
+import { query } from "@/lib/db/client";
+
+/**
+ * Checks derived status and, if expired, updates the tenant record to
+ * set `plan = 'expired'` in the database. Returns the derived status.
+ *
+ * This is intentionally async because it may persist a change.
+ */
+export async function ensurePlanExpiry(
+  tenantId: string,
+  tenant: SubscriptionTenant,
+): Promise<WorkspaceStatus> {
+  const status = getWorkspaceStatus(tenant);
+
+  if (status !== "active" && tenant.plan !== "expired") {
+    await query(
+      `UPDATE tenants SET plan = 'expired', updated_at = NOW() WHERE id = $1 AND plan != 'expired'`,
+      [tenantId],
+    );
+  }
+
+  return status;
 }
 
 /**
