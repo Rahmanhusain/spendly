@@ -5,6 +5,7 @@ import { Mail, Clock, Phone } from "lucide-react";
 const footerLinks = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
+  { label: "Pricing", href: "/pricing" },
   { label: "How it works", href: "/how-it-works" },
   { label: "Contact", href: "/contact" },
   { label: "Legal", href: "/legal" },
