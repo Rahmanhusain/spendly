@@ -86,17 +86,17 @@ export function SubscriptionExpiryModal({ open, onClose }: Props) {
           <button
             type="button"
             onClick={() => go("quarterly")}
-            className="relative flex flex-col items-start gap-1 rounded-xl border border-slate-900 bg-slate-950 p-4 text-left"
+            className="flex flex-col items-start gap-1 rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:bg-slate-50"
           >
             <span className="absolute -top-2.5 left-3 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
               Save ₹298
             </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800">
-              <CalendarDays className="h-4 w-4 text-slate-300" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
+              <CalendarDays className="h-4 w-4 text-slate-700" />
             </div>
-            <p className="mt-2 text-sm font-semibold text-white">Quarterly</p>
-            <p className="text-lg font-bold text-white">₹2,699</p>
-            <p className="text-xs text-slate-400">per 3 months</p>
+            <p className="mt-2 text-sm font-semibold text-slate-950">Quarterly</p>
+            <p className="text-lg font-bold text-slate-950">₹2,699</p>
+            <p className="text-xs text-slate-500">per 3 months</p>
           </button>
         </div>
 
