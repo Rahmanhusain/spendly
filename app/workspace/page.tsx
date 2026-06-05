@@ -128,6 +128,7 @@ async function DashboardData({
       role,
       receiptQuotaMonthly: tenant.receipt_quota_monthly,
       trialEndsAt: tenant.trial_ends_at ?? null,
+      subscriptionEndsAt: tenant.subscription_ends_at ?? null,
       dateRangeMode,
       customStartDate,
       customEndDate,
@@ -327,10 +328,14 @@ async function DashboardData({
                   Workspace pulse
                 </p>
                 <p className="mt-2 text-lg font-semibold text-slate-950">
-                  {dashboard.summary.trialDaysLeft === null
-                    ? "Trial status unavailable"
+                  {typeof dashboard.summary.subscriptionDaysLeft === "number"
+                    ? dashboard.summary.subscriptionDaysLeft === 0
+                      ? "Subscription expired"
+                      : `${dashboard.summary.subscriptionDaysLeft} day(s) left on subscription`
+                    : dashboard.summary.trialDaysLeft === null
+                    ? "Subscription status unavailable"
                     : dashboard.summary.trialDaysLeft === 0
-                      ? "Trial ends today"
+                      ? "Trial expired"
                       : `${dashboard.summary.trialDaysLeft} trial day(s) left`}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">

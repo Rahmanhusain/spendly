@@ -70,6 +70,7 @@ export type DashboardData = {
     monthOverMonthChange: number | null;
     receiptQuotaRemaining: number;
     trialDaysLeft: number | null;
+    subscriptionDaysLeft?: number | null;
   };
   trend: TrendPoint[];
   categories: CategoryRow[];
@@ -210,12 +211,10 @@ function buildTrendSeries(
   return points;
 }
 
-function calculateTrialDaysLeft(trialEndsAt: string | null | undefined) {
-  if (!trialEndsAt) {
-    return null;
-  }
+function calculateDaysLeft(endsAt: string | null | undefined) {
+  if (!endsAt) return null;
 
-  const diff = new Date(trialEndsAt).getTime() - Date.now();
+  const diff = new Date(endsAt).getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
@@ -225,6 +224,7 @@ export async function loadDashboardData(input: {
   role: DashboardRole;
   receiptQuotaMonthly: number;
   trialEndsAt: string | null;
+  subscriptionEndsAt?: string | null;
   dateRangeMode?: "monthly" | "all-time" | "custom";
   customStartDate?: string;
   customEndDate?: string;
@@ -235,6 +235,7 @@ export async function loadDashboardData(input: {
     role,
     receiptQuotaMonthly,
     trialEndsAt,
+    subscriptionEndsAt,
     dateRangeMode = "monthly",
     customStartDate,
     customEndDate,
@@ -659,7 +660,8 @@ export async function loadDashboardData(input: {
       ? ((currentSpend - previousSpend) / previousSpend) * 100
       : null;
   const receiptQuotaRemaining = Math.max(0, receiptQuotaMonthly - receiptCount);
-  const trialDaysLeft = calculateTrialDaysLeft(trialEndsAt);
+  const trialDaysLeft = calculateDaysLeft(trialEndsAt);
+  const subscriptionDaysLeft = calculateDaysLeft(subscriptionEndsAt ?? null);
 
   const trend = buildTrendSeries(
     trendWindow.start,
@@ -768,6 +770,7 @@ export async function loadDashboardData(input: {
       monthOverMonthChange,
       receiptQuotaRemaining,
       trialDaysLeft,
+      subscriptionDaysLeft,
     },
     trend,
     categories,
