@@ -18,7 +18,14 @@ async function loadCashfreeSDK() {
   if (typeof window === "undefined") return null;
   return new Promise<{ checkout: (opts: { paymentSessionId: string }) => void } | null>((resolve) => {
     const existing = document.getElementById("cashfree-sdk");
-    const cfMode = process.env.NEXT_PUBLIC_BASE_URL?.includes("localhost") ? "sandbox" : "production";
+    const cfMode =
+      process.env.NEXT_PUBLIC_CASHFREE_ENV === "production"
+        ? "production"
+        : process.env.NEXT_PUBLIC_CASHFREE_ENV === "sandbox"
+        ? "sandbox"
+        : process.env.NEXT_PUBLIC_BASE_URL?.includes("localhost")
+        ? "sandbox"
+        : "production";
     const onLoad = async () => {
       try {
         const { load } = await import("@cashfreepayments/cashfree-js");
