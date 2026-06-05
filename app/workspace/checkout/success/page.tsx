@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo";
+import RefreshOnceClient from "./refresh-once-client";
 
 export const metadata = buildPageMetadata({
   title: "Subscription activated",
@@ -10,6 +11,8 @@ export const metadata = buildPageMetadata({
 
 export default function CheckoutSuccessPage() {
   return (
+    <>
+      <RefreshOnceClient />
     <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50">
         <CheckCircle2 className="h-8 w-8 text-emerald-600" />
@@ -28,5 +31,6 @@ export default function CheckoutSuccessPage() {
         Back to workspace
       </Link>
     </div>
+    </>
   );
 }

@@ -5,6 +5,8 @@ import { getServerAuthContext } from "@/lib/middleware/auth";
 import { query } from "@/lib/db/client";
 import { activateSubscription } from "@/lib/subscription/activate";
 import logger from "@/lib/utils/logger";
+import { sendEmail } from "@/lib/utils/mailer";
+import { getUserById, getTenantById } from "@/lib/repositories/authRepository";
 
 export const runtime = "nodejs";
 
@@ -71,9 +73,67 @@ export async function GET(request: NextRequest) {
         tenantId,
         plan,
       });
+
+      try {
+        // Fetch order details (amount, payment id, timestamps)
+        const orderRes = await query<{
+          amount: number;
+          cashfree_payment_id: string | null;
+          created_at: string;
+        }>(
+          `SELECT amount, cashfree_payment_id, created_at FROM subscription_orders WHERE cashfree_order_id = $1`,
+          [orderId],
+        );
+
+        const orderRow = orderRes.rows[0];
+
+        // Fetch user details for the currently-logged-in user who made payment
+        const user = await getUserById(authContext.userId);
+        // Fetch tenant/workspace name for display
+        const tenant = await getTenantById(tenantId);
+
+        if (user) {
+          const userName =
+            `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() ||
+            user.email;
+
+          await sendEmail({
+            to: user.email,
+            from: `Spendly Billing <billing@spendly.software>`,
+            subject: `Payment receipt — ${orderId}`,
+            templateName: "billing",
+            templateData: {
+              appName: "Spendly",
+              userName,
+              orderId,
+              plan,
+              amount: orderRow?.amount ?? undefined,
+              paymentId: orderRow?.cashfree_payment_id ?? undefined,
+              paymentDate: orderRow?.created_at ?? new Date().toISOString(),
+              workspaceName: tenant?.name ?? undefined,
+              tenantId: tenantId,
+            },
+          });
+
+          logger.info("Billing email sent to payer via result redirect", {
+            requestId,
+            userId: user.id,
+            to: user.email,
+            orderId,
+          });
+        }
+      } catch (err) {
+        logger.error("Failed to send billing email after payment", {
+          requestId,
+          error: err instanceof Error ? err.message : String(err),
+          orderId,
+        });
+      }
     }
 
-    return NextResponse.redirect(new URL("/workspace/checkout/success", base));
+    return NextResponse.redirect(
+      new URL("/workspace/checkout/success?refresh=1", base),
+    );
   } catch (error) {
     logger.error("Checkout result handler error", {
       requestId,

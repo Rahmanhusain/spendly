@@ -1,0 +1,19 @@
+{{appName}} — Payment receipt
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Hi {{userName}},
+
+Thanks for your payment. Below are the details of your transaction:
+
+  Order ID:   {{orderId}}
+  Workspace:   {{workspaceName}}
+  Tenant ID:   {{tenantId}}
+  Plan:       {{plan}}
+  Amount:     {{amount}}
+  Payment ID: {{paymentId}}
+  Date:       {{paymentDate}}
+
+If you have any questions about this charge, contact billing@spendly.software
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is an automated receipt from {{appName}}. Please do not reply.
