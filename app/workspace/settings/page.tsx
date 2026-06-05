@@ -6,6 +6,7 @@ import {
   BadgeHelp,
   BellRing,
   LockKeyhole,
+  Mail,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -38,6 +39,32 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
     getTenantById(authContext.tenantId),
   ]);
 
+  const subscriptionStatus =
+    tenant?.plan === "subscribed"
+      ? "Subscribed"
+      : tenant?.plan === "trial"
+      ? "Trial"
+      : tenant?.plan === "expired"
+      ? "Expired"
+      : "Unknown";
+
+  const subscriptionPlan =
+    tenant?.subscription_plan === "monthly"
+      ? "Monthly"
+      : tenant?.subscription_plan === "quarterly"
+      ? "Quarterly"
+      : tenant?.subscription_plan
+      ? tenant.subscription_plan
+      : "N/A";
+
+  const renewalDate = tenant?.subscription_ends_at
+    ? new Date(tenant.subscription_ends_at).toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "Not available";
+
   const summaryCards: Array<{
     title: string;
     detail: string;
@@ -51,7 +78,7 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
     { title: "Security", detail: "Session protected", icon: LockKeyhole },
     {
       title: "Workspace",
-      detail: "15-day full-feature trial",
+      detail: `${subscriptionStatus} • ${subscriptionPlan}`,
       icon: Settings2,
     },
     {
@@ -147,6 +174,22 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
 
           <Card className="border-slate-200 shadow-sm">
             <CardHeader>
+              <CardTitle className="text-lg text-slate-950">
+                Subscription details
+              </CardTitle>
+              <CardDescription>
+                Current subscription status, plan, and renewal date.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-700">
+              <p>Status: {subscriptionStatus}</p>
+              <p>Plan: {subscriptionPlan}</p>
+              <p>Next renewal: {renewalDate}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg text-slate-950">
                 <BadgeHelp className="h-5 w-5 text-slate-500" />
                 Support
@@ -164,6 +207,14 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
                 <SlidersHorizontal className="h-4 w-4 text-slate-500" />
                 Workspace controls stay tenant-scoped.
               </p>
+              <a
+              href="mailto:support@spendly.software"
+              className="flex items-center gap-2.5 text-sm text-slate-600 transition-colors hover:text-slate-950"
+              aria-label="Email Spendly support"
+            >
+              <Mail className="h-4 w-4 shrink-0 text-slate-700" />
+              support@spendly.software
+            </a>
             </CardContent>
           </Card>
         </div>

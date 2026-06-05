@@ -10,6 +10,7 @@ import {
   Receipt,
   RefreshCw,
   Settings,
+  Sparkles,
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -319,8 +320,9 @@ export function WorkspaceTopNav({
           {!isReadOnly && subData?.plan === "trial" && (
             <Link
               href="/workspace/checkout"
-              className="hidden items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:inline-flex"
+              className="hidden items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition duration-150 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex"
             >
+              <Sparkles className="h-3.5 w-3.5" />
               Subscribe
             </Link>
           )}
@@ -334,8 +336,9 @@ export function WorkspaceTopNav({
             <button
               type="button"
               onClick={() => setIsExpiryModalOpen(true)}
-              className="hidden items-center justify-center rounded-full bg-rose-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-700 sm:inline-flex"
+              className="hidden items-center justify-center gap-2 rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition duration-150 hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 sm:inline-flex"
             >
+              <RefreshCw className="h-3.5 w-3.5" />
               Renew subscription
             </button>
           )}
