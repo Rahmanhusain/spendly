@@ -8,9 +8,18 @@ import logger from "@/lib/utils/logger";
 
 export const runtime = "nodejs";
 
-const PLAN_AMOUNTS: Record<string, number> = {
-  monthly: 999,
-  quarterly: 2699,
+function parsePlanAmount(value: string | undefined, defaultValue: number) {
+  if (!value) {
+    return defaultValue;
+  }
+
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
+}
+
+const PLAN_AMOUNTS: Record<"monthly" | "quarterly", number> = {
+  monthly: parsePlanAmount(process.env.SUBSCRIPTION_MONTHLY_AMOUNT, 999),
+  quarterly: parsePlanAmount(process.env.SUBSCRIPTION_QUARTERLY_AMOUNT, 2699),
 };
 
 function getCashfreeClient() {
