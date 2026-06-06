@@ -49,6 +49,7 @@ type User = {
   last_name?: string | null;
   role: string;
   timezone?: string | null;
+  phone_number?: string | null;
 };
 
 type Tenant = {
@@ -78,6 +79,9 @@ export default function ProfileEditor({
   const [orgMessage, setOrgMessage] = useState("");
 
   const [editName, setEditName] = useState(displayName);
+  const [editPhoneNumber, setEditPhoneNumber] = useState(
+    user.phone_number ?? "",
+  );
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [userMessage, setUserMessage] = useState("");
 
@@ -165,7 +169,10 @@ export default function ProfileEditor({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: editName }),
+        body: JSON.stringify({
+          name: editName,
+          phoneNumber: editPhoneNumber.trim() || undefined,
+        }),
       });
       if (res.ok) {
         setUserMessage("Profile updated successfully");
@@ -382,6 +389,26 @@ export default function ProfileEditor({
               className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               placeholder="Enter your full name"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-700">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={editPhoneNumber}
+              onChange={(e) =>
+                setEditPhoneNumber(e.target.value.replace(/\D/g, ""))
+              }
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Enter 10-15 digit phone number"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Only digits are allowed. This number is used for account contact
+              and payment support.
+            </p>
           </div>
 
           <div>

@@ -19,10 +19,12 @@ export async function PATCH(request: Request) {
       name?: string;
       firstName?: string;
       lastName?: string;
+      phoneNumber?: string;
     };
 
     let firstName = body.firstName?.trim();
     let lastName = body.lastName?.trim();
+    const phoneNumber = body.phoneNumber?.trim();
 
     if (body.name && (!firstName || !lastName)) {
       const parts = body.name.trim().split(/\s+/);
@@ -32,7 +34,21 @@ export async function PATCH(request: Request) {
       }
     }
 
-    if (!firstName && !lastName) {
+    if (
+      phoneNumber !== undefined &&
+      phoneNumber !== "" &&
+      !/^\d{10,15}$/.test(phoneNumber)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: { message: "Enter a valid 10-15 digit phone number." },
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!firstName && !lastName && phoneNumber === undefined) {
       return NextResponse.json(
         { ok: false, error: { message: "No updatable fields provided." } },
         { status: 400 },
@@ -40,8 +56,16 @@ export async function PATCH(request: Request) {
     }
 
     await query(
-      `UPDATE users SET first_name = COALESCE($1, first_name), last_name = COALESCE($2, last_name), updated_at = NOW() WHERE id = $3`,
-      [firstName ?? null, lastName ?? null, authContext!.userId],
+      `UPDATE users SET first_name = COALESCE($1, first_name),
+                         last_name = COALESCE($2, last_name),
+                         phone_number = COALESCE($3, phone_number),
+                         updated_at = NOW() WHERE id = $4`,
+      [
+        firstName ?? null,
+        lastName ?? null,
+        phoneNumber ?? null,
+        authContext!.userId,
+      ],
     );
 
     logger.info("User profile updated", {
