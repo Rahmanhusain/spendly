@@ -55,7 +55,7 @@ async function SettingsData({ authContext }: { authContext: AuthContext }) {
       ? "Quarterly"
       : tenant?.subscription_plan
       ? tenant.subscription_plan
-      : "N/A";
+      : "15 Days Trial";
 
   const renewalDate = tenant?.subscription_ends_at
     ? new Date(tenant.subscription_ends_at).toLocaleDateString("en-IN", {
