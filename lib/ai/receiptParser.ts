@@ -1,5 +1,8 @@
 import Groq from "groq-sdk";
-import { PDFParse } from "pdf-parse";
+// `pdf-parse` (which uses pdfjs) is lazily imported inside
+// `extractTextFromPdfSafely` after attempting to provide minimal
+// DOM/canvas shims on serverless platforms (Vercel) to avoid
+// ReferenceError: DOMMatrix is not defined during module evaluation.
 import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
@@ -35,9 +38,7 @@ export type ParsedReceiptData = {
 function extractGstinFromText(text: string): string | null {
   if (!text || typeof text !== "string") return null;
   // GSTIN pattern: 2 digits state code + 10 char PAN + 1 entity + 1 checksum (15 total)
-  const matches = text
-    .toUpperCase()
-    .match(/\b[0-9]{2}[A-Z0-9]{13}\b/g);
+  const matches = text.toUpperCase().match(/\b[0-9]{2}[A-Z0-9]{13}\b/g);
 
   if (matches) {
     const validMatch = matches.find((candidate) => isValidGstin(candidate));
@@ -59,6 +60,7 @@ type ParseInput = {
 
 const FALLBACK_CURRENCY = "INR";
 let pdfWorkerConfigured = false;
+let pdfWorkerUrl: string | null = null;
 
 function configurePdfWorker(context: { fileName: string; requestId?: string }) {
   if (pdfWorkerConfigured) {
@@ -85,8 +87,7 @@ function configurePdfWorker(context: { fileName: string; requestId?: string }) {
     }
 
     const workerUrl = pathToFileURL(workerPath).toString();
-    PDFParse.setWorker(workerUrl);
-    pdfWorkerConfigured = true;
+    pdfWorkerUrl = workerUrl;
 
     logger.info("Configured pdf-parse worker for Node runtime", {
       requestId: context.requestId,
@@ -277,9 +278,86 @@ async function extractTextFromPdfSafely(
       return "";
     }
 
+    // Ensure minimal DOM/canvas globals exist to prevent pdfjs from
+    // throwing during module evaluation on serverless platforms.
+    try {
+      // Try to load a native canvas implementation if available without
+      // letting the bundler statically analyze the require call.
+      // This avoids Turbopack trying to bundle native assets from @napi-rs/canvas.
+      // eslint-disable-next-line no-eval
+      const nativeRequire = eval(
+        "typeof require !== 'undefined' ? require : undefined",
+      );
+      if (typeof nativeRequire === "function") {
+        nativeRequire("@napi-rs/canvas");
+        logger.info("Loaded @napi-rs/canvas (if available)", {
+          requestId: context.requestId,
+          fileName: context.fileName,
+        });
+      }
+    } catch (err) {
+      // Not fatal — we'll provide lightweight shims below to avoid runtime errors.
+      logger.debug("@napi-rs/canvas not available", {
+        requestId: context.requestId,
+        fileName: context.fileName,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // Minimal shims to prevent ReferenceError during pdfjs import.
+    if (typeof (globalThis as any).DOMMatrix === "undefined") {
+      (globalThis as any).DOMMatrix = class DOMMatrix {
+        constructor() {}
+      };
+    }
+
+    if (typeof (globalThis as any).ImageData === "undefined") {
+      (globalThis as any).ImageData = class ImageData {
+        constructor() {}
+      };
+    }
+
+    if (typeof (globalThis as any).Path2D === "undefined") {
+      (globalThis as any).Path2D = class Path2D {
+        constructor() {}
+      };
+    }
+
     configurePdfWorker(context);
 
-    const parser = new PDFParse({ data: fileBuffer });
+    // Lazy-import pdf-parse after shimming globals to avoid early pdfjs evaluation
+    // which expects DOM APIs to exist.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pdfParseMod = await import("pdf-parse");
+    // Support both named and default exports depending on package build.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const PDFParseClass: any =
+      (pdfParseMod as any).PDFParse ||
+      (pdfParseMod as any).default ||
+      (pdfParseMod as any);
+
+    // If a worker URL was discovered earlier, attach it to the library now.
+    if (pdfWorkerUrl && !pdfWorkerConfigured) {
+      try {
+        if (typeof PDFParseClass.setWorker === "function") {
+          PDFParseClass.setWorker(pdfWorkerUrl);
+          pdfWorkerConfigured = true;
+          logger.info("pdf-parse worker attached", {
+            requestId: context.requestId,
+            fileName: context.fileName,
+            workerUrl: pdfWorkerUrl,
+          });
+        }
+      } catch (err) {
+        logger.warn("Failed to attach pdf-parse worker", {
+          requestId: context.requestId,
+          fileName: context.fileName,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    const parser = new PDFParseClass({ data: fileBuffer });
     try {
       const result = await parser.getText({
         // Keep extraction bounded to avoid runaway latency/memory on huge PDFs.
