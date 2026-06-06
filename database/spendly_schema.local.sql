@@ -17,7 +17,7 @@ CREATE EXTENSION IF NOT EXISTS citext;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'plan_type') THEN
-    CREATE TYPE plan_type AS ENUM ('trial');
+    CREATE TYPE plan_type AS ENUM ('trial', 'subscribed', 'expired');
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
@@ -79,6 +79,10 @@ CREATE TABLE IF NOT EXISTS tenants (
   gstin VARCHAR(20),
   company_address TEXT,
   receipt_quota_monthly INTEGER NOT NULL DEFAULT 1000,
+  subscription_plan VARCHAR(20),
+  subscription_starts_at TIMESTAMPTZ,
+  subscription_ends_at TIMESTAMPTZ,
+  subscription_renewed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -297,6 +301,30 @@ CREATE TABLE IF NOT EXISTS parsing_jobs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_parsing_jobs_tenant_status ON parsing_jobs(tenant_id, status);
+
+-- -----------------------------------------------------------------------------
+-- Subscriptions (Migration 002)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS subscription_orders (
+  id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id            UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  cashfree_order_id    TEXT        NOT NULL UNIQUE,
+  plan                 VARCHAR(20) NOT NULL,
+  amount               NUMERIC(10,2) NOT NULL,
+  status               VARCHAR(30) NOT NULL DEFAULT 'created',
+  payment_session_id   TEXT,
+  cashfree_payment_id  TEXT,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscription_orders_tenant
+  ON subscription_orders(tenant_id, created_at DESC);
+
+CREATE TRIGGER trg_subscription_orders_updated_at
+BEFORE UPDATE ON subscription_orders
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 
 -- -----------------------------------------------------------------------------
 -- Reports, approvals, comments, reimbursements
@@ -535,6 +563,7 @@ ALTER TABLE expense_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE policy_violations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE parsing_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_report_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_workflows ENABLE ROW LEVEL SECURITY;
@@ -553,7 +582,7 @@ BEGIN
   FOR tbl IN
     SELECT unnest(ARRAY[
       'users','user_sessions','team_invites','teams','team_members',
-      'expense_policies','policy_violations','receipts','parsing_jobs',
+      'expense_policies','policy_violations','receipts','parsing_jobs','subscription_orders',
       'expense_reports','expense_report_items','approval_workflows','report_access_list','report_comments','receipt_comments',
       'reimbursements','gst_exports','notifications','audit_logs'
     ])
