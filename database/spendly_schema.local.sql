@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS tenants (
   gstin VARCHAR(20),
   company_address TEXT,
   receipt_quota_monthly INTEGER NOT NULL DEFAULT 1000,
+  monthly_upload_period_start DATE NOT NULL DEFAULT date_trunc('month', NOW())::date,
+  monthly_upload_count INTEGER NOT NULL DEFAULT 0,
   subscription_plan VARCHAR(20),
   subscription_starts_at TIMESTAMPTZ,
   subscription_ends_at TIMESTAMPTZ,
@@ -286,6 +288,9 @@ CREATE INDEX IF NOT EXISTS idx_receipts_duplicate ON receipts(tenant_id, vendor_
 CREATE TRIGGER trg_receipts_updated_at
 BEFORE UPDATE ON receipts
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- tenant_monthly_upload_counters removed in favor of columns on `tenants`.
+-- See migration 004 which alters `tenants` to add `monthly_upload_period_start` and `monthly_upload_count`.
 
 CREATE TABLE IF NOT EXISTS parsing_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

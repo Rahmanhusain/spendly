@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { extractAuthContext, requireAuth } from "@/lib/middleware/auth";
 import { requireActiveWorkspace } from "@/lib/middleware/requireActiveWorkspace";
+import { query, transaction } from "@/lib/db/client";
 import {
   createUploadedReceipt,
   findDuplicateReceiptCandidate,
@@ -447,6 +448,44 @@ export async function POST(request: Request) {
       );
     }
 
+    const quotaRow = await query<{
+      receipt_quota_monthly: string;
+      used_count: string;
+    }>(
+      `SELECT t.receipt_quota_monthly::text AS receipt_quota_monthly,
+              (CASE WHEN t.monthly_upload_period_start = date_trunc('month', NOW())::date
+                    THEN COALESCE(t.monthly_upload_count, 0)
+                    ELSE 0 END)::text AS used_count
+         FROM tenants t
+        WHERE t.id = $1
+        GROUP BY t.receipt_quota_monthly, t.monthly_upload_period_start, t.monthly_upload_count`,
+      [authContext!.tenantId],
+    );
+
+    const quotaMonthly = Number(quotaRow.rows[0]?.receipt_quota_monthly ?? "0");
+    const quotaUsed = Number(quotaRow.rows[0]?.used_count ?? "0");
+
+    const quotaRemaining = Math.max(0, quotaMonthly - quotaUsed);
+
+    if (quotaUsed >= quotaMonthly) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "QUOTA_EXCEEDED",
+            message:
+              "Workspace monthly upload quota has been reached. New uploads are disabled until the quota resets next month.",
+            requestId,
+          },
+          data: {
+            receiptQuotaMonthly: quotaMonthly,
+            receiptQuotaRemaining: 0,
+          },
+        },
+        { status: 429 },
+      );
+    }
+
     const extensionFromName = path.extname(receiptFile.name).toLowerCase();
     const extension =
       extensionFromName.length > 0
@@ -660,33 +699,65 @@ export async function POST(request: Request) {
       extension,
     });
 
-    const createdReceipt = await createUploadedReceipt({
-      tenantId: authContext!.tenantId,
-      userId: authContext!.userId,
-      vendorName: parsed.vendorName,
-      amount: parsed.amount,
-      currency: parsed.currency,
-      receiptDate: parsed.receiptDate,
-      category: parsed.category,
-      gstRate: parsed.gstRate,
-      cgstRate: parsed.cgstRate,
-      igstRate: parsed.igstRate,
-      sgstRate: parsed.sgstRate,
-      cgstAmount: parsed.cgstAmount,
-      igstAmount: parsed.igstAmount,
-      sgstAmount: parsed.sgstAmount,
-      taxAmount: parsed.taxAmount,
-      vendorGstin: parsed.vendorGstin,
-      note,
-      filePath: storedFile.storagePath,
-      fileName: receiptFile.name,
-      mimeType: receiptFile.type,
-      fileSizeBytes: receiptFile.size,
-      parsedData,
-      confidenceScore,
-      status,
-      isDuplicate: Boolean(duplicateOfId),
-      duplicateOf: duplicateOfId,
+    const createdReceipt = await transaction(async (client) => {
+      const receipt = await createUploadedReceipt(
+        {
+          tenantId: authContext!.tenantId,
+          userId: authContext!.userId,
+          vendorName: parsed.vendorName,
+          amount: parsed.amount,
+          currency: parsed.currency,
+          receiptDate: parsed.receiptDate,
+          category: parsed.category,
+          gstRate: parsed.gstRate,
+          cgstRate: parsed.cgstRate,
+          igstRate: parsed.igstRate,
+          sgstRate: parsed.sgstRate,
+          cgstAmount: parsed.cgstAmount,
+          igstAmount: parsed.igstAmount,
+          sgstAmount: parsed.sgstAmount,
+          taxAmount: parsed.taxAmount,
+          vendorGstin: parsed.vendorGstin,
+          note,
+          filePath: storedFile.storagePath,
+          fileName: receiptFile.name,
+          mimeType: receiptFile.type,
+          fileSizeBytes: receiptFile.size,
+          parsedData,
+          confidenceScore,
+          status,
+          isDuplicate: Boolean(duplicateOfId),
+          duplicateOf: duplicateOfId,
+        },
+        client,
+      );
+
+      const counterResult = await client.query<{
+        upload_count: string;
+      }>(
+        `UPDATE tenants
+           SET monthly_upload_count = CASE
+                 WHEN monthly_upload_period_start = date_trunc('month', NOW())::date
+                   THEN monthly_upload_count + 1
+                 ELSE 1
+               END,
+               monthly_upload_period_start = CASE
+                 WHEN monthly_upload_period_start = date_trunc('month', NOW())::date
+                   THEN monthly_upload_period_start
+                 ELSE date_trunc('month', NOW())::date
+               END,
+               updated_at = NOW()
+         WHERE id = $1
+           AND (monthly_upload_period_start != date_trunc('month', NOW())::date OR monthly_upload_count < $2)
+         RETURNING monthly_upload_count::text AS upload_count;`,
+        [authContext!.tenantId, quotaMonthly],
+      );
+
+      if (counterResult.rows.length === 0) {
+        throw new Error("QUOTA_EXCEEDED_DURING_UPLOAD");
+      }
+
+      return receipt;
     });
 
     logger.info("Receipt uploaded and parsed", {
@@ -845,6 +916,23 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "QUOTA_EXCEEDED_DURING_UPLOAD"
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "QUOTA_EXCEEDED",
+            message:
+              "Workspace monthly upload quota has been reached. New uploads are disabled until the quota resets next month.",
+            requestId,
+          },
+        },
+        { status: 429 },
+      );
+    }
     const message =
       error instanceof Error ? error.message : "Failed to upload receipt.";
 

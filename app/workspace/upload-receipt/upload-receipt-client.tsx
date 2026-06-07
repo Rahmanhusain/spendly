@@ -85,14 +85,53 @@ export default function UploadReceiptClient() {
     useState<PendingPolicyWarning | null>(null);
   const [duplicateOverrideConfirmed, setDuplicateOverrideConfirmed] =
     useState(false);
+  const [quotaMonthly, setQuotaMonthly] = useState<number | null>(null);
+  const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
+  const [quotaLoading, setQuotaLoading] = useState(true);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadQuota() {
+      setQuotaLoading(true);
+      try {
+        const response = await fetch("/api/tenants/quota", {
+          credentials: "include",
+        });
+        const payload = await response.json();
+
+        if (!active) return;
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error?.message ?? "Unable to load quota.");
+        }
+
+        setQuotaMonthly(Number(payload.data?.receiptQuotaMonthly ?? 0));
+        setQuotaRemaining(Number(payload.data?.receiptQuotaRemaining ?? 0));
+        setQuotaError(null);
+      } catch (error) {
+        if (!active) return;
+        setQuotaError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load workspace quota.",
+        );
+      } finally {
+        if (active) {
+          setQuotaLoading(false);
+        }
+      }
+    }
+
+    loadQuota();
+
     const objectUrl = selectedFile ? URL.createObjectURL(selectedFile) : null;
     const frame = window.requestAnimationFrame(() => {
       setPreviewUrl(objectUrl);
     });
 
     return () => {
+      active = false;
       window.cancelAnimationFrame(frame);
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
@@ -100,8 +139,12 @@ export default function UploadReceiptClient() {
     };
   }, [selectedFile]);
 
+  const quotaExceeded = quotaRemaining !== null && quotaRemaining <= 0;
   const isSubmitDisabled =
-    !selectedFile || note.trim().length < 8 || state.kind === "loading";
+    !selectedFile ||
+    note.trim().length < 8 ||
+    state.kind === "loading" ||
+    quotaExceeded;
 
   const helperText = useMemo(() => {
     if (note.trim().length === 0) {
@@ -307,6 +350,16 @@ export default function UploadReceiptClient() {
       }
     }
 
+    if (response.status === 429 && data.error?.code === "QUOTA_EXCEEDED") {
+      setState({
+        kind: "error",
+        message:
+          data.error?.message ||
+          "Monthly upload quota exceeded. New uploads are disabled until next month.",
+      });
+      return;
+    }
+
     if (!response.ok || !data.ok || !data.data?.receipt) {
       setState({
         kind: "error",
@@ -324,6 +377,10 @@ export default function UploadReceiptClient() {
       kind: "success",
       message: data.message ?? "Receipt uploaded and parsing started.",
     });
+
+    if (quotaRemaining !== null) {
+      setQuotaRemaining(Math.max(0, quotaRemaining - 1));
+    }
   };
 
   const onQuickReview = async (decision: "approve" | "reject") => {
@@ -483,7 +540,15 @@ export default function UploadReceiptClient() {
                   <p className="text-xs text-slate-500">{helperText}</p>
                 </div>
 
-                <Button onClick={() => onSubmit()} disabled={isSubmitDisabled}>
+                <Button
+                  onClick={() => onSubmit()}
+                  disabled={isSubmitDisabled}
+                  title={
+                    quotaExceeded
+                      ? "Monthly upload quota exceeded. New uploads are disabled until next month."
+                      : undefined
+                  }
+                >
                   {state.kind === "loading" ? (
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                   ) : (
@@ -491,6 +556,24 @@ export default function UploadReceiptClient() {
                   )}
                   Parse and upload receipt
                 </Button>
+
+                {quotaError ? (
+                  <p className="text-sm text-rose-600">{quotaError}</p>
+                ) : quotaLoading ? (
+                  <p className="text-sm text-slate-500">
+                    Loading monthly quota status...
+                  </p>
+                ) : quotaExceeded ? (
+                  <p className="text-sm text-rose-600">
+                    Monthly receipt upload quota exceeded. New uploads are
+                    disabled until next month.
+                  </p>
+                ) : quotaRemaining !== null && quotaMonthly !== null ? (
+                  <p className="text-sm text-slate-500">
+                    {quotaRemaining} of {quotaMonthly} receipt upload slots
+                    remain this month.
+                  </p>
+                ) : null}
 
                 {state.kind !== "idle" ? (
                   <p

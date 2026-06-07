@@ -316,6 +316,15 @@ export async function loadDashboardData(input: {
       : [tenantId, currentMonth.start, currentMonth.endExclusive],
   );
 
+  const currentMonthUploadCountPromise = query<{ upload_count: string }>(
+    `SELECT (CASE WHEN t.monthly_upload_period_start = date_trunc('month', NOW())::date
+                   THEN COALESCE(t.monthly_upload_count, 0)
+                   ELSE 0 END)::text AS upload_count
+       FROM tenants t
+      WHERE t.id = $1`,
+    [tenantId],
+  );
+
   const previousMonthSummaryPromise = query<{
     total_spend: string;
   }>(
@@ -642,6 +651,8 @@ export async function loadDashboardData(input: {
     contributorRowsPromise,
   ]);
 
+  const currentMonthUploadCount = await currentMonthUploadCountPromise;
+
   const currentSpend = Number(currentMonthSummary.rows[0]?.total_spend ?? 0);
   const previousSpend = Number(previousMonthSummary.rows[0]?.total_spend ?? 0);
   const receiptCount = Number(currentMonthSummary.rows[0]?.receipt_count ?? 0);
@@ -659,7 +670,13 @@ export async function loadDashboardData(input: {
     previousSpend > 0
       ? ((currentSpend - previousSpend) / previousSpend) * 100
       : null;
-  const receiptQuotaRemaining = Math.max(0, receiptQuotaMonthly - receiptCount);
+  const currentMonthUploads = Number(
+    currentMonthUploadCount.rows[0]?.upload_count ?? 0,
+  );
+  const receiptQuotaRemaining = Math.max(
+    0,
+    receiptQuotaMonthly - currentMonthUploads,
+  );
   const trialDaysLeft = calculateDaysLeft(trialEndsAt);
   const subscriptionDaysLeft = calculateDaysLeft(subscriptionEndsAt ?? null);
 

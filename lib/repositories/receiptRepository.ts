@@ -1,4 +1,5 @@
 import { query } from "@/lib/db/client";
+import type { PoolClient } from "pg";
 import { getStoredReceiptFileUrl } from "@/lib/storage/receipt-storage";
 
 type ReceiptStatus =
@@ -761,8 +762,11 @@ export async function createReceiptComment(input: {
 
 export async function createUploadedReceipt(
   input: CreateReceiptInput,
+  client?: PoolClient,
 ): Promise<CreatedReceipt> {
-  const result = await query<CreatedReceipt>(
+  const executor = client ? client.query.bind(client) : query;
+
+  const result = await executor<CreatedReceipt>(
     `INSERT INTO receipts (
       tenant_id,
       user_id,
