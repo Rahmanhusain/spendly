@@ -236,6 +236,9 @@ export function ExpenseReportWorkspace({
   const [isLoadingReceiptPicker, setIsLoadingReceiptPicker] = useState(false);
   const [isLoadingMoreReceipts, setIsLoadingMoreReceipts] = useState(false);
   const [addingReceiptId, setAddingReceiptId] = useState<string | null>(null);
+  const [removingReceiptId, setRemovingReceiptId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const receiptPickerListRef = useRef<HTMLDivElement | null>(null);
@@ -582,23 +585,48 @@ export function ExpenseReportWorkspace({
           });
         }
 
+        const activeReport = selectedReport || browseSelectedDetails?.report;
+
         // Update report total
-        if (receipt && selectedReport) {
+        if (receipt && activeReport) {
+          const updatedTotal = activeReport.totalAmount + receipt.amount;
+
           setReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? { ...r, totalAmount: r.totalAmount + receipt.amount }
+                ? { ...r, totalAmount: updatedTotal }
                 : r,
             ),
           );
           setBrowseReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? { ...r, totalAmount: r.totalAmount + receipt.amount }
+                ? { ...r, totalAmount: updatedTotal }
                 : r,
             ),
           );
+          setBrowseSelectedDetails((prev) =>
+            prev?.report?.id === selectedReportId
+              ? {
+                  ...prev,
+                  report: { ...prev.report, totalAmount: updatedTotal },
+                }
+              : prev,
+          );
+          setBrowseDetailsCache((prev) => {
+            const cached = prev[selectedReportId];
+            if (!cached || !cached.report) return prev;
+            return {
+              ...prev,
+              [selectedReportId]: {
+                ...cached,
+                report: { ...cached.report, totalAmount: updatedTotal },
+              },
+            };
+          });
         }
+
+        await loadBrowseReportDetails(selectedReportId, true);
 
         setSuccess("Receipt added to report");
         setTimeout(() => setSuccess(null), 3000);
@@ -608,7 +636,12 @@ export function ExpenseReportWorkspace({
         setAddingReceiptId(null);
       }
     },
-    [selectedReportId, selectedReport, receiptsAvailable],
+    [
+      selectedReportId,
+      selectedReport,
+      browseSelectedDetails,
+      receiptsAvailable,
+    ],
   );
 
   const handleRemoveReceiptFromReport = useCallback(
@@ -616,6 +649,7 @@ export function ExpenseReportWorkspace({
       if (!selectedReportId) return;
 
       setError(null);
+      setRemovingReceiptId(receiptId);
       try {
         const response = await fetch(
           `/api/reports/${selectedReportId}/items/${receiptId}`,
@@ -659,40 +693,67 @@ export function ExpenseReportWorkspace({
           };
         });
 
+        const activeReport = selectedReport || browseSelectedDetails?.report;
         // Update report total
         const receipt = receiptsAvailable.find((r) => r.id === receiptId);
-        if (receipt && selectedReport) {
+        if (receipt && activeReport) {
+          const updatedTotal = Math.max(
+            0,
+            activeReport.totalAmount - receipt.amount,
+          );
+
           setReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? {
-                    ...r,
-                    totalAmount: Math.max(0, r.totalAmount - receipt.amount),
-                  }
+                ? { ...r, totalAmount: updatedTotal }
                 : r,
             ),
           );
           setBrowseReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? {
-                    ...r,
-                    totalAmount: Math.max(0, r.totalAmount - receipt.amount),
-                  }
+                ? { ...r, totalAmount: updatedTotal }
                 : r,
             ),
           );
+          setBrowseSelectedDetails((prev) =>
+            prev?.report?.id === selectedReportId
+              ? {
+                  ...prev,
+                  report: { ...prev.report, totalAmount: updatedTotal },
+                }
+              : prev,
+          );
+          setBrowseDetailsCache((prev) => {
+            const cached = prev[selectedReportId];
+            if (!cached || !cached.report) return prev;
+            return {
+              ...prev,
+              [selectedReportId]: {
+                ...cached,
+                report: { ...cached.report, totalAmount: updatedTotal },
+              },
+            };
+          });
         }
 
         setSuccess("Receipt removed from report");
         setTimeout(() => setSuccess(null), 3000);
+        await loadBrowseReportDetails(selectedReportId, true);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to remove receipt",
         );
+      } finally {
+        setRemovingReceiptId(null);
       }
     },
-    [selectedReportId, selectedReport, receiptsAvailable],
+    [
+      selectedReportId,
+      selectedReport,
+      browseSelectedDetails,
+      receiptsAvailable,
+    ],
   );
 
   const handleDeleteDraftReport = useCallback(async () => {
@@ -793,15 +854,46 @@ export function ExpenseReportWorkspace({
     [browseSearch, browseStatus],
   );
 
+  const syncBrowseReport = useCallback((updatedReport: ExpenseReport) => {
+    setReports((current) =>
+      current.map((report) =>
+        report.id === updatedReport.id ? updatedReport : report,
+      ),
+    );
+    setBrowseReports((current) =>
+      current.map((report) =>
+        report.id === updatedReport.id ? updatedReport : report,
+      ),
+    );
+    setBrowseSelectedDetails((current) =>
+      current?.report?.id === updatedReport.id
+        ? {
+            ...current,
+            report: updatedReport,
+          }
+        : current,
+    );
+    setBrowseDetailsCache((current) => ({
+      ...current,
+      [updatedReport.id]: {
+        report: updatedReport,
+        items: current[updatedReport.id]?.items ?? [],
+      },
+    }));
+  }, []);
+
   const loadBrowseReportDetails = useCallback(
-    async (reportId: string) => {
+    async (
+      reportId: string,
+      force = false,
+    ): Promise<ReportDetailResponse | null> => {
       setBrowseSelectedReportId(reportId);
       setBrowseError(null);
 
       const cached = browseDetailsCache[reportId];
-      if (cached) {
+      if (!force && cached) {
         setBrowseSelectedDetails(cached);
-        return;
+        return cached;
       }
 
       setBrowseIsLoadingDetails(true);
@@ -830,6 +922,12 @@ export function ExpenseReportWorkspace({
           ...current,
           [reportId]: details,
         }));
+
+        if (details.report) {
+          syncBrowseReport(details.report);
+        }
+
+        return details;
       } catch (detailError) {
         setBrowseSelectedDetails(null);
         setBrowseError(
@@ -837,40 +935,13 @@ export function ExpenseReportWorkspace({
             ? detailError.message
             : "Failed to load report details",
         );
+        return null;
       } finally {
         setBrowseIsLoadingDetails(false);
       }
     },
-    [browseDetailsCache],
+    [browseDetailsCache, syncBrowseReport],
   );
-
-  const syncBrowseReport = useCallback((updatedReport: ExpenseReport) => {
-    setReports((current) =>
-      current.map((report) =>
-        report.id === updatedReport.id ? updatedReport : report,
-      ),
-    );
-    setBrowseReports((current) =>
-      current.map((report) =>
-        report.id === updatedReport.id ? updatedReport : report,
-      ),
-    );
-    setBrowseSelectedDetails((current) =>
-      current?.report?.id === updatedReport.id
-        ? {
-            ...current,
-            report: updatedReport,
-          }
-        : current,
-    );
-    setBrowseDetailsCache((current) => ({
-      ...current,
-      [updatedReport.id]: {
-        report: updatedReport,
-        items: current[updatedReport.id]?.items ?? [],
-      },
-    }));
-  }, []);
 
   const handleResubmitReport = useCallback(async () => {
     if (!selectedReport || selectedReport.status !== "rejected") return;
@@ -1819,14 +1890,22 @@ export function ExpenseReportWorkspace({
                               </div>
                               <button
                                 type="button"
+                                disabled={removingReceiptId === item.receiptId}
                                 onClick={() =>
                                   void handleRemoveReceiptFromReport(
                                     item.receiptId,
                                   )
                                 }
-                                className="shrink-0 text-xs text-rose-600 hover:text-rose-700 font-medium"
+                                className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-white transition-colors disabled:opacity-60 disabled:bg-slate-300 bg-rose-600 hover:bg-rose-700"
                               >
-                                Remove
+                                {removingReceiptId === item.receiptId ? (
+                                  <span className="flex items-center gap-2">
+                                    <Loader className="h-3.5 w-3.5 animate-spin" />
+                                    Removing...
+                                  </span>
+                                ) : (
+                                  "Remove"
+                                )}
                               </button>
                             </div>
                           ))}
@@ -2041,7 +2120,9 @@ export function ExpenseReportWorkspace({
                             ) : null}
                             <button
                               type="button"
-                              disabled={alreadyAdded || addingReceiptId === receipt.id}
+                              disabled={
+                                alreadyAdded || addingReceiptId === receipt.id
+                              }
                               onClick={() => {
                                 void handleAddReceiptToReport(receipt.id);
                               }}
