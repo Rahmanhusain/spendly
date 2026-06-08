@@ -235,6 +235,7 @@ export function ExpenseReportWorkspace({
   const [receiptPickerHasMore, setReceiptPickerHasMore] = useState(false);
   const [isLoadingReceiptPicker, setIsLoadingReceiptPicker] = useState(false);
   const [isLoadingMoreReceipts, setIsLoadingMoreReceipts] = useState(false);
+  const [addingReceiptId, setAddingReceiptId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const receiptPickerListRef = useRef<HTMLDivElement | null>(null);
@@ -515,6 +516,8 @@ export function ExpenseReportWorkspace({
       if (!selectedReportId) return;
 
       setError(null);
+      setAddingReceiptId(receiptId);
+
       try {
         const response = await fetch(`/api/reports/${selectedReportId}/items`, {
           method: "POST",
@@ -601,6 +604,8 @@ export function ExpenseReportWorkspace({
         setTimeout(() => setSuccess(null), 3000);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to add receipt");
+      } finally {
+        setAddingReceiptId(null);
       }
     },
     [selectedReportId, selectedReport, receiptsAvailable],
@@ -728,6 +733,12 @@ export function ExpenseReportWorkspace({
       });
       setSelectedReportId(null);
       setReportItems([]);
+      setBrowseSelectedReportId((current) =>
+        current === selectedReport.id ? null : current,
+      );
+      setBrowseSelectedDetails((current) =>
+        current?.report?.id === selectedReport.id ? null : current,
+      );
       setSuccess("Draft report deleted");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -2030,13 +2041,22 @@ export function ExpenseReportWorkspace({
                             ) : null}
                             <button
                               type="button"
-                              disabled={alreadyAdded}
+                              disabled={alreadyAdded || addingReceiptId === receipt.id}
                               onClick={() => {
                                 void handleAddReceiptToReport(receipt.id);
                               }}
                               className="inline-flex h-9 items-center justify-center rounded-lg bg-slate-950 px-3 text-sm font-medium text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
                             >
-                              {alreadyAdded ? "Added" : "Add"}
+                              {addingReceiptId === receipt.id ? (
+                                <span className="flex items-center gap-2">
+                                  <Loader className="h-4 w-4 animate-spin" />
+                                  Adding...
+                                </span>
+                              ) : alreadyAdded ? (
+                                "Added"
+                              ) : (
+                                "Add"
+                              )}
                             </button>
                           </div>
                         </div>
