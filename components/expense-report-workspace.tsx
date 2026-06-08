@@ -182,6 +182,10 @@ function toReportAmount(value: number | string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getReportTotal(items: ReportDetailItem[]) {
+  return items.reduce((total, item) => total + toReportAmount(item.amount), 0);
+}
+
 export function ExpenseReportWorkspace({
   initialReports,
   initialReceiptsAvailable,
@@ -545,7 +549,7 @@ export function ExpenseReportWorkspace({
 
         // Add to the browse detail panel immediately so the UI updates
         const receipt = receiptsAvailable.find((r) => r.id === receiptId);
-        if (receipt) {
+        if (receipt && browseSelectedDetails?.report?.id === selectedReportId) {
           const newDetailItem = {
             id: receipt.id,
             receiptId: receipt.id,
@@ -562,71 +566,40 @@ export function ExpenseReportWorkspace({
             mimeType: receipt.mimeType,
             vendorGstin: receipt.vendorGstin,
           };
-          setBrowseSelectedDetails((prev) => {
-            if (!prev) return prev;
-            const alreadyIn = prev.items.some((i) => i.receiptId === receiptId);
-            if (alreadyIn) return prev;
-            return { ...prev, items: [...prev.items, newDetailItem] };
-          });
-          setBrowseDetailsCache((prev) => {
-            const cached = prev[selectedReportId];
-            if (!cached) return prev;
-            const alreadyIn = cached.items.some(
-              (i) => i.receiptId === receiptId,
-            );
-            if (alreadyIn) return prev;
-            return {
-              ...prev,
-              [selectedReportId]: {
-                ...cached,
-                items: [...cached.items, newDetailItem],
-              },
-            };
-          });
-        }
 
-        const activeReport = selectedReport || browseSelectedDetails?.report;
+          const nextDetails = {
+            ...browseSelectedDetails,
+            items: [...browseSelectedDetails.items, newDetailItem],
+            report: {
+              ...browseSelectedDetails.report,
+              totalAmount: getReportTotal([
+                ...browseSelectedDetails.items,
+                newDetailItem,
+              ]),
+            },
+          };
 
-        // Update report total
-        if (receipt && activeReport) {
-          const updatedTotal = activeReport.totalAmount + receipt.amount;
+          setBrowseSelectedDetails(nextDetails);
+          setBrowseDetailsCache((prev) => ({
+            ...prev,
+            [selectedReportId]: nextDetails,
+          }));
 
           setReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? { ...r, totalAmount: updatedTotal }
+                ? { ...r, totalAmount: nextDetails.report.totalAmount }
                 : r,
             ),
           );
           setBrowseReports((prev) =>
             prev.map((r) =>
               r.id === selectedReportId
-                ? { ...r, totalAmount: updatedTotal }
+                ? { ...r, totalAmount: nextDetails.report.totalAmount }
                 : r,
             ),
           );
-          setBrowseSelectedDetails((prev) =>
-            prev?.report?.id === selectedReportId
-              ? {
-                  ...prev,
-                  report: { ...prev.report, totalAmount: updatedTotal },
-                }
-              : prev,
-          );
-          setBrowseDetailsCache((prev) => {
-            const cached = prev[selectedReportId];
-            if (!cached || !cached.report) return prev;
-            return {
-              ...prev,
-              [selectedReportId]: {
-                ...cached,
-                report: { ...cached.report, totalAmount: updatedTotal },
-              },
-            };
-          });
         }
-
-        await loadBrowseReportDetails(selectedReportId, true);
 
         setSuccess("Receipt added to report");
         setTimeout(() => setSuccess(null), 3000);
@@ -671,59 +644,23 @@ export function ExpenseReportWorkspace({
           ),
         }));
 
-        // Remove from the browse detail panel immediately so the UI updates
-        setBrowseSelectedDetails((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            items: prev.items.filter((item) => item.receiptId !== receiptId),
-          };
-        });
-        setBrowseDetailsCache((prev) => {
-          const cached = prev[selectedReportId];
-          if (!cached) return prev;
-          return {
-            ...prev,
-            [selectedReportId]: {
-              ...cached,
-              items: cached.items.filter(
-                (item) => item.receiptId !== receiptId,
-              ),
+        const receipt = receiptsAvailable.find((r) => r.id === receiptId);
+        if (receipt && browseSelectedDetails?.report?.id === selectedReportId) {
+          const nextItems = browseSelectedDetails.items.filter(
+            (item) => item.receiptId !== receiptId,
+          );
+          const nextTotal = getReportTotal(nextItems);
+
+          const nextDetails = {
+            ...browseSelectedDetails,
+            items: nextItems,
+            report: {
+              ...browseSelectedDetails.report,
+              totalAmount: nextTotal,
             },
           };
-        });
 
-        const activeReport = selectedReport || browseSelectedDetails?.report;
-        // Update report total
-        const receipt = receiptsAvailable.find((r) => r.id === receiptId);
-        if (receipt && activeReport) {
-          const updatedTotal = Math.max(
-            0,
-            activeReport.totalAmount - receipt.amount,
-          );
-
-          setReports((prev) =>
-            prev.map((r) =>
-              r.id === selectedReportId
-                ? { ...r, totalAmount: updatedTotal }
-                : r,
-            ),
-          );
-          setBrowseReports((prev) =>
-            prev.map((r) =>
-              r.id === selectedReportId
-                ? { ...r, totalAmount: updatedTotal }
-                : r,
-            ),
-          );
-          setBrowseSelectedDetails((prev) =>
-            prev?.report?.id === selectedReportId
-              ? {
-                  ...prev,
-                  report: { ...prev.report, totalAmount: updatedTotal },
-                }
-              : prev,
-          );
+          setBrowseSelectedDetails(nextDetails);
           setBrowseDetailsCache((prev) => {
             const cached = prev[selectedReportId];
             if (!cached || !cached.report) return prev;
@@ -731,15 +668,29 @@ export function ExpenseReportWorkspace({
               ...prev,
               [selectedReportId]: {
                 ...cached,
-                report: { ...cached.report, totalAmount: updatedTotal },
+                items: nextItems,
+                report: {
+                  ...cached.report,
+                  totalAmount: nextTotal,
+                },
               },
             };
           });
+
+          setReports((prev) =>
+            prev.map((r) =>
+              r.id === selectedReportId ? { ...r, totalAmount: nextTotal } : r,
+            ),
+          );
+          setBrowseReports((prev) =>
+            prev.map((r) =>
+              r.id === selectedReportId ? { ...r, totalAmount: nextTotal } : r,
+            ),
+          );
         }
 
         setSuccess("Receipt removed from report");
         setTimeout(() => setSuccess(null), 3000);
-        await loadBrowseReportDetails(selectedReportId, true);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to remove receipt",
