@@ -32,36 +32,6 @@ npm run dev
 # → Open http://localhost:3000
 ```
 
----
-
-## ✨ Key Features (MVP - 6 Weeks)
-
-### Weeks 1: Foundation
-
-- **Team & Org Setup** - Multi-tenant, roles (Employee/Manager/Admin), invite via magic links
-- **Receipt Uploads** - Mobile-first (drag-drop + choose file), instant AI parsing with required contextual note
-
-### Weeks 2-3: Business Logic
-
-- **Reports & Approvals** - Group receipts, submit for approval, live threaded comments
-- **Real-time Policy Checks** - "⚠️ Exceeds meal limit by ₹50" (instant feedback)
-- **Duplicate Detection** - Flags same vendor + amount + date within 7 days
-
-### Week 3: Regulatory
-
-- **GST Compliance** - Auto-capture CGST/SGST/IGST, custom PDF export (no e-invoice API)
-- **Policy Rules** - Set: "Meals ≤ ₹800/day", "Travel ≤ ₹15,000/month"
-
-### Week 4: UX
-
-- **Dashboards** - Total spent, budget %, category breakdown, trends, team insights
-- **Exports** - CSV + beautiful PDF reports
-
-### Weeks 4-6: Polish
-
-- **PWA** - Install on mobile, works offline
-- **Weekly Email Summary** - "Team spent ₹48,200. 3 violations. Top: Travel."
-- **Dark Mode** + responsive mobile UI
 
 ---
 
