@@ -14,7 +14,7 @@ Your submission:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 If you have anything to add, reply to this email or write to:
-{{supportEmail}}
+support@spendly.software
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
