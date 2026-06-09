@@ -18,7 +18,7 @@ SECURITY NOTICE
 If you did not create an account with {{appName}}, you can safely ignore
 this email. Your account will not be created without verification.
 
-For assistance, contact: {{supportEmail}}
+For assistance, contact: support@spendly.software
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 This is an automated message from {{appName}}. Please do not reply.
