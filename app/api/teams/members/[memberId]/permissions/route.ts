@@ -87,6 +87,20 @@ export async function PATCH(
       );
     }
 
+    if (target.role === "manager" && body.can_export_gst === false) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "Managers always have GST export access.",
+            requestId,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
     // Managers cannot modify permissions of other managers or admins
     if (
       authContext!.role === "manager" &&

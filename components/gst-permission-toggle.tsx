@@ -1,22 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 
 type GstPermissionToggleProps = {
   memberId: string;
   initialValue: boolean;
+  /** When true, shows enabled and prevents toggling (e.g. managers always have GST export). */
+  forceEnabled?: boolean;
 };
 
 export function GstPermissionToggle({
   memberId,
   initialValue,
+  forceEnabled = false,
 }: GstPermissionToggleProps) {
   const [enabled, setEnabled] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const displayEnabled = forceEnabled || enabled;
+
+  useEffect(() => {
+    if (forceEnabled) {
+      setEnabled(true);
+    }
+  }, [forceEnabled]);
 
   const handleToggle = async () => {
+    if (forceEnabled) return;
     const next = !enabled;
     setIsLoading(true);
     setError(null);
@@ -58,17 +69,23 @@ export function GstPermissionToggle({
         </div>
         <button
           role="switch"
-          aria-checked={enabled}
+          aria-checked={displayEnabled}
           onClick={() => { void handleToggle(); }}
-          disabled={isLoading}
-          title={enabled ? "Revoke GST export access" : "Grant GST export access"}
+          disabled={isLoading || forceEnabled}
+          title={
+            forceEnabled
+              ? "Managers always have GST export access"
+              : displayEnabled
+                ? "Revoke GST export access"
+                : "Grant GST export access"
+          }
           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-            enabled ? "bg-emerald-500" : "bg-slate-200"
+            displayEnabled ? "bg-emerald-500" : "bg-slate-200"
           }`}
         >
           <span
             className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
+              displayEnabled ? "translate-x-4" : "translate-x-0"
             }`}
           />
         </button>

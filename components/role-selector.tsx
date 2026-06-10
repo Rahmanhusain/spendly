@@ -6,12 +6,14 @@ type RoleSelectorProps = {
   memberId: string;
   initialRole: "employee" | "manager";
   disabled?: boolean;
+  onRoleChange?: (role: "employee" | "manager") => void;
 };
 
 export function RoleSelector({
   memberId,
   initialRole,
   disabled,
+  onRoleChange,
 }: RoleSelectorProps) {
   const [role, setRole] = useState(initialRole);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +36,8 @@ export function RoleSelector({
         throw new Error(payload?.error?.message || "Failed to update role");
       }
 
-      setRole(nextRole as any);
+      setRole(nextRole);
+      onRoleChange?.(nextRole);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {

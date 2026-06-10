@@ -369,8 +369,20 @@ export async function setTeamMemberRole(
     }
   }
 
+  if (newRole === "manager") {
+    await query(
+      `UPDATE users
+       SET role = $1::user_role, can_export_gst = TRUE, updated_at = NOW()
+       WHERE id = $2 AND tenant_id = $3`,
+      [newRole, memberId, tenantId],
+    );
+    return;
+  }
+
   await query(
-    `UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+    `UPDATE users
+     SET role = $1::user_role, updated_at = NOW()
+     WHERE id = $2 AND tenant_id = $3`,
     [newRole, memberId, tenantId],
   );
 }
