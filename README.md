@@ -112,7 +112,7 @@ STORIES.md          # Story breakdown & development plan
 
 ### 1. Pick a Story
 
-Open [STORIES.md](./STORIES.md) and choose a story from the current sprint.
+Open [STORIES.md](./STORIES.md) and choose a story from the current sprint..
 
 ### 2. Create Feature Branch
 
